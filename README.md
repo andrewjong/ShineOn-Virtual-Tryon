@@ -1,4 +1,10 @@
-# Toward Characteristic-Preserving Image-based Virtual Try-On Network
+# Fork Description
+This fork is for us to add modifications to the original cp-vton code. In particular, we are experimenting with further data annotation with the CP-VTON architecture.
+
+To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
+
+
+## Toward Characteristic-Preserving Image-based Virtual Try-On Network
 
 Reimplemented code for eccv2018 paper 'Toward Characteristic-Preserving Image-based Virtual Try-On Network'. 
 
