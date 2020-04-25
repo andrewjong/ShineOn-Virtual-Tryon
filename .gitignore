@@ -6,3 +6,4 @@ data/test/*
 log/*
 *.sh
 result/*/*
+.idea/
