@@ -25,8 +25,8 @@ class CPDataset(data.Dataset):
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.data_path = osp.join(opt.dataroot, opt.datamode)
-        self.transform = transforms.Compose([  \
-                transforms.ToTensor(),   \
+        self.transform = transforms.Compose([
+                transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         
         # load data list
@@ -44,11 +44,77 @@ class CPDataset(data.Dataset):
     def name(self):
         return "CPDataset"
 
+    # how should we restructure this?
+    # basically we're just increasing the pose representation
+    # and the cloth representation
+    # so if we put these all into little functions
+    # should work well
+
+
+    ########################
+    # CLOTH REPRESENTATION
+    ########################
+
+    def get_cloth_representation(self, index):
+        """
+        call all cloth loaders
+        :param index:
+        :return:
+        """
+        pass
+
+    def get_input_cloth(self, index):
+        """ from cp-vton """
+        pass
+
+    def get_input_cloth_mask(self, index):
+        """from cp-vton"""
+        pass
+
+    def get_input_cloth_mesh(self, index):
+        """ TODO: us, from mgn"""
+        pass
+
+    def get_target_worn_cloth(self, index):
+        """from cp-vton, cloth texture as it is worn on the person"""
+        pass
+
+    ########################
+    # PERSON REPRESENTATION
+    ########################
+
+    def get_person_representation(self, index):
+        """
+        get all person represetations
+        :param index:
+        :return:
+        """
+        pass
+
+    def _get_person_rgb(self, index):
+        """
+        helper function to get the person image; not used as input to the network. used
+        instead to form the other input
+        :param index:
+        :return:
+        """
+
+    def get_input_person_pose(self, index):
+        """from cp-vton, loads the pose as white squares"""
+
+    def get_input_person_head(self, index):
+        """ from cp-vton, get the floating head alone"""
+        pass
+
+    def get_input_person_body_shape(self, index):
+        """ from cp-vton, the body silhouette """
+        pass
+
     def __getitem__(self, index):
         c_name = self.c_names[index]
         im_name = self.im_names[index]
 
-        # cloth image & cloth mask
+        # cloth image & cloth mask # what is cloth mask used for?
         if self.stage == 'GMM':
             c = Image.open(osp.join(self.data_path, 'cloth', c_name))
             cm = Image.open(osp.join(self.data_path, 'cloth-mask', c_name))
@@ -70,16 +136,19 @@ class CPDataset(data.Dataset):
         parse_name = im_name.replace('.jpg', '.png')
         im_parse = Image.open(osp.join(self.data_path, 'image-parse', parse_name))
         parse_array = np.array(im_parse)
+        # removes the background
         parse_shape = (parse_array > 0).astype(np.float32)
+        # head parts, probably face, hair, sunglasses. combines into a 1d binary mask
         parse_head = (parse_array == 1).astype(np.float32) + \
                 (parse_array == 2).astype(np.float32) + \
                 (parse_array == 4).astype(np.float32) + \
                 (parse_array == 13).astype(np.float32)
+        # cloth labels, combines into a 1d binary mask
         parse_cloth = (parse_array == 5).astype(np.float32) + \
                 (parse_array == 6).astype(np.float32) + \
                 (parse_array == 7).astype(np.float32)
        
-        # shape downsample
+        # shape downsample, reduces resolution, makes the shape "blurry"
         parse_shape = Image.fromarray((parse_shape*255).astype(np.uint8))
         parse_shape = parse_shape.resize((self.fine_width//16, self.fine_height//16), Image.BILINEAR)
         parse_shape = parse_shape.resize((self.fine_width, self.fine_height), Image.BILINEAR)
@@ -87,7 +156,7 @@ class CPDataset(data.Dataset):
         phead = torch.from_numpy(parse_head) # [0,1]
         pcm = torch.from_numpy(parse_cloth) # [0,1]
 
-        # upper cloth
+        # upper cloth, segment it from the body
         im_c = im * pcm + (1 - pcm) # [-1,1], fill 1 for other parts
         im_h = im * phead - (1 - phead) # [-1,1], fill 0 for other parts
 
@@ -99,11 +168,12 @@ class CPDataset(data.Dataset):
             pose_data = np.array(pose_data)
             pose_data = pose_data.reshape((-1,3))
 
-        point_num = pose_data.shape[0]
-        pose_map = torch.zeros(point_num, self.fine_height, self.fine_width)
+        point_num = pose_data.shape[0] # how many pose joints
+        pose_map = torch.zeros(point_num, self.fine_height, self.fine_width) # constructs an N-channel map
         r = self.radius
         im_pose = Image.new('L', (self.fine_width, self.fine_height))
         pose_draw = ImageDraw.Draw(im_pose)
+        # draws a big white square around the joint on the appropriate channel. I guess this emphasizes it
         for i in range(point_num):
             one_map = Image.new('L', (self.fine_width, self.fine_height))
             draw = ImageDraw.Draw(one_map)
