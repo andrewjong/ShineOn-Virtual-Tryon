@@ -86,9 +86,16 @@ class CPDataset(data.Dataset):
         """ TODO: us, from mgn"""
         pass
 
-    def get_target_worn_cloth(self, index):
+    def get_target_worn_cloth(self, im, _parse_array):
         """from cp-vton, cloth texture as it is worn on the person"""
-        pass
+        # ISOLATE CLOTH. cloth labels, combines into a 1d binary mask
+        _parse_cloth = (_parse_array == 5).astype(np.float32) + \
+                       (_parse_array == 6).astype(np.float32) + \
+                       (_parse_array == 7).astype(np.float32)
+        _parse_cloth_mask = torch.from_numpy(_parse_cloth) # [0,1]
+        # upper cloth, segment it from the body
+        im_c = im * _parse_cloth_mask + (1 - _parse_cloth_mask) # [-1,1], fill 1 for other parts
+        return im_c
 
     ########################
     # PERSON REPRESENTATION
@@ -109,61 +116,28 @@ class CPDataset(data.Dataset):
         :param index:
         :return:
         """
-
-    def get_input_person_pose(self, index):
-        """from cp-vton, loads the pose as white squares"""
-
-    def get_input_person_head(self, index):
-        """ from cp-vton, get the floating head alone"""
-        pass
-
-    def get_input_person_body_shape(self, index):
-        """ from cp-vton, the body silhouette """
-        pass
-
-    def __getitem__(self, index):
-        c_name = self.c_names[index]
-
-
-        cloth = self.get_input_cloth(index)
-        cloth_mask = self.get_input_cloth_mask(index)
-
-        # person image 
+        # person image
         im_name = self.im_names[index]
         im = Image.open(osp.join(self.data_path, 'image', im_name))
         im = self.to_tensor_and_norm(im) # [-1,1]
+        return im
 
+    def _get_person_parsed(self, index):
         # load parsing image
+        im_name = self.im_names[index]
         parse_name = im_name.replace('.jpg', '.png')
         im_parse = Image.open(osp.join(self.data_path, 'image-parse', parse_name))
         parse_array = np.array(im_parse)
-        # removes the background
-        parse_shape = (parse_array > 0).astype(np.float32)
-        # head parts, probably face, hair, sunglasses. combines into a 1d binary mask
-        parse_head = (parse_array == 1).astype(np.float32) + \
-                (parse_array == 2).astype(np.float32) + \
-                (parse_array == 4).astype(np.float32) + \
-                (parse_array == 13).astype(np.float32)
-        # cloth labels, combines into a 1d binary mask
-        parse_cloth = (parse_array == 5).astype(np.float32) + \
-                (parse_array == 6).astype(np.float32) + \
-                (parse_array == 7).astype(np.float32)
-       
-        # shape downsample, reduces resolution, makes the shape "blurry"
-        parse_shape = Image.fromarray((parse_shape*255).astype(np.uint8))
-        parse_shape = parse_shape.resize((self.fine_width//16, self.fine_height//16), Image.BILINEAR)
-        parse_shape = parse_shape.resize((self.fine_width, self.fine_height), Image.BILINEAR)
-        shape = self.to_tensor_and_norm(parse_shape) # [-1,1]
-        phead = torch.from_numpy(parse_head) # [0,1]
-        pcm = torch.from_numpy(parse_cloth) # [0,1]
+        return parse_array
 
-        # upper cloth, segment it from the body
-        im_c = im * pcm + (1 - pcm) # [-1,1], fill 1 for other parts
-        im_h = im * phead - (1 - phead) # [-1,1], fill 0 for other parts
-
+    def get_input_person_pose(self, index):
+        """from cp-vton, loads the pose as white squares
+        returns pose map, image of pose map
+        """
         # load pose points
-        pose_name = im_name.replace('.jpg', '_keypoints.json')
-        with open(osp.join(self.data_path, 'pose', pose_name), 'r') as f:
+        im_name = self.im_names[index]
+        _pose_name = im_name.replace('.jpg', '_keypoints.json')
+        with open(osp.join(self.data_path, 'pose', _pose_name), 'r') as f:
             pose_label = json.load(f)
             pose_data = pose_label['people'][0]['pose_keypoints']
             pose_data = np.array(pose_data)
@@ -171,24 +145,73 @@ class CPDataset(data.Dataset):
 
         point_num = pose_data.shape[0] # how many pose joints
         pose_map = torch.zeros(point_num, self.fine_height, self.fine_width) # constructs an N-channel map
+
         r = self.radius
         im_pose = Image.new('L', (self.fine_width, self.fine_height))
         pose_draw = ImageDraw.Draw(im_pose)
+
         # draws a big white square around the joint on the appropriate channel. I guess this emphasizes it
         for i in range(point_num):
             one_map = Image.new('L', (self.fine_width, self.fine_height))
+            one_map_tensor = self.to_tensor_and_norm(one_map)
+            pose_map[i] = one_map_tensor[0]
+
             draw = ImageDraw.Draw(one_map)
             pointx = pose_data[i,0]
             pointy = pose_data[i,1]
             if pointx > 1 and pointy > 1:
                 draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
                 pose_draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
-            one_map = self.to_tensor_and_norm(one_map)
-            pose_map[i] = one_map[0]
 
         # just for visualization
         im_pose = self.to_tensor_and_norm(im_pose)
-        
+
+        return pose_map, im_pose
+
+    def get_input_person_head(self, im, _parse_array):
+        """ from cp-vton, get the floating head alone"""
+        # ISOLATE HEAD. head parts, probably face, hair, sunglasses. combines into a 1d binary mask
+        _parse_head = (_parse_array == 1).astype(np.float32) + \
+                      (_parse_array == 2).astype(np.float32) + \
+                      (_parse_array == 4).astype(np.float32) + \
+                      (_parse_array == 13).astype(np.float32)
+        _phead = torch.from_numpy(_parse_head) # [0,1]
+        im_h = im * _phead - (1 - _phead) # [-1,1], fill 0 for other parts
+        return im_h
+
+    def get_input_person_body_shape(self, _parse_array):
+        """ from cp-vton, the body silhouette """
+        # ISOLATE BODY SHAPE
+        # removes the background
+        _parse_shape = (_parse_array > 0).astype(np.float32)
+        # shape downsample, reduces resolution, makes the shape "blurry"
+        _parse_shape = Image.fromarray((_parse_shape*255).astype(np.uint8))
+        _parse_shape = _parse_shape.resize((self.fine_width//16, self.fine_height//16), Image.BILINEAR)
+        _parse_shape = _parse_shape.resize((self.fine_width, self.fine_height), Image.BILINEAR)
+        shape = self.to_tensor_and_norm(_parse_shape) # [-1,1]
+        return shape
+
+    def __getitem__(self, index):
+        # input cloth
+        cloth = self.get_input_cloth(index)
+        cloth_mask = self.get_input_cloth_mask(index)
+
+        # person image
+        im = self._get_person_rgb(index)
+        # TODO: combine the below into a get_person_representation() function.
+        #  I want all functions in __getitem__ to be independent and only indexed based
+        # load parsing image
+        _parse_array = self._get_person_parsed(index)
+        # body shape
+        shape = self.get_input_person_body_shape(_parse_array)
+        # isolated head
+        im_h = self.get_input_person_head(im, _parse_array)
+        # isolated cloth
+        im_c = self.get_target_worn_cloth(im, _parse_array)
+
+        # load pose points
+        pose_map, im_pose = self.get_input_person_pose(index)
+
         # cloth-agnostic representation
         agnostic = torch.cat([shape, im_h, pose_map], 0) 
 
@@ -199,8 +222,8 @@ class CPDataset(data.Dataset):
             im_g = ''
 
         result = {
-            'c_name':   c_name,     # for visualization
-            'im_name':  im_name,    # for visualization or ground truth
+            'c_name':   self.c_names[index],     # for visualization
+            'im_name':  self.im_names[index],    # for visualization or ground truth
             'cloth':    cloth,          # for input
             'cloth_mask':     cloth_mask,   # for input
             'image':    im,         # for visualization
