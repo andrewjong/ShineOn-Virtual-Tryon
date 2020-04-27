@@ -25,7 +25,7 @@ class CPDataset(data.Dataset):
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.data_path = osp.join(opt.dataroot, opt.datamode)
-        self.transform = transforms.Compose([
+        self.to_tensor_and_norm = transforms.Compose([
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         
@@ -65,11 +65,22 @@ class CPDataset(data.Dataset):
 
     def get_input_cloth(self, index):
         """ from cp-vton """
-        pass
+        c_name = self.c_names[index]
+        folder = "cloth" if self.stage == "GMM" else "warp-cloth"
+        c = Image.open(osp.join(self.data_path, folder, c_name))
+        c = self.to_tensor_and_norm(c)  # [-1,1]
+        return c
 
     def get_input_cloth_mask(self, index):
         """from cp-vton"""
-        pass
+        c_name = self.c_names[index]
+        folder = "cloth-mask" if self.stage == "GMM" else "warp-mask"
+        cm = Image.open(osp.join(self.data_path, folder, c_name))
+        cm_array = np.array(cm)
+        cm_array = (cm_array >= 128).astype(np.float32)
+        cm = torch.from_numpy(cm_array)  # [0,1]
+        cm.unsqueeze_(0)
+        return cm
 
     def get_input_cloth_mesh(self, index):
         """ TODO: us, from mgn"""
@@ -112,25 +123,15 @@ class CPDataset(data.Dataset):
 
     def __getitem__(self, index):
         c_name = self.c_names[index]
-        im_name = self.im_names[index]
 
-        # cloth image & cloth mask # what is cloth mask used for?
-        if self.stage == 'GMM':
-            c = Image.open(osp.join(self.data_path, 'cloth', c_name))
-            cm = Image.open(osp.join(self.data_path, 'cloth-mask', c_name))
-        else:
-            c = Image.open(osp.join(self.data_path, 'warp-cloth', c_name))
-            cm = Image.open(osp.join(self.data_path, 'warp-mask', c_name))
-     
-        c = self.transform(c)  # [-1,1]
-        cm_array = np.array(cm)
-        cm_array = (cm_array >= 128).astype(np.float32)
-        cm = torch.from_numpy(cm_array) # [0,1]
-        cm.unsqueeze_(0)
+
+        cloth = self.get_input_cloth(index)
+        cloth_mask = self.get_input_cloth_mask(index)
 
         # person image 
+        im_name = self.im_names[index]
         im = Image.open(osp.join(self.data_path, 'image', im_name))
-        im = self.transform(im) # [-1,1]
+        im = self.to_tensor_and_norm(im) # [-1,1]
 
         # load parsing image
         parse_name = im_name.replace('.jpg', '.png')
@@ -152,7 +153,7 @@ class CPDataset(data.Dataset):
         parse_shape = Image.fromarray((parse_shape*255).astype(np.uint8))
         parse_shape = parse_shape.resize((self.fine_width//16, self.fine_height//16), Image.BILINEAR)
         parse_shape = parse_shape.resize((self.fine_width, self.fine_height), Image.BILINEAR)
-        shape = self.transform(parse_shape) # [-1,1]
+        shape = self.to_tensor_and_norm(parse_shape) # [-1,1]
         phead = torch.from_numpy(parse_head) # [0,1]
         pcm = torch.from_numpy(parse_cloth) # [0,1]
 
@@ -182,26 +183,26 @@ class CPDataset(data.Dataset):
             if pointx > 1 and pointy > 1:
                 draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
                 pose_draw.rectangle((pointx-r, pointy-r, pointx+r, pointy+r), 'white', 'white')
-            one_map = self.transform(one_map)
+            one_map = self.to_tensor_and_norm(one_map)
             pose_map[i] = one_map[0]
 
         # just for visualization
-        im_pose = self.transform(im_pose)
+        im_pose = self.to_tensor_and_norm(im_pose)
         
         # cloth-agnostic representation
         agnostic = torch.cat([shape, im_h, pose_map], 0) 
 
         if self.stage == 'GMM':
             im_g = Image.open('../grid.png')
-            im_g = self.transform(im_g)
+            im_g = self.to_tensor_and_norm(im_g)
         else:
             im_g = ''
 
         result = {
             'c_name':   c_name,     # for visualization
             'im_name':  im_name,    # for visualization or ground truth
-            'cloth':    c,          # for input
-            'cloth_mask':     cm,   # for input
+            'cloth':    cloth,          # for input
+            'cloth_mask':     cloth_mask,   # for input
             'image':    im,         # for visualization
             'agnostic': agnostic,   # for input
             'parse_cloth': im_c,    # for ground truth
