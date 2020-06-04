@@ -190,7 +190,7 @@ class CPDataset(data.Dataset):
                 pose_data = np.array(pose_data)
                 pose_data = pose_data.reshape((-1, 3))
             except IndexError:
-                print("Warning: No pose data found for", pose_path)
+                # print("Warning: No pose data found for", pose_path)
                 pose_data = None
 
         pose_map, im_pose = self.convert_pose_data_to_pose_map_and_vis(pose_data)

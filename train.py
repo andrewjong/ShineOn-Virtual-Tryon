@@ -87,7 +87,6 @@ def train_gmm(opt, train_loader, model, board):
 
     pbar = tqdm(range(opt.keep_step + opt.decay_step), unit="step")
     for step in pbar:
-        iter_start_time = time.time()
         inputs = train_loader.next_batch()
 
         im = inputs["image"].cuda()
@@ -116,13 +115,12 @@ def train_gmm(opt, train_loader, model, board):
         loss.backward()
         optimizer.step()
 
+        pbar.set_description(f"loss: {loss.item():4f}")
         if (step + 1) % opt.display_count == 0:
             board_add_images(board, "combine", visuals, step + 1)
             board.add_scalar("metric", loss.item(), step + 1)
-            t = time.time() - iter_start_time
-            pbar.set_description(
-                f"step: {step + 1:8d}, time: {t:.3f}, loss: {loss.item():4f}"
-            )
+            tqdm.write(f'step: {step + 1:8d}, loss: {loss.item():4f}')
+
 
         if (step + 1) % opt.save_count == 0:
             save_checkpoint(
