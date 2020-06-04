@@ -60,7 +60,7 @@ def get_opt():
         "--checkpoint", type=str, default="", help="model checkpoint for initialization"
     )
     parser.add_argument("--display_count", type=int, default=20)
-    parser.add_argument("--save_count", type=int, default=100)
+    parser.add_argument("--save_count", type=int, default=20)
     parser.add_argument("--keep_step", type=int, default=100000)
     parser.add_argument("--decay_step", type=int, default=100000)
     parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
@@ -71,7 +71,9 @@ def get_opt():
 
 
 def train_gmm(opt, train_loader, model, board):
-    model.cuda()
+    device = torch.device("cuda:0")
+    model.to(device)
+    #model.cuda()
     model.train()
 
     # criterion
@@ -89,16 +91,16 @@ def train_gmm(opt, train_loader, model, board):
     for step in pbar:
         inputs = train_loader.next_batch()
 
-        im = inputs["image"].cuda()
-        im_pose = inputs["pose_image"].cuda()
-        im_h = inputs["head"].cuda()
-        shape = inputs["shape"].cuda()
-        agnostic = inputs["agnostic"].cuda()
-        c = inputs["cloth"].cuda()
-        cm = inputs["cloth_mask"].cuda()
-        im_c = inputs["parse_cloth"].cuda()
-        im_g = inputs["grid_image"].cuda()
-
+        im = inputs["image"].to(device) #.cuda()
+        im_pose = inputs["pose_image"].to(device) #.cuda()
+        im_h = inputs["head"].to(device) #.cuda()
+        shape = inputs["shape"].to(device) #.cuda()
+        agnostic = inputs["agnostic"].to(device) #.cuda()
+        c = inputs["cloth"].to(device) #.cuda()
+        cm = inputs["cloth_mask"].to(device) #.cuda()
+        im_c = inputs["parse_cloth"].to(device) #.cuda()
+        im_g = inputs["grid_image"].to(device) #.cuda()
+        
         grid, theta = model(agnostic, c)
         warped_cloth = F.grid_sample(c, grid, padding_mode="border")
         warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
@@ -132,7 +134,9 @@ def train_gmm(opt, train_loader, model, board):
 
 
 def train_tom(opt, train_loader, model, board):
-    model.cuda()
+    device = torch.device("cuda:0")
+    model.to(device)
+    #model.cuda()
     model.train()
 
     # criterion
@@ -152,16 +156,19 @@ def train_tom(opt, train_loader, model, board):
         iter_start_time = time.time()
         inputs = train_loader.next_batch()
 
-        im = inputs["image"].cuda()
+        im = inputs["image"].to(device) #.cuda()
         im_pose = inputs["pose_image"]
         im_h = inputs["head"]
         shape = inputs["shape"]
 
-        agnostic = inputs["agnostic"].cuda()
-        c = inputs["cloth"].cuda()
-        cm = inputs["cloth_mask"].cuda()
+        agnostic = inputs["agnostic"].to(device)# .cuda()
+        c = inputs["cloth"].to(device) #.cuda()
+        cm = inputs["cloth_mask"].to(device) #.cuda()
+        
+        concat_tensor = torch.cat([agnostic, c], 1)
+        concat_tensor = concat_tensor.to(device) 
 
-        outputs = model(torch.cat([agnostic, c], 1))
+        outputs = model(concat_tensor)
         p_rendered, m_composite = torch.split(outputs, 3, 1)
         p_rendered = F.tanh(p_rendered)
         m_composite = F.sigmoid(m_composite)
@@ -226,6 +233,7 @@ def main():
         os.makedirs(opt.tensorboard_dir)
     board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
 
+
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
         model = GMM(opt)
@@ -233,8 +241,9 @@ def main():
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
 
-        if len(opt.gpu_ids) > 1:
-            model = nn.DataParallel(model, device_ids=opt.gpu_ids)
+        if torch.cuda.device_count() > 1:
+            model = nn.DataParallel(model)
+        
         train_gmm(opt, train_loader, model, board)
         save_checkpoint(
             model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
@@ -244,8 +253,9 @@ def main():
         model.opt = opt
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
-        if len(opt.gpu_ids) > 1:
-            model = nn.DataParallel(model, device_ids=opt.gpu_ids)
+        if torch.cuda.device_count() > 1:
+            model = nn.DataParallel(model)
+
         train_tom(opt, train_loader, model, board)
         save_checkpoint(
             model, os.path.join(opt.checkpoint_dir, opt.name, "tom_final.pth")
