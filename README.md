@@ -40,12 +40,14 @@ We just use L1 loss for criterion in this code.
 
 TV norm constraints for the offsets will make GMM more robust.
 
+For Vera:
+
 First checkout the `viton_vvt_mpv` branch.
 ```bash
 git fetch
 git checkout viton_vvt_mpv
 ```
-For Vera:
+Then train
 ```bash
 python train.py \
 --name train_gmm_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
