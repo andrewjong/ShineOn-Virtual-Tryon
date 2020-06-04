@@ -31,6 +31,9 @@ class CpVvtMpvDataset(data.Dataset):
         self.vvt_dataset = VVTDataset(opt)
         self.mpv_dataset = MPVDataset(opt)
 
+        self.transforms = transforms.Compose([
+        ])
+
     def __getitem__(self, index):
         if index < len(self.cp_dataset):
             item = self.cp_dataset[index]

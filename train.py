@@ -14,7 +14,7 @@ from datasets import (
     CPDataLoader,
     CpVvtMpvDataset,
     MPVDataset,
-    VVTDataset,
+    VVTDataset
 )
 
 from tensorboardX import SummaryWriter
