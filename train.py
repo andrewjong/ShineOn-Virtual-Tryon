@@ -25,7 +25,7 @@ def get_opt():
     parser.add_argument("--name", default="GMM")
     parser.add_argument("--gpu_ids", default="0", help="comma separated of which GPUs to train on")
     parser.add_argument("-j", "--workers", type=int, default=1)
-    parser.add_argument("-b", "--batch-size", type=int, default=4)
+    parser.add_argument("-b", "--batch_size", type=int, default=4)
 
     parser.add_argument("--dataroot", default="data")
     parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
