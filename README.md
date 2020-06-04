@@ -62,7 +62,14 @@ python train.py \
 --gpu_ids 0,1,2,3,4,5,6,7
 --batch_size 128
 ```
-You can see the results in tensorboard, as show below.
+You can see the results in tensorboard, as show below. 
+```
+tensorboard --logdir tensorboard  # recommended to do this in a tmux window
+```
+We can port forward the training like this
+```
+echo "tensorboard connection"; ssh -N -L localhost:6006:localhost:6006 username@10.52.0.34
+```
 <div align="center">
   <img src="result/gmm_train_example.png" width="576px" />
     <p>Example of GMM train. The center image is the warped cloth.</p>
