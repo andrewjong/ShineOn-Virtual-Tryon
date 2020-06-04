@@ -52,7 +52,7 @@ python train.py \
 --shuffle \
 --save_count 5000 \
 --dataset cp_vvt_mpv \
---dataroot /data_hdd/viton \
+--dataroot ./data
 --vvt_dataroot /data_hdd/vvt_competition \
 --mpv_dataroot /data_hdd/mpv_competition  \
 --workers 32 \
