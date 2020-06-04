@@ -1,4 +1,5 @@
 # coding=utf-8
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -84,7 +85,8 @@ def train_gmm(opt, train_loader, model, board):
         - max(0, step - opt.keep_step) / float(opt.decay_step + 1),
     )
 
-    for step in range(opt.keep_step + opt.decay_step):
+    pbar = tqdm(range(opt.keep_step + opt.decay_step), unit="step")
+    for step in pbar:
         iter_start_time = time.time()
         inputs = train_loader.next_batch()
 
@@ -118,9 +120,8 @@ def train_gmm(opt, train_loader, model, board):
             board_add_images(board, "combine", visuals, step + 1)
             board.add_scalar("metric", loss.item(), step + 1)
             t = time.time() - iter_start_time
-            print(
-                "step: %8d, time: %.3f, loss: %4f" % (step + 1, t, loss.item()),
-                flush=True,
+            pbar.set_description(
+                f"step: {step + 1:8d}, time: {t:.3f}, loss: {loss.item():4f}"
             )
 
         if (step + 1) % opt.save_count == 0:
