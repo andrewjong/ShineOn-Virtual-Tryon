@@ -96,7 +96,7 @@ class FeatureCorrelation(nn.Module):
         return correlation_tensor
     
 class FeatureRegression(nn.Module):
-    def __init__(self, input_nc=512,output_dim=6, use_cuda=True):
+    def __init__(self, input_nc=512,output_dim=6):
         super(FeatureRegression, self).__init__()
         self.conv = nn.Sequential(
             nn.Conv2d(input_nc, 512, kernel_size=4, stride=2, padding=1),
@@ -114,10 +114,10 @@ class FeatureRegression(nn.Module):
         )
         self.linear = nn.Linear(64 * 4 * 3, output_dim)
         self.tanh = nn.Tanh()
-        if use_cuda:
-            self.conv.cuda()
-            self.linear.cuda()
-            self.tanh.cuda()
+        #if use_cuda:
+        #    self.conv.cuda()
+        #    self.linear.cuda()
+        #    self.tanh.cuda()
 
     def forward(self, x):
         x = self.conv(x)
@@ -140,11 +140,11 @@ class AffineGridGen(nn.Module):
         return F.affine_grid(theta, out_size)
         
 class TpsGridGen(nn.Module):
-    def __init__(self, out_h=256, out_w=192, use_regular_grid=True, grid_size=3, reg_factor=0, use_cuda=True):
+    def __init__(self, out_h=256, out_w=192, use_regular_grid=True, grid_size=3, reg_factor=0):
         super(TpsGridGen, self).__init__()
         self.out_h, self.out_w = out_h, out_w
         self.reg_factor = reg_factor
-        self.use_cuda = use_cuda
+        #self.use_cuda = use_cuda
 
         # create grid in numpy
         self.grid = np.zeros( [self.out_h, self.out_w, 3], dtype=np.float32)
@@ -153,9 +153,9 @@ class TpsGridGen(nn.Module):
         # grid_X,grid_Y: size [1,H,W,1,1]
         self.grid_X = torch.FloatTensor(self.grid_X).unsqueeze(0).unsqueeze(3)
         self.grid_Y = torch.FloatTensor(self.grid_Y).unsqueeze(0).unsqueeze(3)
-        if use_cuda:
-            self.grid_X = self.grid_X.cuda()
-            self.grid_Y = self.grid_Y.cuda()
+        #if use_cuda:
+        #    self.grid_X = self.grid_X.cuda()
+        #    self.grid_Y = self.grid_Y.cuda()
 
         # initialize regular grid for control points P_i
         if use_regular_grid:
@@ -171,17 +171,21 @@ class TpsGridGen(nn.Module):
             self.Li = self.compute_L_inverse(P_X,P_Y).unsqueeze(0)
             self.P_X = P_X.unsqueeze(2).unsqueeze(3).unsqueeze(4).transpose(0,4)
             self.P_Y = P_Y.unsqueeze(2).unsqueeze(3).unsqueeze(4).transpose(0,4)
-            if use_cuda:
-                self.P_X = self.P_X.cuda()
-                self.P_Y = self.P_Y.cuda()
-                self.P_X_base = self.P_X_base.cuda()
-                self.P_Y_base = self.P_Y_base.cuda()
+            
+            #if use_cuda:
+            #    self.P_X = self.P_X.cuda()
+            #    self.P_Y = self.P_Y.cuda()
+            #    self.P_X_base = self.P_X_base.cuda()
+            #    self.P_Y_base = self.P_Y_base.cuda()
 
             
     def forward(self, theta):
+        device = theta.device
+        self.grid_X = self.grid_X.to(device)
+        self.grid_Y = self.grid_Y.to(device)
         warped_grid = self.apply_transformation(theta,torch.cat((self.grid_X,self.grid_Y),3))
         
-        return warped_grid
+        return warped_grid.to(device)
     
     def compute_L_inverse(self,X,Y):
         N = X.size()[0] # num of points (along dim 0)
@@ -197,11 +201,19 @@ class TpsGridGen(nn.Module):
         P = torch.cat((O,X,Y),1)
         L = torch.cat((torch.cat((K,P),1),torch.cat((P.transpose(0,1),Z),1)),0)
         Li = torch.inverse(L)
-        if self.use_cuda:
-            Li = Li.cuda()
+        #if self.use_cuda:
+        #    Li = Li.cuda()
         return Li
         
     def apply_transformation(self,theta,points):
+        device = theta.device
+        self.P_X = self.P_X.to(device)
+        self.P_Y = self.P_Y.to(device)
+        self.P_X_base = self.P_X_base.to(device)
+        self.P_Y_base = self.P_Y_base.to(device)
+        self.Li = self.Li.to(device)
+
+
         if theta.dim()==2:
             theta = theta.unsqueeze(2).unsqueeze(3)
         # points should be in the [B,H,W,2] format,
@@ -409,8 +421,8 @@ class GMM(nn.Module):
         self.extractionB = FeatureExtraction(3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d)
         self.l2norm = FeatureL2Norm()
         self.correlation = FeatureCorrelation()
-        self.regression = FeatureRegression(input_nc=192, output_dim=2*opt.grid_size**2, use_cuda=True)
-        self.gridGen = TpsGridGen(opt.fine_height, opt.fine_width, use_cuda=True, grid_size=opt.grid_size)
+        self.regression = FeatureRegression(input_nc=192, output_dim=2*opt.grid_size**2)
+        self.gridGen = TpsGridGen(opt.fine_height, opt.fine_width, grid_size=opt.grid_size)
         
     def forward(self, inputA, inputB):
         featureA = self.extractionA(inputA)
@@ -428,10 +440,10 @@ def save_checkpoint(model, save_path):
         os.makedirs(os.path.dirname(save_path))
 
     if isinstance(model, torch.nn.DataParallel):
-        torch.save(model.module.cpu().state_dict(), save_path)
+        torch.save(model.module.state_dict(), save_path)
     else:
-        torch.save(model.cpu().state_dict(), save_path)
-    model.cuda(model.opt.gpu_ids[0])
+        torch.save(model.state_dict(), save_path)
+    #model.cuda(model.opt.gpu_ids[0])
 
 def load_checkpoint(model, checkpoint_path):
     if not os.path.exists(checkpoint_path):
