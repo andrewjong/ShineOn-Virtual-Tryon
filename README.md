@@ -39,6 +39,21 @@ An example training command is
 ```
 python train.py --name gmm_train_new --stage GMM --workers 4 --save_count 5000 --shuffle
 ```
+For Vera:
+```
+python train.py \
+--name train_gmm_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
+--stage GMM 
+--shuffle \
+--save_count 5000 \
+--dataset cp_vvt_mpv \
+--dataroot /data_hdd/viton \
+--vvt_dataroot /data_hdd/vvt_competition \
+--mpv_dataroot /data_hdd/mpv_competition  \
+--workers 32 \
+--gpu_ids 0,1,2,3,4,5,6,7
+--batch_size 128
+```
 You can see the results in tensorboard, as show below.
 <div align="center">
   <img src="result/gmm_train_example.png" width="576px" />
