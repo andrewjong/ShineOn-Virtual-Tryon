@@ -230,6 +230,7 @@ def main():
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
         model = GMM(opt)
+        model.opt = opt
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
 
@@ -241,6 +242,7 @@ def main():
         )
     elif opt.stage == "TOM":
         model = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        model.opt = opt
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
         if len(opt.gpu_ids) > 1:
