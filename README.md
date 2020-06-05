@@ -82,13 +82,14 @@ Choose the different source data for eval with the option ```--datamode```.
 
 An example training command is
 ```
+DATAMODE="train" `# choose train or test` \
 python test.py \
 --name gmm_traintest_new \
 --stage GMM \
 --workers 4 \
---datamode test \
+--datamode "$DATAMODE" \
 --dataset cp_vvt_mpv \
---data_list test_pairs.txt \
+--data_list "$DATAMODE"_pairs.txt \
 --vvt_dataroot /data_hdd/vvt_competition \
 --mpv_dataroot /data_hdd/mpv_competition \
 --checkpoint checkpoints/gmm_train_new/gmm_final.pth
