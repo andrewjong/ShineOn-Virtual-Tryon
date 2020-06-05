@@ -10,11 +10,7 @@ import time
 from networks import GMM, UnetGenerator, VGGLoss, load_checkpoint, save_checkpoint
 from datasets import (
     get_dataset_class,
-    CPDataset,
     CPDataLoader,
-    CpVvtMpvDataset,
-    MPVDataset,
-    VVTDataset
 )
 
 from tensorboardX import SummaryWriter
