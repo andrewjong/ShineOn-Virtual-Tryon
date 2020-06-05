@@ -1,15 +1,19 @@
 #coding=utf-8
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-
 import argparse
 import os
 import time
-from datasets.cp_dataset import CPDataset, CPDataLoader
-from networks import GMM, UnetGenerator, load_checkpoint
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
+
+from datasets import (
+    get_dataset_class,
+    CPDataLoader,
+)
+from networks import GMM, UnetGenerator, load_checkpoint
 from visualization import board_add_images, save_images
 
 
@@ -21,7 +25,12 @@ def get_opt():
     parser.add_argument('-b', '--batch-size', type=int, default=4)
     
     parser.add_argument("--dataroot", default = "data")
+    parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
+    parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
     parser.add_argument("--datamode", default = "train")
+    parser.add_argument(
+        "--dataset", choices=("cp", "cp_vvt_mpv", "vvt", "mpv"), default="cp"
+    )
     parser.add_argument("--stage", default = "GMM")
     parser.add_argument("--data_list", default = "train_pairs.txt")
     parser.add_argument("--fine_width", type=int, default = 192)
@@ -52,9 +61,11 @@ def test_gmm(opt, test_loader, model, board):
     if not os.path.exists(warp_mask_dir):
         os.makedirs(warp_mask_dir)
 
-    for step, inputs in enumerate(test_loader.data_loader):
-        iter_start_time = time.time()
-        
+    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    for step, inputs in pbar:
+        im_names = inputs["im_name"]
+        pbar.set_description(im_names[0])
+
         c_names = inputs['c_name']
         im = inputs['image'].cuda()
         im_pose = inputs['pose_image'].cuda()
@@ -80,9 +91,7 @@ def test_gmm(opt, test_loader, model, board):
 
         if (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)
-            t = time.time() - iter_start_time
-            print('step: %8d, time: %.3f' % (step+1, t), flush=True)
-        
+
 
 
 def test_tom(opt, test_loader, model, board):
@@ -131,9 +140,9 @@ def main():
     opt = get_opt()
     print(opt)
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
-   
-    # create dataset 
-    train_dataset = CPDataset(opt)
+
+    # create dataset
+    train_dataset = get_dataset_class(opt.dataset)(opt)
 
     # create dataloader
     train_loader = CPDataLoader(opt, train_dataset)
