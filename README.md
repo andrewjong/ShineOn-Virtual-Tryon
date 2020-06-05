@@ -106,6 +106,11 @@ You can see the results in tensorboard, as show below.
 ### training
 Before the trainning, you should generate warp-mask & warp-cloth, using the test process of GMM with `--datamode train`. 
 **Then move these files or make symlinks under the directory `data/train`.**
+```
+ln -s $(readlink -f ./results/"$CHECKPOINT"/CPDataset/warp-cloth) ./data/train/warp-cloth
+ln -s $(readlink -f ./results/"$CHECKPOINT"/CPDataset/warp-mask) ./data/train/warp-mask
+```
+
 An example training command is
 
 ```
