@@ -63,7 +63,7 @@ class VVTDataset(CPDataset):
         return cloth_mask
 
     def get_input_cloth_name(self, index):
-        return ""
+        return osp.basename(self.get_input_cloth_path(index))
 
     ########################
     # PERSON REPRESENTATION
