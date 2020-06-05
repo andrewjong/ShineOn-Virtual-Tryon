@@ -18,7 +18,7 @@ from visualization import board_add_images
 
 
 def get_opt():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--name", default="GMM")
     parser.add_argument("--gpu_ids", default="0", help="comma separated of which GPUs to train on")
     parser.add_argument("-j", "--workers", type=int, default=1)

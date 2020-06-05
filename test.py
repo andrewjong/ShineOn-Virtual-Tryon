@@ -20,7 +20,7 @@ from visualization import board_add_images, save_images, get_save_paths
 
 
 def get_opt():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("--name", default = "GMM")
     parser.add_argument("--gpu_ids", default = "")
     parser.add_argument('-j', '--workers', type=int, default=1)
@@ -39,8 +39,7 @@ def get_opt():
     parser.add_argument("--fine_height", type=int, default = 256)
     parser.add_argument("--radius", type=int, default = 5)
     parser.add_argument("--grid_size", type=int, default = 5)
-    parser.add_argument('--tensorboard_dir', type=str, default='tensorboard', help='save tensorboard infos')
-    parser.add_argument("--no_tensorboard", action="store_true", help="skip writing to tensorboard")
+    parser.add_argument('--tensorboard_dir', type=str, help='save tensorboard infos')
     parser.add_argument('--result_dir', type=str, default='result', help='save result infos')
     parser.add_argument('--checkpoint', type=str, default='', help='model checkpoint for test')
     parser.add_argument("--display_count", type=int, default = 1)
@@ -93,7 +92,7 @@ def test_gmm(opt, test_loader, model, board):
         save_images(warped_cloth, c_names, warp_cloth_dirs)
         save_images(warped_mask*2-1, c_names, warp_mask_dirs)
 
-        if not opt.no_tensorboard and (step+1) % opt.display_count == 0:
+        if opt.tensorboard_dir and (step+1) % opt.display_count == 0:
             visuals = [[im_h, shape, im_pose],
                        [c, warped_cloth, im_c],
                        [warped_grid, (warped_cloth + im) * 0.5, im]]
@@ -145,7 +144,7 @@ def test_tom(opt, test_loader, model, board):
             
         save_images(p_tryon, im_names, try_on_dirs)
 
-        if not opt.no_tensorboard and (step+1) % opt.display_count == 0:
+        if opt.tensorboard_dir and (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)
 
 
@@ -162,7 +161,7 @@ def main():
 
     # visualization
     board = None
-    if not opt.no_tensorboard:
+    if opt.tensorboard_dir:
         if not os.path.exists(opt.tensorboard_dir):
             os.makedirs(opt.tensorboard_dir)
         board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
