@@ -31,8 +31,10 @@ class CPDataset(data.Dataset):
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.data_path = osp.join(opt.dataroot, opt.datamode)
+        self.center_crop = transforms.CenterCrop((self.fine_height, self.fine_width))
         self.to_tensor_and_norm = transforms.Compose(
             [
+                self.center_crop,
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
             ]
@@ -168,6 +170,7 @@ class CPDataset(data.Dataset):
         """ loads parsing image """
         parsed_path = self.get_person_parsed_path(index)
         im_parse = Image.open(parsed_path)
+        im_parse = self.center_crop(im_parse)
         parse_array = np.array(im_parse)
         return parse_array
 
