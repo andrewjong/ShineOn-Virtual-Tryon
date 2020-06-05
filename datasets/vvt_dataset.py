@@ -19,9 +19,6 @@ import json
 class VVTDataset(CPDataset):
     """Dataset for CP-VTON. """
 
-    def name(self):
-        return "CPDataset"
-
     def __init__(self, opt):
         super(VVTDataset, self).__init__(opt)
         del self.data_list  # not using this
@@ -50,6 +47,8 @@ class VVTDataset(CPDataset):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
         cloth_folder = osp.join(self.root, "lip_clothes_person", folder_id)
+        # TODO: add an if statement for if we're in TOM stage
+        # TODO: we must generate a warp cloth for every single video frame; therefore warp_cloth name should match the frame name
         cloth_path = glob(f"{cloth_folder}/*cloth*")[0]
         return cloth_path
 
@@ -63,15 +62,21 @@ class VVTDataset(CPDataset):
         return cloth_mask
 
     def get_input_cloth_name(self, index):
-        return osp.basename(self.get_input_cloth_path(index))
+        cloth_path = self.get_input_cloth_path(index)
+        folder_id = VVTDataset.extract_folder_id(cloth_path)
+        base_cloth_name = osp.basename(cloth_path)
+        frame_name = osp.basename(self.get_person_image_name(index))
+        # e.g. 4he21d00f-g11/4he21d00f-g11@10=cloth_front.jpg
+        name = osp.join(folder_id, f"{base_cloth_name}.FOR.{frame_name}")
+        return name
 
     ########################
     # PERSON REPRESENTATION
     ########################
     def get_person_image_name(self, index):
         image_path = self.get_person_image_path(index)
-        id = VVTDataset.extract_folder_id(image_path)
-        name = osp.join(id, osp.basename(image_path))
+        folder_id = VVTDataset.extract_folder_id(image_path)
+        name = osp.join(folder_id, osp.basename(image_path))
         return name
 
     def get_person_image_path(self, index):

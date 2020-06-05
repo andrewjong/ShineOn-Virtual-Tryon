@@ -1,6 +1,8 @@
 #coding=utf-8
 import argparse
 import os
+import os.path as osp
+from os.path import basename
 import time
 
 import torch
@@ -51,22 +53,20 @@ def test_gmm(opt, test_loader, model, board):
     model.eval()
 
     base_name = os.path.basename(opt.checkpoint)
-    save_dir = os.path.join(opt.result_dir, base_name, opt.datamode)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    warp_cloth_dir = os.path.join(save_dir, 'warp-cloth')
-    if not os.path.exists(warp_cloth_dir):
-        os.makedirs(warp_cloth_dir)
-    warp_mask_dir = os.path.join(save_dir, 'warp-mask')
-    if not os.path.exists(warp_mask_dir):
-        os.makedirs(warp_mask_dir)
+
+    save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
+    if not os.path.exists(save_root):
+        os.makedirs(save_root)
 
     pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
     for step, inputs in pbar:
-        im_names = inputs["im_name"]
-        pbar.set_description(im_names[0])
+        dataset_names = inputs["dataset_name"]
+        c_names = inputs["c_name"]
 
-        c_names = inputs['c_name']
+        warp_cloth_dirs = [osp.join(save_root, dname, "warp-cloth") for dname in dataset_names]
+        warp_mask_dirs = [osp.join(save_root, dname, "warp-mask") for dname in dataset_names]
+
+        pbar.set_description(c_names[0])
         im = inputs['image'].cuda()
         im_pose = inputs['pose_image'].cuda()
         im_h = inputs['head'].cuda()
@@ -74,7 +74,7 @@ def test_gmm(opt, test_loader, model, board):
         agnostic = inputs['agnostic'].cuda()
         c = inputs['cloth'].cuda()
         cm = inputs['cloth_mask'].cuda()
-        im_c =  inputs['parse_cloth'].cuda()
+        im_c = inputs['parse_cloth'].cuda()
         im_g = inputs['grid_image'].cuda()
             
         grid, theta = model(agnostic, c)
@@ -82,12 +82,13 @@ def test_gmm(opt, test_loader, model, board):
         warped_mask = F.grid_sample(cm, grid, padding_mode='zeros')
         warped_grid = F.grid_sample(im_g, grid, padding_mode='zeros')
 
-        visuals = [ [im_h, shape, im_pose], 
+        visuals = [[im_h, shape, im_pose],
                    [c, warped_cloth, im_c], 
                    [warped_grid, (warped_cloth+im)*0.5, im]]
-        
-        save_images(warped_cloth, c_names, warp_cloth_dir) 
-        save_images(warped_mask*2-1, c_names, warp_mask_dir) 
+
+        save_images(warped_cloth, c_names, warp_cloth_dirs)
+        # only the CPDataset needs to manually save masks; VVT and MPV dynamically generate; but we can save it anyway for visuals
+        save_images(warped_mask*2-1, c_names, warp_mask_dirs)
 
         if (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)
