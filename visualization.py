@@ -57,7 +57,7 @@ def save_images(img_tensors, img_names, save_dirs):
             continue
         path = os.path.join(save_dir, img_name)
         if os.path.exists(path):
-            tqdm.write(f"Skipping {path}, already exists!")
+            # tqdm.write(f"Skipping {path}, already exists!")
             continue
 
         tensor = (img_tensor.clone()+1)*0.5 * 255
