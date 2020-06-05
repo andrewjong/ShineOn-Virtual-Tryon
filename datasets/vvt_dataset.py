@@ -29,7 +29,7 @@ class VVTDataset(CPDataset):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"lip_{self.opt.datamode}_frames"
-        self.image_names = glob(f"{self.root}/{folder}/**/*.png")
+        self.image_names = sorted(glob(f"{self.root}/{folder}/**/*.png"))
 
     @staticmethod
     def extract_folder_id(image_path):

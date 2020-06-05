@@ -16,7 +16,7 @@ from datasets import (
     CPDataLoader,
 )
 from networks import GMM, UnetGenerator, load_checkpoint
-from visualization import board_add_images, save_images
+from visualization import board_add_images, save_images, get_save_paths
 
 
 def get_opt():
@@ -66,6 +66,11 @@ def test_gmm(opt, test_loader, model, board):
         warp_cloth_dirs = [osp.join(save_root, dname, "warp-cloth") for dname in dataset_names]
         warp_mask_dirs = [osp.join(save_root, dname, "warp-mask") for dname in dataset_names]
 
+        save_paths = get_save_paths(c_names, warp_cloth_dirs)
+        if all(os.path.exists(s) for s in save_paths):
+            tqdm.write(f"Skipping {save_paths}")
+            continue
+
         pbar.set_description(c_names[0])
         im = inputs['image'].cuda()
         im_pose = inputs['pose_image'].cuda()
@@ -90,8 +95,8 @@ def test_gmm(opt, test_loader, model, board):
         # only the CPDataset needs to manually save masks; VVT and MPV dynamically generate; but we can save it anyway for visuals
         save_images(warped_mask*2-1, c_names, warp_mask_dirs)
 
-        if (step+1) % opt.display_count == 0:
-            board_add_images(board, 'combine', visuals, step+1)
+        # if (step+1) % opt.display_count == 0:
+        #     board_add_images(board, 'combine', visuals, step+1)
 
 
 

@@ -43,11 +43,17 @@ def board_add_images(board, tag_name, img_tensors_list, step_count):
     for i, img in enumerate(tensor):
         board.add_image('%s/%03d' % (tag_name, i), img, step_count)
 
+def get_save_paths(img_names, save_dirs):
+    return [os.path.join(s, i) for s, i in zip(save_dirs, img_names)]
+
 def save_images(img_tensors, img_names, save_dirs):
     # TODO: maybe revert this
     if len(save_dirs) == 1:
         save_dirs = [save_dirs] * len(img_names)
     for img_tensor, img_name, save_dir in zip(img_tensors, img_names, save_dirs):
+        if "warp-mask" in save_dir and "CPDataset" not in save_dir:
+            # if it's warp mask and we're not CPDataset, skip saving
+            continue
         tensor = (img_tensor.clone()+1)*0.5 * 255
         tensor = tensor.cpu().clamp(0,255)
 
