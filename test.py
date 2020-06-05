@@ -40,6 +40,7 @@ def get_opt():
     parser.add_argument("--radius", type=int, default = 5)
     parser.add_argument("--grid_size", type=int, default = 5)
     parser.add_argument('--tensorboard_dir', type=str, default='tensorboard', help='save tensorboard infos')
+    parser.add_argument("--no_tensorboard", action="store_true", help="skip writing to tensorboard")
     parser.add_argument('--result_dir', type=str, default='result', help='save result infos')
     parser.add_argument('--checkpoint', type=str, default='', help='model checkpoint for test')
     parser.add_argument("--display_count", type=int, default = 1)
@@ -55,23 +56,23 @@ def test_gmm(opt, test_loader, model, board):
     base_name = os.path.basename(opt.checkpoint)
 
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
-    if not os.path.exists(save_root):
-        os.makedirs(save_root)
 
     pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
-        c_names = inputs["c_name"]
-
+        # produce subfolders for each subdataset
         warp_cloth_dirs = [osp.join(save_root, dname, "warp-cloth") for dname in dataset_names]
         warp_mask_dirs = [osp.join(save_root, dname, "warp-mask") for dname in dataset_names]
 
+        c_names = inputs["c_name"]
+        # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(c_names, warp_cloth_dirs)
         if all(os.path.exists(s) for s in save_paths):
             tqdm.write(f"Skipping {save_paths}")
             continue
 
         pbar.set_description(c_names[0])
+        # unpack the rest of the data
         im = inputs['image'].cuda()
         im_pose = inputs['pose_image'].cuda()
         im_h = inputs['head'].cuda()
@@ -81,22 +82,22 @@ def test_gmm(opt, test_loader, model, board):
         cm = inputs['cloth_mask'].cuda()
         im_c = inputs['parse_cloth'].cuda()
         im_g = inputs['grid_image'].cuda()
-            
+
+        # forward pass
         grid, theta = model(agnostic, c)
         warped_cloth = F.grid_sample(c, grid, padding_mode='border')
         warped_mask = F.grid_sample(cm, grid, padding_mode='zeros')
         warped_grid = F.grid_sample(im_g, grid, padding_mode='zeros')
 
-        visuals = [[im_h, shape, im_pose],
-                   [c, warped_cloth, im_c], 
-                   [warped_grid, (warped_cloth+im)*0.5, im]]
-
+        # save images
         save_images(warped_cloth, c_names, warp_cloth_dirs)
-        # only the CPDataset needs to manually save masks; VVT and MPV dynamically generate; but we can save it anyway for visuals
         save_images(warped_mask*2-1, c_names, warp_mask_dirs)
 
-        # if (step+1) % opt.display_count == 0:
-        #     board_add_images(board, 'combine', visuals, step+1)
+        if not opt.no_tensorboard and (step+1) % opt.display_count == 0:
+            visuals = [[im_h, shape, im_pose],
+                       [c, warped_cloth, im_c],
+                       [warped_grid, (warped_cloth + im) * 0.5, im]]
+            board_add_images(board, 'combine', visuals, step+1)
 
 
 
@@ -105,17 +106,24 @@ def test_tom(opt, test_loader, model, board):
     model.eval()
     
     base_name = os.path.basename(opt.checkpoint)
-    save_dir = os.path.join(opt.result_dir, base_name, opt.datamode)
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
-    try_on_dir = os.path.join(save_dir, 'try-on')
-    if not os.path.exists(try_on_dir):
-        os.makedirs(try_on_dir)
+    save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
     print('Dataset size: %05d!' % (len(test_loader.dataset)), flush=True)
-    for step, inputs in enumerate(test_loader.data_loader):
-        iter_start_time = time.time()
-        
+
+    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    for step, inputs in pbar:
+        dataset_names = inputs["dataset_name"]
+        # use subfolders for each subdataset
+        try_on_dirs = [osp.join(save_root, dname, "try-on") for dname in dataset_names]
+
         im_names = inputs['im_name']
+        # if we already did a forward-pass on this batch, skip it
+        save_paths = get_save_paths(im_names, try_on_dirs)
+        if all(os.path.exists(s) for s in save_paths):
+            tqdm.write(f"Skipping {save_paths}")
+            continue
+
+        pbar.set_description(im_names[0])
+
         im = inputs['image'].cuda()
         im_pose = inputs['pose_image']
         im_h = inputs['head']
@@ -135,11 +143,10 @@ def test_tom(opt, test_loader, model, board):
                    [c, 2*cm-1, m_composite], 
                    [p_rendered, p_tryon, im]]
             
-        save_images(p_tryon, im_names, try_on_dir) 
-        if (step+1) % opt.display_count == 0:
+        save_images(p_tryon, im_names, try_on_dirs)
+
+        if not opt.no_tensorboard and (step+1) % opt.display_count == 0:
             board_add_images(board, 'combine', visuals, step+1)
-            t = time.time() - iter_start_time
-            print('step: %8d, time: %.3f' % (step+1, t), flush=True)
 
 
 def main():
@@ -154,9 +161,11 @@ def main():
     train_loader = CPDataLoader(opt, train_dataset)
 
     # visualization
-    if not os.path.exists(opt.tensorboard_dir):
-        os.makedirs(opt.tensorboard_dir)
-    board = SummaryWriter(log_dir = os.path.join(opt.tensorboard_dir, opt.name))
+    board = None
+    if not opt.no_tensorboard:
+        if not os.path.exists(opt.tensorboard_dir):
+            os.makedirs(opt.tensorboard_dir)
+        board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
    
     # create model & train
     if opt.stage == 'GMM':

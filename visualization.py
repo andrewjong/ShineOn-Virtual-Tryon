@@ -48,7 +48,6 @@ def get_save_paths(img_names, save_dirs):
     return [os.path.join(s, i) for s, i in zip(save_dirs, img_names)]
 
 def save_images(img_tensors, img_names, save_dirs):
-    # TODO: maybe revert this
     if len(save_dirs) == 1:
         save_dirs = [save_dirs] * len(img_names)
     for img_tensor, img_name, save_dir in zip(img_tensors, img_names, save_dirs):
