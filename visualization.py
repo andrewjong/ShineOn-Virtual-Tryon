@@ -1,4 +1,5 @@
 from tensorboardX import SummaryWriter
+from tqdm import tqdm
 import torch
 from PIL import Image
 import os
@@ -54,6 +55,11 @@ def save_images(img_tensors, img_names, save_dirs):
         if "warp-mask" in save_dir and "CPDataset" not in save_dir:
             # if it's warp mask and we're not CPDataset, skip saving
             continue
+        path = os.path.join(save_dir, img_name)
+        if os.path.exists(path):
+            tqdm.write(f"Skipping {path}, already exists!")
+            continue
+
         tensor = (img_tensor.clone()+1)*0.5 * 255
         tensor = tensor.cpu().clamp(0,255)
 
@@ -63,7 +69,6 @@ def save_images(img_tensors, img_names, save_dirs):
         elif array.shape[0] == 3:
             array = array.swapaxes(0, 1).swapaxes(1, 2)
 
-        path = os.path.join(save_dir, img_name)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         Image.fromarray(array).save(path)
 
