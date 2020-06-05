@@ -46,9 +46,9 @@ class VVTDataset(CPDataset):
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
-        cloth_folder = osp.join(self.root, "lip_clothes_person", folder_id)
-        # TODO: add an if statement for if we're in TOM stage
-        # TODO: we must generate a warp cloth for every single video frame; therefore warp_cloth name should match the frame name
+
+        subdir = "lip_clothes_person" if self.stage == "GMM" else "warp-cloth"
+        cloth_folder = osp.join(self.root, subdir, folder_id)
         cloth_path = glob(f"{cloth_folder}/*cloth*")[0]
         return cloth_path
 
