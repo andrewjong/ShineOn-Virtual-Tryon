@@ -99,7 +99,7 @@ def train_gmm(opt, train_loader, model, board):
         
         grid, theta = model(agnostic, c)
         warped_cloth = F.grid_sample(c, grid, padding_mode="border")
-        warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
+        # warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
         warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
         visuals = [
@@ -114,7 +114,7 @@ def train_gmm(opt, train_loader, model, board):
         optimizer.step()
 
         pbar.set_description(f"loss: {loss.item():4f}")
-        if (step + 1) % opt.display_count == 0:
+        if board and (step + 1) % opt.display_count == 0:
             board_add_images(board, "combine", visuals, step + 1)
             board.add_scalar("metric", loss.item(), step + 1)
             tqdm.write(f'step: {step + 1:8d}, loss: {loss.item():4f}')
@@ -187,7 +187,7 @@ def train_tom(opt, train_loader, model, board):
         tqdm.set_description(
             f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
         )
-        if (step + 1) % opt.display_count == 0:
+        if board and (step + 1) % opt.display_count == 0:
             board_add_images(board, "combine", visuals, step + 1)
             board.add_scalar("metric", loss.item(), step + 1)
             board.add_scalar("L1", loss_l1.item(), step + 1)
@@ -219,9 +219,10 @@ def main():
     train_loader = CPDataLoader(opt, train_dataset)
 
     # visualization
-    if not os.path.exists(opt.tensorboard_dir):
+    board = None
+    if opt.tensorboard_dir and not os.path.exists(opt.tensorboard_dir):
         os.makedirs(opt.tensorboard_dir)
-    board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+        board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
 
 
     # create model & train & save the final checkpoint
