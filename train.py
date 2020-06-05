@@ -148,8 +148,8 @@ def train_tom(opt, train_loader, model, board):
         - max(0, step - opt.keep_step) / float(opt.decay_step + 1),
     )
 
-    for step in range(opt.keep_step + opt.decay_step):
-        iter_start_time = time.time()
+    pbar = tqdm(range(opt.keep_step + opt.decay_step))
+    for step in pbar:
         inputs = train_loader.next_batch()
 
         im = inputs["image"].to(device) #.cuda()
@@ -184,23 +184,17 @@ def train_tom(opt, train_loader, model, board):
         loss.backward()
         optimizer.step()
 
+        tqdm.set_description(
+            f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
+        )
         if (step + 1) % opt.display_count == 0:
             board_add_images(board, "combine", visuals, step + 1)
             board.add_scalar("metric", loss.item(), step + 1)
             board.add_scalar("L1", loss_l1.item(), step + 1)
             board.add_scalar("VGG", loss_vgg.item(), step + 1)
             board.add_scalar("MaskL1", loss_mask.item(), step + 1)
-            t = time.time() - iter_start_time
             print(
-                "step: %8d, time: %.3f, loss: %.4f, l1: %.4f, vgg: %.4f, mask: %.4f"
-                % (
-                    step + 1,
-                    t,
-                    loss.item(),
-                    loss_l1.item(),
-                    loss_vgg.item(),
-                    loss_mask.item(),
-                ),
+                f"step: {step + 1:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
                 flush=True,
             )
 
