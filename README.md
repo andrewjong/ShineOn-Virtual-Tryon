@@ -29,7 +29,7 @@ Move these directories into our own dataroot ```data```.
 
 You can get the processed data at [GoogleDrive](https://drive.google.com/open?id=1MxCUvKxejnwWnoZ-KoCyMCXo3TLhRuTo) or by running:
 
-```
+```bash
 python data_download.py
 ```
 
@@ -64,11 +64,11 @@ python train.py \
 --batch_size 128
 ```
 You can see the results in tensorboard, as show below. 
-```
+```bash
 tensorboard --logdir tensorboard  # recommended to do this in a tmux window
 ```
 We can port forward the training like this
-```
+```bash
 echo "tensorboard connection"; ssh -N -L localhost:6006:localhost:6006 username@10.52.0.34
 ```
 <div align="center">
@@ -81,7 +81,7 @@ echo "tensorboard connection"; ssh -N -L localhost:6006:localhost:6006 username@
 Choose the different source data for eval with the option ```--datamode```.
 
 An example training command is
-```
+```bash
 DATAMODE="train" `# choose train or test` \
 python test.py \
 --name gmm_traintest_new \
@@ -106,9 +106,21 @@ You can see the results in tensorboard, as show below.
 ### training
 Before the trainning, you should generate warp-mask & warp-cloth, using the test process of GMM with `--datamode train`. 
 **Then move these files or make symlinks under the directory `data/train`.**
+```bash
+# Link CPDataset
+ln -s $(readlink -f ./results/"$CHECKPOINT"/CPDataset/warp-cloth) ./data/train/warp-cloth
+ln -s $(readlink -f ./results/"$CHECKPOINT"/CPDataset/warp-mask) ./data/train/warp-mask
+
+# Link VVTDataset
+ln -s $(readlink -f ./results/"$CHECKPOINT"/VVTDataset/warp-cloth) /data_hdd/vvt_competition
+
+# Link MPVDataset
+ln -s $(readlink -f ./results/"$CHECKPOINT"/MPVDataset/warp-cloth) /data_hdd/mpv_competition
+```
+
 An example training command is
 
-```
+```bash
 echo "Train CP-VTON TOM"; \
 python train.py \
 --name train_tom_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
