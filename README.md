@@ -49,6 +49,7 @@ git checkout viton_vvt_mpv
 ```
 Then train
 ```bash
+echo "Train CP-VTON GMM"; \
 python train.py \
 --name train_gmm_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
 --stage GMM \
@@ -81,7 +82,16 @@ Choose the different source data for eval with the option ```--datamode```.
 
 An example training command is
 ```
-python test.py --name gmm_traintest_new --stage GMM --workers 4 --datamode test --data_list test_pairs.txt --checkpoint checkpoints/gmm_train_new/gmm_final.pth
+python test.py \
+--name gmm_traintest_new \
+--stage GMM \
+--workers 4 \
+--datamode test \
+--dataset cp_vvt_mpv \
+--data_list test_pairs.txt \
+--vvt_dataroot /data_hdd/vvt_competition \
+--mpv_dataroot /data_hdd/mpv_competition \
+--checkpoint checkpoints/gmm_train_new/gmm_final.pth
 ```
 
 You can see the results in tensorboard, as show below.
@@ -94,11 +104,23 @@ You can see the results in tensorboard, as show below.
 ## Try-On Module
 ### training
 Before the trainning, you should generate warp-mask & warp-cloth, using the test process of GMM with `--datamode train`. 
-Then move these files or make soft links under the directory `data/train`.
+**Then move these files or make symlinks under the directory `data/train`.**
 An example training command is
 
 ```
-python train.py --name tom_train_new --stage TOM --workers 4 --save_count 5000 --shuffle 
+echo "Train CP-VTON TOM"; \
+python train.py \
+--name train_tom_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
+--stage TOM \
+--shuffle \
+--save_count 5000 \
+--dataset cp_vvt_mpv \
+--dataroot ./data `# or /data_hdd/cp-vton/viton_processed` \
+--vvt_dataroot /data_hdd/vvt_competition \
+--mpv_dataroot /data_hdd/mpv_competition  \
+--workers 32 \
+--gpu_ids 0,1,2,3,4,5,6,7 \
+--batch_size 128
 ```
 You can see the results in tensorboard, as show below.
 
@@ -108,7 +130,7 @@ You can see the results in tensorboard, as show below.
 </div>
 
 
-### eavl
+### eval
 An example training command is
 
 ```
