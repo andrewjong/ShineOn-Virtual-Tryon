@@ -14,7 +14,7 @@ from tqdm import tqdm
 from datasets import (
     get_dataset_class,
     CPDataLoader,
-)
+    DATASETS)
 from networks import GMM, UnetGenerator, load_checkpoint
 from visualization import board_add_images, save_images, get_save_paths
 
@@ -30,9 +30,7 @@ def get_opt():
     parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
     parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
     parser.add_argument("--datamode", default = "train")
-    parser.add_argument(
-        "--dataset", choices=("cp", "cp_vvt_mpv", "vvt", "mpv"), default="cp"
-    )
+    parser.add_argument( "--dataset", choices=DATASETS.keys(), default="cp" )
     parser.add_argument("--stage", default = "GMM")
     parser.add_argument("--data_list", default = "train_pairs.txt")
     parser.add_argument("--fine_width", type=int, default = 192)

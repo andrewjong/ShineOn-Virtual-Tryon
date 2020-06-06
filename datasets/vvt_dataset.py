@@ -89,10 +89,12 @@ class VVTDataset(CPDataset):
         id = VVTDataset.extract_folder_id(image_path)
         parsed_fname = os.path.split(image_path)[-1].replace(".png", "_label.png")
         parsed_path = osp.join(self.root, folder, id, parsed_fname)
+        if not os.path.exists(parsed_path):  # hacky, if it doesn't exist as _label, then try getting rid of it. did this to fix my specific bug in a time crunch
+            parsed_path = parsed_path.replace("_label", "")
         return parsed_path
 
     def get_input_person_pose_path(self, index):
-        image_path = self.image_names[index]
+        image_path = self.get_person_image_path(index)
         folder = f"lip_{self.opt.datamode}_frames_keypoint"
         id = VVTDataset.extract_folder_id(image_path)
 

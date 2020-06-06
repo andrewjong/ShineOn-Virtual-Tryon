@@ -197,6 +197,13 @@ class CPDataset(data.Dataset):
 
         return pose_map, im_pose
 
+    def get_input_person_pose_path(self, index):
+        """ path to pose keypoints """
+        im_name = self.get_person_image_name(index)
+        _pose_name = im_name.replace(".jpg", "_keypoints.json")
+        pose_path = osp.join(self.data_path, "pose", _pose_name)
+        return pose_path
+
     def convert_pose_data_to_pose_map_and_vis(self, pose_data):
         """
         Reads a pose data array and makes a 1-hot tensor and visualization
@@ -242,13 +249,6 @@ class CPDataset(data.Dataset):
         # just for visualization
         im_pose = self.to_tensor_and_norm(im_pose)
         return pose_map, im_pose
-
-    def get_input_person_pose_path(self, index):
-        """ path to pose keypoints """
-        im_name = self.get_person_image_name(index)
-        _pose_name = im_name.replace(".jpg", "_keypoints.json")
-        pose_path = osp.join(self.data_path, "pose", _pose_name)
-        return pose_path
 
     def get_input_person_head(self, im, _parse_array):
         """ from cp-vton, get the floating head alone"""
