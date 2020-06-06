@@ -65,7 +65,7 @@ def test_gmm(opt, test_loader, model, board):
         # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(c_names, warp_cloth_dirs)
         if all(os.path.exists(s) for s in save_paths):
-            tqdm.write(f"Skipping {save_paths}")
+            pbar.set_description(f"Skipping {c_names[0]}")
             continue
 
         pbar.set_description(c_names[0])

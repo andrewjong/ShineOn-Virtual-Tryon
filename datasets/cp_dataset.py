@@ -94,6 +94,7 @@ class CPDataset(data.Dataset):
         return cloth_path
 
     def get_input_cloth_name(self, index):
+        # determines the written thing
         return self.cloth_names[index]
 
     def get_input_cloth_mask(self, index):
@@ -325,9 +326,10 @@ class CPDataset(data.Dataset):
         assert agnostic.shape == torch.Size(
             [22, 256, 192]
         ), f"agnostic = {agnostic} on {im_path}"
-        assert im_grid.shape == torch.Size(
-            [3, 256, 192]
-        ), f"im_grid = {im_grid} on {im_path}"
+        if im_grid != "":
+            assert im_grid.shape == torch.Size(
+                [3, 256, 192]
+            ), f"im_grid = {im_grid} on {im_path}"
 
         result = {
             "dataset_name": self.__class__.__name__,
