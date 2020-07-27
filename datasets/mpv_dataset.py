@@ -3,17 +3,19 @@ import os
 import os.path as osp
 
 import torch
+from overrides import overrides
 
-from datasets.cp_dataset import CPDataLoader, CPDataset
+from datasets.cpvton_dataset import CPDataLoader, CpVtonDataset
 from datasets.vvt_dataset import VVTDataset
 
 
 class MPVDataset(VVTDataset):
-    """Dataset for CP-VTON. """
+    """ CP-VTON dataset with the MPV folder structure. """
 
     def __init__(self, opt):
         super(MPVDataset, self).__init__(opt)
 
+    #@overrides(CpVtonDataset)
     def load_file_paths(self):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.mpv_dataroot
@@ -35,31 +37,37 @@ class MPVDataset(VVTDataset):
     ########################
     # CLOTH REPRESENTATION
     ########################
-    def get_input_cloth_name(self, index):
-        return self.cloth_names[index]
-
+    #@overrides(CpVtonDataset)
     def get_input_cloth_path(self, index):
         cloth_name = self.get_input_cloth_name(index)
         subdir = "all" if self.stage == "GMM" else "warp-cloth"
         cloth_path = osp.join(self.root, subdir, cloth_name)
         return cloth_path
 
+    #@overrides(CpVtonDataset)
+    def get_input_cloth_name(self, index):
+        return self.cloth_names[index]
+
     ########################
     # PERSON REPRESENTATION
     ########################
-    def get_person_image_name(self, index):
-        return self.image_names[index]
-
+    #@overrides(CpVtonDataset)
     def get_person_image_path(self, index):
         image_name = self.get_person_image_name(index)
         image_path = osp.join(self.root, "all", image_name)
         return image_path
 
+    #@overrides(CpVtonDataset)
+    def get_person_image_name(self, index):
+        return self.image_names[index]
+
+    #@overrides(CpVtonDataset)
     def get_person_parsed_path(self, index):
         image_name = self.get_person_image_name(index).replace(".jpg", ".png")
         parsed_path = osp.join(self.root, "all_parsing", image_name)
         return parsed_path
 
+    #@overrides(CpVtonDataset)
     def get_input_person_pose_path(self, index):
         image_name = self.get_person_image_name(index)
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
@@ -74,6 +82,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataroot", default="data")
+    parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
     parser.add_argument("--datamode", default="train")
     parser.add_argument("--stage", default="GMM")
     parser.add_argument("--data_list", default="train_pairs.txt")

@@ -1,12 +1,13 @@
-from .cp_dataset import CPDataset, CPDataLoader
-from .cp_vvt_mpv_dataset import CpVvtMpvDataset
+from .cpvton_dataset import CpVtonDataset, CPDataLoader
+from .viton_vvt_mpv_dataset import VitonVvtMpvDataset
+from .viton_dataset import VitonDataset
 from .vvt_dataset import VVTDataset
 from .mpv_dataset import MPVDataset
 from .vvt_list_dataset import VVTListDataset
 
 DATASETS = {
-    "cp": CPDataset,
-    "cp_vvt_mpv": CpVvtMpvDataset,
+    "viton_vvt_mpv": VitonVvtMpvDataset,
+    "viton": VitonDataset,
     "vvt": VVTDataset,
     "mpv": MPVDataset,
     "vvt_list": VVTListDataset

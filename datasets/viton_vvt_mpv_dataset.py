@@ -1,45 +1,37 @@
 # coding=utf-8
-import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
 
-from PIL import Image
-from PIL import ImageDraw
-
-import os.path as osp
-import numpy as np
-import json
-
-from datasets.cp_dataset import CPDataset, CPDataLoader
+from datasets.viton_dataset import VitonDataset
+from datasets.cpvton_dataset import CPDataLoader
 from datasets.mpv_dataset import MPVDataset
 from datasets.vvt_dataset import VVTDataset
 
 
-class CpVvtMpvDataset(data.Dataset):
+class VitonVvtMpvDataset(data.Dataset):
     """Combines datasets
     """
 
     def name(self):
-        return "CpVvtMpvDataset"
+        return "VitonVvtMpvDataset"
 
     def __init__(self, opt):
-        super(CpVvtMpvDataset, self).__init__()
+        super(VitonVvtMpvDataset, self).__init__()
         # base setting
         self.opt = opt
 
-        self.cp_dataset = CPDataset(opt)
+        self.viton_dataset = VitonDataset(opt)
         self.vvt_dataset = VVTDataset(opt)
         self.mpv_dataset = MPVDataset(opt)
 
-        self.transforms = transforms.Compose([
-        ])
+        self.transforms = transforms.Compose([])
 
     def __getitem__(self, index):
-        if index < len(self.cp_dataset):
-            item = self.cp_dataset[index]
+        if index < len(self.viton_dataset):
+            item = self.viton_dataset[index]
             return item
 
-        index -= len(self.cp_dataset)
+        index -= len(self.viton_dataset)
         if index < len(self.vvt_dataset):
             item = self.vvt_dataset[index]
             return item
@@ -49,7 +41,7 @@ class CpVvtMpvDataset(data.Dataset):
         return item
 
     def __len__(self):
-        return len(self.cp_dataset) + len(self.vvt_dataset) + len(self.mpv_dataset)
+        return len(self.viton_dataset) + len(self.vvt_dataset) + len(self.mpv_dataset)
 
 
 if __name__ == "__main__":
@@ -70,7 +62,7 @@ if __name__ == "__main__":
     parser.add_argument("-j", "--workers", type=int, default=1)
 
     opt = parser.parse_args()
-    dataset = CpVvtMpvDataset(opt)
+    dataset = VitonVvtMpvDataset(opt)
     data_loader = CPDataLoader(opt, dataset)
 
     print(

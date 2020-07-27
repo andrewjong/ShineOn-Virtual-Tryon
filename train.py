@@ -29,7 +29,7 @@ def get_opt():
     parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
     parser.add_argument("--datamode", default="train")
     parser.add_argument(
-        "--dataset", choices=("cp", "cp_vvt_mpv", "vvt", "mpv"), default="cp"
+        "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="cp"
     )
     parser.add_argument("--stage", default="GMM")
     parser.add_argument("--data_list", default="train_pairs.txt")
@@ -222,7 +222,7 @@ def main():
     board = None
     if opt.tensorboard_dir and not os.path.exists(opt.tensorboard_dir):
         os.makedirs(opt.tensorboard_dir)
-        board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+    board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
 
 
     # create model & train & save the final checkpoint

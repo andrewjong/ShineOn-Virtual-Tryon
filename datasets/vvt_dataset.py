@@ -7,8 +7,9 @@ import torchvision.transforms as transforms
 
 from PIL import Image
 from PIL import ImageDraw
+from overrides import overrides
 
-from datasets.cp_dataset import CPDataset, CPDataLoader
+from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
 
 import os
 import os.path as osp
@@ -16,15 +17,15 @@ import numpy as np
 import json
 
 
-class VVTDataset(CPDataset):
-    """Dataset for CP-VTON. """
+class VVTDataset(CpVtonDataset):
+    """ CP-VTON dataset with the VVT folder structure. """
 
     def __init__(self, opt):
         super(VVTDataset, self).__init__(opt)
         del self.data_list  # not using this
         del self.data_path
-        self.CLOTH_THRESH = 240
 
+    #@overrides(CpVtonDataset)
     def load_file_paths(self):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.vvt_dataroot  # override this
@@ -38,11 +39,8 @@ class VVTDataset(CPDataset):
     ########################
     # CLOTH REPRESENTATION
     ########################
-    def get_cloth_representation(self, index):
-        cloth = self.get_input_cloth(index)
-        cloth_mask = self.get_input_cloth_mask(cloth)
-        return cloth, cloth_mask
 
+    #@overrides(CpVtonDataset)
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
@@ -52,15 +50,7 @@ class VVTDataset(CPDataset):
         cloth_path = glob(f"{cloth_folder}/*cloth*")[0]
         return cloth_path
 
-    def get_input_cloth_mask(self, input_cloth: torch.Tensor):
-        """ Creates a mask directly from the input_cloth """
-        # make the mask
-        low = torch.zeros_like(input_cloth)
-        high = torch.ones_like(input_cloth)
-        cloth_mask = torch.where(input_cloth >= self.CLOTH_THRESH, low, high)
-        cloth_mask = cloth_mask[0].unsqueeze(0)  # the mask should be a single channel
-        return cloth_mask
-
+    #@overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):
         cloth_path = self.get_input_cloth_path(index)
         folder_id = VVTDataset.extract_folder_id(cloth_path)
@@ -73,16 +63,19 @@ class VVTDataset(CPDataset):
     ########################
     # PERSON REPRESENTATION
     ########################
+    #@overrides(CpVtonDataset)
+    def get_person_image_path(self, index):
+        # because we globbed, the path is the list
+        return self.image_names[index]
+
+    #@overrides(CpVtonDataset)
     def get_person_image_name(self, index):
         image_path = self.get_person_image_path(index)
         folder_id = VVTDataset.extract_folder_id(image_path)
         name = osp.join(folder_id, osp.basename(image_path))
         return name
 
-    def get_person_image_path(self, index):
-        # because we globbed, the path is the list
-        return self.image_names[index]
-
+    #@overrides(CpVtonDataset)
     def get_person_parsed_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"lip_{self.opt.datamode}_frames_parsing"
@@ -93,6 +86,7 @@ class VVTDataset(CPDataset):
             parsed_path = parsed_path.replace("_label", "")
         return parsed_path
 
+    #@overrides(CpVtonDataset)
     def get_input_person_pose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"lip_{self.opt.datamode}_frames_keypoint"
@@ -113,6 +107,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataroot", default="data")
+    parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
     parser.add_argument("--datamode", default="train")
     parser.add_argument("--stage", default="GMM")
     parser.add_argument("--data_list", default="train_pairs.txt")
