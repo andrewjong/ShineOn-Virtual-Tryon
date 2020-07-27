@@ -68,7 +68,7 @@ def get_opt():
 
 
 def train_gmm(opt, train_loader, model, board):
-    device = torch.device("cuda:1")
+    device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
     #model.cuda()
     model.train()
@@ -132,9 +132,8 @@ def train_gmm(opt, train_loader, model, board):
 
 
 def train_tom(opt, train_loader, model, board):
-    device = torch.device("cuda:1")
+    device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
-    #model.cuda()
     model.train()
 
     # criterion
