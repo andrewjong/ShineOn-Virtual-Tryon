@@ -8,3 +8,4 @@ log/*
 result/*/*
 .idea/
 *.pyc
+venv/*

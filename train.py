@@ -31,6 +31,7 @@ def get_opt():
     parser.add_argument(
         "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="cp"
     )
+    parser.add_argument("--data_parallel", type=int, default=0)
     parser.add_argument("--stage", default="GMM")
     parser.add_argument("--data_list", default="train_pairs.txt")
     parser.add_argument("--fine_width", type=int, default=192)
@@ -67,7 +68,7 @@ def get_opt():
 
 
 def train_gmm(opt, train_loader, model, board):
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
     model.to(device)
     #model.cuda()
     model.train()
@@ -131,7 +132,7 @@ def train_gmm(opt, train_loader, model, board):
 
 
 def train_tom(opt, train_loader, model, board):
-    device = torch.device("cuda:0")
+    device = torch.device("cuda:1")
     model.to(device)
     #model.cuda()
     model.train()
@@ -234,7 +235,7 @@ def main():
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
 
-        if torch.cuda.device_count() > 1:
+        if opt.data_parallel and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
         
         train_gmm(opt, train_loader, model, board)
@@ -246,7 +247,7 @@ def main():
         model.opt = opt
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
-        if torch.cuda.device_count() > 1:
+        if opt.data_parallel and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
 
         train_tom(opt, train_loader, model, board)
