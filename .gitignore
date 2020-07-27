@@ -8,4 +8,4 @@ log/*
 result/*/*
 .idea/
 *.pyc
-venv/*
+venv/*git checkout
