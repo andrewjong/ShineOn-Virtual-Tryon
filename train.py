@@ -89,6 +89,7 @@ def train_gmm(opt, train_loader, model, board):
 
         im = inputs["image"].to(device) #.cuda()
         im_cocopose = inputs["im_cocopose"].to(device) #.cuda()
+        densepose = inputs["densepose"]
         im_h = inputs["im_head"].to(device) #.cuda()
         silhouette = inputs["silhouette"].to(device) #.cuda()
         agnostic = inputs["agnostic"].to(device) #.cuda()
@@ -103,7 +104,7 @@ def train_gmm(opt, train_loader, model, board):
         warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
         visuals = [
-            [im_h, silhouette, im_cocopose],
+            [im_h, silhouette, im_cocopose, densepose],
             [c, warped_cloth, im_c],
             [warped_grid, (warped_cloth + im) * 0.5, im],
         ]
