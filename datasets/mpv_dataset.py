@@ -68,7 +68,7 @@ class MPVDataset(VVTDataset):
         return parsed_path
 
     #@overrides(CpVtonDataset)
-    def get_input_person_pose_path(self, index):
+    def get_person_cocopose_path(self, index):
         image_name = self.get_person_image_name(index)
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
         pose_path = pose_path.replace(".jpg", "_keypoints.json")

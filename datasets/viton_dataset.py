@@ -8,6 +8,7 @@ class VitonDataset(CpVtonDataset):
     """ CP-VTON dataset with the original Viton folder structure """
     def __init__(self, opt):
         super().__init__(opt)
+        self.data_path = osp.join(opt.viton_dataroot, opt.datamode)
 
     #@overrides
     def load_file_paths(self):
@@ -71,7 +72,7 @@ class VitonDataset(CpVtonDataset):
         return parsed_path
 
     #@overrides
-    def get_input_person_pose_path(self, index):
+    def get_person_cocopose_path(self, index):
         """ path to pose keypoints """
         im_name = self.get_person_image_name(index)
         _pose_name = im_name.replace(".jpg", "_keypoints.json")
