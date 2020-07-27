@@ -1,6 +1,5 @@
 # Fork Description
-This is our research work for WACV 2021
-This fork is our modifications to the original cp-vton code for the [2020 VUHCS video virtual try-on challenge](https://vuhcs.github.io/). The main difference is the Dataset classes that load the competition's VVT and MPV datasets.
+This is our research work for WACV 2021.
 
 To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
 
