@@ -1,4 +1,5 @@
 # coding=utf-8
+import os
 from abc import ABC, abstractmethod
 import torch
 import torch.utils.data as data
@@ -29,11 +30,18 @@ class CpVtonDataset(ABC, data.Dataset):
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.center_crop = transforms.CenterCrop((self.fine_height, self.fine_width))
-        self.to_tensor_and_norm = transforms.Compose(
+        self.to_tensor_and_norm_rgb = transforms.Compose(
             [
                 self.center_crop,
                 transforms.ToTensor(),
                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            ]
+        )
+        self.to_tensor_and_norm_gray = transforms.Compose(
+            [
+                self.center_crop,
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
             ]
         )
         self.image_names = []
@@ -53,7 +61,7 @@ class CpVtonDataset(ABC, data.Dataset):
 
     def open_image_as_normed_tensor(self, path):
         img = Image.open(path)
-        tensor = self.to_tensor_and_norm(img)
+        tensor = self.to_tensor_and_norm_rgb(img)
         return tensor
 
     ########################
@@ -201,7 +209,14 @@ class CpVtonDataset(ABC, data.Dataset):
         _parse_shape = _parse_shape.resize(
             (self.fine_width, self.fine_height), Image.BILINEAR
         )
-        silhouette = self.to_tensor_and_norm(_parse_shape)  # [-1,1]
+        try:
+            silhouette = self.to_tensor_and_norm_rgb(_parse_shape)  # [-1,1]
+        except Exception as e1:
+            #print("ERROR:", e1)
+            silhouette = self.to_tensor_and_norm_gray(_parse_shape)
+        except Exception as e2:
+            raise e2
+
         return silhouette
 
     def get_input_person_pose(self, index):
@@ -248,7 +263,15 @@ class CpVtonDataset(ABC, data.Dataset):
             r = self.radius
             for i in range(point_num):
                 one_map = Image.new("L", (self.fine_width, self.fine_height))
-                one_map_tensor = self.to_tensor_and_norm(one_map)
+
+                try:
+                    one_map_tensor = self.to_tensor_and_norm_rgb(one_map)  # [-1,1]
+                except Exception as e1:
+                    #print("ERROR:", e1)
+                    one_map_tensor = self.to_tensor_and_norm_gray(one_map)
+                except Exception as e2:
+                    raise e2
+
                 pose_map[i] = one_map_tensor[0]
 
                 draw = ImageDraw.Draw(one_map)
@@ -266,7 +289,14 @@ class CpVtonDataset(ABC, data.Dataset):
                         "white",
                     )
         # just for visualization
-        im_cocopose = self.to_tensor_and_norm(im_cocopose)
+        try:
+            im_cocopose = self.to_tensor_and_norm_rgb(im_cocopose)      # [-1,1]
+        except Exception as e1:
+            #print("ERROR:", e1)
+            im_cocopose = self.to_tensor_and_norm_gray(im_cocopose)
+        except Exception as e2:
+            raise e2
+
         return pose_map, im_cocopose
 
     @abstractmethod
@@ -360,8 +390,8 @@ class CPDataLoader(object):
             dataset,
             batch_size=opt.batch_size,
             shuffle=(train_sampler is None),
-            num_workers=opt.workers,
-            pin_memory=True,
+            #num_workers=opt.workers,
+            #pin_memory=True,
             sampler=train_sampler,
         )
         self.dataset = dataset

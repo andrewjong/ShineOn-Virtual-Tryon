@@ -121,7 +121,7 @@ class FeatureRegression(nn.Module):
 
     def forward(self, x):
         x = self.conv(x)
-        x = x.view(x.size(0), -1)
+        x = x.contiguous().view(x.size(0), -1)
         x = self.linear(x)
         x = self.tanh(x)
         return x
@@ -434,6 +434,7 @@ class GMM(nn.Module):
         theta = self.regression(correlation)
         grid = self.gridGen(theta)
         return grid, theta
+
 
 def save_checkpoint(model, save_path):
     if not os.path.exists(os.path.dirname(save_path)):
