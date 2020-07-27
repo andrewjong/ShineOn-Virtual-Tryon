@@ -18,18 +18,18 @@ import json
 
 
 class VVTDataset(CpVtonDataset):
-    """ CP-VTON dataset with the VVT folder structure. """
+    """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     def __init__(self, opt):
         super(VVTDataset, self).__init__(opt)
         del self.data_list  # not using this
         del self.data_path
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def load_file_paths(self):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.vvt_dataroot  # override this
-        folder = f"lip_{self.opt.datamode}_frames"
+        folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
         self.image_names = sorted(glob(f"{self.root}/{folder}/**/*.png"))
 
     @staticmethod
@@ -40,17 +40,17 @@ class VVTDataset(CpVtonDataset):
     # CLOTH REPRESENTATION
     ########################
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
 
-        subdir = "lip_clothes_person" if self.stage == "GMM" else "warp-cloth"
+        subdir = "clothes_person" if self.stage == "GMM" else "warp-cloth"
         cloth_folder = osp.join(self.root, subdir, folder_id)
         cloth_path = glob(f"{cloth_folder}/*cloth*")[0]
         return cloth_path
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):
         cloth_path = self.get_input_cloth_path(index)
         folder_id = VVTDataset.extract_folder_id(cloth_path)
@@ -63,33 +63,35 @@ class VVTDataset(CpVtonDataset):
     ########################
     # PERSON REPRESENTATION
     ########################
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_person_image_path(self, index):
         # because we globbed, the path is the list
         return self.image_names[index]
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_person_image_name(self, index):
         image_path = self.get_person_image_path(index)
         folder_id = VVTDataset.extract_folder_id(image_path)
         name = osp.join(folder_id, osp.basename(image_path))
         return name
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_person_parsed_path(self, index):
         image_path = self.get_person_image_path(index)
-        folder = f"lip_{self.opt.datamode}_frames_parsing"
+        folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_parsing"
         id = VVTDataset.extract_folder_id(image_path)
         parsed_fname = os.path.split(image_path)[-1].replace(".png", "_label.png")
         parsed_path = osp.join(self.root, folder, id, parsed_fname)
-        if not os.path.exists(parsed_path):  # hacky, if it doesn't exist as _label, then try getting rid of it. did this to fix my specific bug in a time crunch
+        if not os.path.exists(
+            parsed_path
+        ):  # hacky, if it doesn't exist as _label, then try getting rid of it. did this to fix my specific bug in a time crunch
             parsed_path = parsed_path.replace("_label", "")
         return parsed_path
 
-    #@overrides(CpVtonDataset)
+    # @overrides(CpVtonDataset)
     def get_input_person_pose_path(self, index):
         image_path = self.get_person_image_path(index)
-        folder = f"lip_{self.opt.datamode}_frames_keypoint"
+        folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_keypoint"
         id = VVTDataset.extract_folder_id(image_path)
 
         keypoint_fname = os.path.split(image_path)[-1].replace(

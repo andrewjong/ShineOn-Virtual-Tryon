@@ -1,4 +1,5 @@
 # Fork Description
+This is our research work for WACV 2021
 This fork is our modifications to the original cp-vton code for the [2020 VUHCS video virtual try-on challenge](https://vuhcs.github.io/). The main difference is the Dataset classes that load the competition's VVT and MPV datasets.
 
 To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
@@ -51,13 +52,13 @@ Then train
 ```bash
 echo "Train CP-VTON GMM"; \
 python train.py \
---name train_gmm_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
+--name train_gmm_viton-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
 --stage GMM \
 --shuffle \
 --save_count 5000 \
---dataset cp_vvt_mpv \
---dataroot ./data `# or /data_hdd/cp-vton/viton_processed` \
---vvt_dataroot /data_hdd/vvt_competition \
+--dataset viton_vvt_mpv \
+--dataroot /data_hdd/cp-vton/viton_processed \
+--vvt_dataroot /data_hdd/fw_gan_vvt \
 --mpv_dataroot /data_hdd/mpv_competition  \
 --workers 32 \
 --gpu_ids 0,1,2,3,4,5,6,7 \
@@ -88,7 +89,7 @@ python test.py \
 --stage GMM \
 --workers 4 \
 --datamode "$DATAMODE" \
---dataset cp_vvt_mpv \
+--dataset viton_vvt_mpv \
 --data_list "$DATAMODE"_pairs.txt \
 --vvt_dataroot /data_hdd/vvt_competition \
 --mpv_dataroot /data_hdd/mpv_competition \
@@ -123,13 +124,13 @@ An example training command is
 ```bash
 echo "Train CP-VTON TOM"; \
 python train.py \
---name train_tom_cp-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
+--name train_tom_viton-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
 --stage TOM \
 --shuffle \
 --save_count 5000 \
---dataset cp_vvt_mpv \
---dataroot ./data `# or /data_hdd/cp-vton/viton_processed` \
---vvt_dataroot /data_hdd/vvt_competition \
+--dataset viton_vvt_mpv \
+--viton_dataroot /data_hdd/cp-vton/viton_processed \
+--vvt_dataroot /data_hdd/fw_gan_vvt \
 --mpv_dataroot /data_hdd/mpv_competition  \
 --workers 32 \
 --gpu_ids 0,1,2,3,4,5,6,7 \

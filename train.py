@@ -24,8 +24,8 @@ def get_opt():
     parser.add_argument("-j", "--workers", type=int, default=1)
     parser.add_argument("-b", "--batch_size", type=int, default=4)
 
-    parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
+    parser.add_argument("--viton_dataroot", default="data")
+    parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
     parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
     parser.add_argument("--datamode", default="train")
     parser.add_argument(
