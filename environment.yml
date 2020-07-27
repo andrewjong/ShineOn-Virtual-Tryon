@@ -58,6 +58,7 @@ dependencies:
     - protobuf==3.7.1
     - pyyaml==5.1
     - requests==2.22.0
+    - tqdm==4.46.1
     - tensorboard==1.6.0
     - tensorboard-pytorch==0.7.1
     - tensorboardx==1.1
