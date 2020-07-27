@@ -1,20 +1,9 @@
 # coding=utf-8
-import torch
-from glob import glob
-import torch
-import torch.utils.data as data
-import torchvision.transforms as transforms
-
-from PIL import Image
-from PIL import ImageDraw
-from overrides import overrides
-
-from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
-
 import os
 import os.path as osp
-import numpy as np
-import json
+from glob import glob
+
+from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
 
 
 class VVTDataset(CpVtonDataset):
@@ -23,14 +12,14 @@ class VVTDataset(CpVtonDataset):
     def __init__(self, opt):
         super(VVTDataset, self).__init__(opt)
         del self.data_list  # not using this
-        del self.data_path
 
     # @overrides(CpVtonDataset)
     def load_file_paths(self):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
-        self.image_names = sorted(glob(f"{self.root}/{folder}/**/*.png"))
+        search = f"{self.root}/{folder}/**/*.png"
+        self.image_names = sorted(glob(search))
 
     @staticmethod
     def extract_folder_id(image_path):
@@ -44,10 +33,15 @@ class VVTDataset(CpVtonDataset):
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
+        # for some reason fw_gan_vvt's clothes_persons folder is in upper case. this is a temporay hack; we should really lowercase those folders.
+        # it also removes the ending sub-id, which is the garment id
+        folder_id = folder_id.upper().split("-")[0]
 
-        subdir = "clothes_person" if self.stage == "GMM" else "warp-cloth"
+        subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
         cloth_folder = osp.join(self.root, subdir, folder_id)
-        cloth_path = glob(f"{cloth_folder}/*cloth*")[0]
+        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"
+        # print("Globbing", search)
+        cloth_path = sorted(glob(search))[0]
         return cloth_path
 
     # @overrides(CpVtonDataset)
@@ -89,7 +83,7 @@ class VVTDataset(CpVtonDataset):
         return parsed_path
 
     # @overrides(CpVtonDataset)
-    def get_input_person_pose_path(self, index):
+    def get_person_cocopose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_keypoint"
         id = VVTDataset.extract_folder_id(image_path)
@@ -101,6 +95,19 @@ class VVTDataset(CpVtonDataset):
         pose_path = osp.join(self.root, folder, id, keypoint_fname)
         return pose_path
 
+    # @overrides(CpVtonDataset)
+    def get_person_densepose_path(self, index):
+        image_path = self.get_person_image_path(index)
+        folder = f"{self.opt.datamode}/densepose"
+        id = VVTDataset.extract_folder_id(image_path)
+
+        iuv_fname = os.path.split(image_path)[-1].replace(
+            ".png", "_IUV.png"
+        )
+
+        densepose_path = osp.join(self.root, folder, id, iuv_fname)
+        return densepose_path
+
 
 if __name__ == "__main__":
     print("Check the dataset for geometric matching module!")
@@ -109,7 +116,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
+    parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
     parser.add_argument("--datamode", default="train")
     parser.add_argument("--stage", default="GMM")
     parser.add_argument("--data_list", default="train_pairs.txt")

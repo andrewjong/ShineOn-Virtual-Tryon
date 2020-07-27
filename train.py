@@ -88,14 +88,15 @@ def train_gmm(opt, train_loader, model, board):
         inputs = train_loader.next_batch()
 
         im = inputs["image"].to(device) #.cuda()
-        im_pose = inputs["pose_image"].to(device) #.cuda()
-        im_h = inputs["head"].to(device) #.cuda()
-        shape = inputs["shape"].to(device) #.cuda()
+        im_cocopose = inputs["im_cocopose"].to(device) #.cuda()
+        densepose = inputs["densepose"]
+        im_h = inputs["im_head"].to(device) #.cuda()
+        silhouette = inputs["silhouette"].to(device) #.cuda()
         agnostic = inputs["agnostic"].to(device) #.cuda()
         c = inputs["cloth"].to(device) #.cuda()
         cm = inputs["cloth_mask"].to(device) #.cuda()
-        im_c = inputs["parse_cloth"].to(device) #.cuda()
-        im_g = inputs["grid_image"].to(device) #.cuda()
+        im_c = inputs["im_cloth"].to(device) #.cuda()
+        im_g = inputs["grid_vis"].to(device) #.cuda()
         
         grid, theta = model(agnostic, c)
         warped_cloth = F.grid_sample(c, grid, padding_mode="border")
@@ -103,7 +104,7 @@ def train_gmm(opt, train_loader, model, board):
         warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
         visuals = [
-            [im_h, shape, im_pose],
+            [im_h, silhouette, im_cocopose, densepose],
             [c, warped_cloth, im_c],
             [warped_grid, (warped_cloth + im) * 0.5, im],
         ]
@@ -153,9 +154,10 @@ def train_tom(opt, train_loader, model, board):
         inputs = train_loader.next_batch()
 
         im = inputs["image"].to(device) #.cuda()
-        im_pose = inputs["pose_image"]
-        im_h = inputs["head"]
-        shape = inputs["shape"]
+        im_cocopose = inputs["im_cocopose"]
+        densepose = inputs["densepose"]
+        im_h = inputs["im_head"]
+        silhouette = inputs["silhouette"]
 
         agnostic = inputs["agnostic"].to(device)# .cuda()
         c = inputs["cloth"].to(device) #.cuda()
@@ -171,7 +173,7 @@ def train_tom(opt, train_loader, model, board):
         p_tryon = c * m_composite + p_rendered * (1 - m_composite)
 
         visuals = [
-            [im_h, shape, im_pose],
+            [im_h, silhouette, im_cocopose, densepose],
             [c, cm * 2 - 1, m_composite * 2 - 1],
             [p_rendered, p_tryon, im],
         ]
