@@ -106,5 +106,3 @@ dependencies:
   - zstd=1.4.5=h0b5b093_0
   - pip:
     - overrides==3.1.0
-prefix: /home/gaurav/anaconda3/envs/cp-vton-1
-
