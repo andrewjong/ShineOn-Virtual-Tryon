@@ -1,5 +1,5 @@
 # Fork Description
-This fork is for us to add modifications to the original cp-vton code. In particular, we are experimenting with further data annotation with the CP-VTON architecture.
+This fork is our modifications to the original cp-vton code for the [2020 VUHCS video virtual try-on challenge](https://vuhcs.github.io/). The main difference is the Dataset classes that load the competition's VVT and MPV datasets.
 
 To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
 
