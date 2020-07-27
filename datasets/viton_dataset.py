@@ -15,9 +15,10 @@ class VitonDataset(CpVtonDataset):
         Reads the datalist txt file for CP-VTON
         sets self.image_names and self.cloth_names. they should correspond 1-to-1
         """
+        self.root = self.opt.viton_dataroot
         im_names = []
         c_names = []
-        with open(osp.join(self.opt.dataroot, self.opt.data_list), "r") as f:
+        with open(osp.join(self.root, self.opt.data_list), "r") as f:
             for line in f.readlines():
                 im_name, c_name = line.strip().split()
                 im_names.append(im_name)

@@ -22,7 +22,6 @@ class CpVtonDataset(ABC, data.Dataset):
         self.CLOTH_THRESH = 240
         # base setting
         self.opt = opt
-        self.root = opt.dataroot
         self.datamode = opt.datamode  # train or test or self-defined
         self.stage = opt.stage  # GMM or TOM
         self.data_list = opt.data_list
