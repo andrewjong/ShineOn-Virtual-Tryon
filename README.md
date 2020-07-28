@@ -4,13 +4,10 @@ This is our research work for WACV 2021.
 To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
 
 
-## Toward Characteristic-Preserving Image-based Virtual Try-On Network
+## WACV Video Virtual Try-On Network
 
-Reimplemented code for eccv2018 paper 'Toward Characteristic-Preserving Image-based Virtual Try-On Network'. 
+This code is tested with pytorch=1.5.1. Install the environment with `conda env create -f environment.yml`.
 
-The results may have some differences with those of the original code.
-
-This code is tested with pytorch=0.4.0
 
 ## Data preprocessing
 <details>
