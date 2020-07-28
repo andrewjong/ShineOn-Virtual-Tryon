@@ -328,7 +328,7 @@ class UnetSkipConnectionBlock(nn.Module):
             input_nc = outer_nc
         downconv = nn.Conv2d(input_nc, inner_nc, kernel_size=4,
                              stride=2, padding=1, bias=use_bias)
-        downrelu = nn.LeakyReLU(0.2)#, True)
+        downrelu = nn.LeakyReLU(0.2, True)
         downnorm = norm_layer(inner_nc)
         uprelu = nn.ReLU(True)
         upnorm = norm_layer(outer_nc)
@@ -503,4 +503,3 @@ def load_checkpoint(model, checkpoint_path):
         return
     model.load_state_dict(torch.load(checkpoint_path))
     model.cuda()
-
