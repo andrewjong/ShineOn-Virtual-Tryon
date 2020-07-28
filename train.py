@@ -1,4 +1,5 @@
 # coding=utf-8
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 import torch
 import torch.nn as nn
@@ -18,11 +19,15 @@ from visualization import board_add_images
 
 
 def get_opt():
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument("--name", default="GMM")
-    parser.add_argument("--gpu_ids", default="0", help="comma separated of which GPUs to train on")
-    parser.add_argument("-j", "--workers", type=int, default=1)
-    parser.add_argument("-b", "--batch_size", type=int, default=4)
+    parser.add_argument(
+        "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
+    )
+    parser.add_argument("-j", "--workers", type=int, default=4)
+    parser.add_argument("-b", "--batch_size", type=int, default=8)
 
     parser.add_argument("--viton_dataroot", default="data")
     parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
@@ -45,7 +50,7 @@ def get_opt():
         "--tensorboard_dir",
         type=str,
         default="tensorboard",
-        help="save tensorboard infos",
+        help="save tensorboard infos. pass empty string '' to disable tensorboard",
     )
     parser.add_argument(
         "--checkpoint_dir",
@@ -56,10 +61,31 @@ def get_opt():
     parser.add_argument(
         "--checkpoint", type=str, default="", help="model checkpoint for initialization"
     )
-    parser.add_argument("--display_count", type=int, default=20)
-    parser.add_argument("--save_count", type=int, default=20)
-    parser.add_argument("--keep_step", type=int, default=100000)
-    parser.add_argument("--decay_step", type=int, default=100000)
+    parser.add_argument(
+        "--display_count",
+        type=int,
+        help="how often to update tensorboard, in steps",
+        default=100,
+    )
+    parser.add_argument(
+        "--save_count",
+        type=int,
+        help="how often to save a checkpoint, in epochs",
+        default=1,
+    )
+    parser.add_argument(
+        "--keep_epochs",
+        type=int,
+        help="number of epochs with initial learning rate",
+        default=100,
+    )
+    parser.add_argument(
+        "--decay_epochs",
+        type=int,
+        help="number of epochs to linearly decay the learning rate",
+        default=100,
+    )
+    parser.add_argument("--datacap", type=float, default=float("inf"), help="limits the dataset to this many batches")
     parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
 
     opt = parser.parse_args()
@@ -70,7 +96,6 @@ def get_opt():
 def train_gmm(opt, train_loader, model, board):
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
-    #model.cuda()
     model.train()
 
     # criterion
@@ -80,55 +105,59 @@ def train_gmm(opt, train_loader, model, board):
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
-        lr_lambda=lambda step: 1.0
-        - max(0, step - opt.keep_step) / float(opt.decay_step + 1),
+        lr_lambda=lambda e: 1.0
+        - max(0, e - opt.keep_epochs) / float(opt.decay_epochs + 1),
     )
 
-    pbar = tqdm(range(opt.keep_step + opt.decay_step), unit="step")
-    for step in pbar:
-        inputs = train_loader.next_batch()
+    steps = 0
+    for epoch in tqdm(
+        range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
+    ):
+        pbar = tqdm(train_loader, unit="step")
+        for inputs in pbar:
+            if steps > opt.datacap:
+                tqdm.write(f"Reached dataset cap {opt.datacap}")
+                break
+            im = inputs["image"].to(device)
+            im_cocopose = inputs["im_cocopose"].to(device)
+            densepose = inputs["densepose"]
+            im_h = inputs["im_head"].to(device)
+            silhouette = inputs["silhouette"].to(device)
+            agnostic = inputs["agnostic"].to(device)
+            c = inputs["cloth"].to(device)
+            im_c = inputs["im_cloth"].to(device)
+            im_g = inputs["grid_vis"].to(device)
 
-        im = inputs["image"].to(device) #.cuda()
-        im_cocopose = inputs["im_cocopose"].to(device) #.cuda()
-        densepose = inputs["densepose"]
-        im_h = inputs["im_head"].to(device) #.cuda()
-        silhouette = inputs["silhouette"].to(device) #.cuda()
-        agnostic = inputs["agnostic"].to(device) #.cuda()
-        c = inputs["cloth"].to(device) #.cuda()
-        cm = inputs["cloth_mask"].to(device) #.cuda()
-        im_c = inputs["im_cloth"].to(device) #.cuda()
-        im_g = inputs["grid_vis"].to(device) #.cuda()
-        
-        grid, theta = model(agnostic, c)
-        warped_cloth = F.grid_sample(c, grid, padding_mode="border")
-        # warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
-        warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
+            grid, theta = model(agnostic, c)
+            warped_cloth = F.grid_sample(c, grid, padding_mode="border")
+            # warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
+            warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
-        visuals = [
-            [im_h, silhouette, im_cocopose, densepose],
-            [c, warped_cloth, im_c],
-            [warped_grid, (warped_cloth + im) * 0.5, im],
-        ]
+            visuals = [
+                [im_h, silhouette, im_cocopose, densepose],
+                [c, warped_cloth, im_c],
+                [warped_grid, (warped_cloth + im) * 0.5, im],
+            ]
 
-        loss = criterionL1(warped_cloth, im_c)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            loss = criterionL1(warped_cloth, im_c)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        pbar.set_description(f"loss: {loss.item():4f}")
-        if board and (step + 1) % opt.display_count == 0:
-            board_add_images(board, "combine", visuals, step + 1)
-            board.add_scalar("metric", loss.item(), step + 1)
-            tqdm.write(f'step: {step + 1:8d}, loss: {loss.item():4f}')
+            pbar.set_description(f"loss: {loss.item():4f}")
+            if board and steps % opt.display_count == 0:
+                board_add_images(board, "combine", visuals, steps)
+                board.add_scalar("epoch", epoch, steps)
+                board.add_scalar("metric", loss.item(), steps)
+                tqdm.write(f"step: {steps:8d}, loss: {loss.item():4f}")
+            steps += 1
 
-
-        if (step + 1) % opt.save_count == 0:
+        if epoch % opt.save_count == 0:
             save_checkpoint(
                 model,
-                os.path.join(
-                    opt.checkpoint_dir, opt.name, "step_%06d.pth" % (step + 1)
-                ),
+                os.path.join(opt.checkpoint_dir, opt.name, f"epoch_{epoch:04d}.pth"),
             )
+        scheduler.step()
 
 
 def train_tom(opt, train_loader, model, board):
@@ -145,68 +174,74 @@ def train_tom(opt, train_loader, model, board):
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
-        lr_lambda=lambda step: 1.0
-        - max(0, step - opt.keep_step) / float(opt.decay_step + 1),
+        lr_lambda=lambda e: 1.0
+        - max(0, e - opt.keep_epochs) / float(opt.decay_epochs + 1),
     )
 
-    pbar = tqdm(range(opt.keep_step + opt.decay_step))
-    for step in pbar:
-        inputs = train_loader.next_batch()
+    steps = 0
+    for epoch in tqdm(
+        range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
+    ):
+        pbar = tqdm(train_loader, unit="step")
+        for inputs in pbar:
+            if steps > opt.datacap:
+                tqdm.write(f"Reached dataset cap {opt.datacap}")
+                break
+            im = inputs["image"].to(device)
+            im_cocopose = inputs["im_cocopose"].to(device)
+            densepose = inputs["densepose"].to(device)
+            im_h = inputs["im_head"].to(device)
+            silhouette = inputs["silhouette"].to(device)
 
-        im = inputs["image"].to(device) #.cuda()
-        im_cocopose = inputs["im_cocopose"]
-        densepose = inputs["densepose"]
-        im_h = inputs["im_head"]
-        silhouette = inputs["silhouette"]
+            agnostic = inputs["agnostic"].to(device)
+            c = inputs["cloth"].to(device)
+            cm = inputs["cloth_mask"].to(device)
 
-        agnostic = inputs["agnostic"].to(device)# .cuda()
-        c = inputs["cloth"].to(device) #.cuda()
-        cm = inputs["cloth_mask"].to(device) #.cuda()
-        
-        concat_tensor = torch.cat([agnostic, c], 1)
-        concat_tensor = concat_tensor.to(device) 
+            concat_tensor = torch.cat([agnostic, c], 1)
+            concat_tensor = concat_tensor.to(device)
 
-        outputs = model(concat_tensor)
-        p_rendered, m_composite = torch.split(outputs, 3, 1)
-        p_rendered = F.tanh(p_rendered)
-        m_composite = F.sigmoid(m_composite)
-        p_tryon = c * m_composite + p_rendered * (1 - m_composite)
+            outputs = model(concat_tensor)
+            p_rendered, m_composite = torch.split(outputs, 3, 1)
+            p_rendered = F.tanh(p_rendered)
+            m_composite = F.sigmoid(m_composite)
+            p_tryon = c * m_composite + p_rendered * (1 - m_composite)
 
-        visuals = [
-            [im_h, silhouette, im_cocopose, densepose],
-            [c, cm * 2 - 1, m_composite * 2 - 1],
-            [p_rendered, p_tryon, im],
-        ]
+            visuals = [
+                [im_h, silhouette, im_cocopose, densepose],
+                [c, cm * 2 - 1, m_composite * 2 - 1],
+                [p_rendered, p_tryon, im],
+            ]
 
-        loss_l1 = criterionL1(p_tryon, im)
-        loss_vgg = criterionVGG(p_tryon, im)
-        loss_mask = criterionMask(m_composite, cm)
-        loss = loss_l1 + loss_vgg + loss_mask
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            loss_l1 = criterionL1(p_tryon, im)
+            loss_vgg = criterionVGG(p_tryon, im)
+            loss_mask = criterionMask(m_composite, cm)
+            loss = loss_l1 + loss_vgg + loss_mask
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        tqdm.set_description(
-            f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
-        )
-        if board and (step + 1) % opt.display_count == 0:
-            board_add_images(board, "combine", visuals, step + 1)
-            board.add_scalar("metric", loss.item(), step + 1)
-            board.add_scalar("L1", loss_l1.item(), step + 1)
-            board.add_scalar("VGG", loss_vgg.item(), step + 1)
-            board.add_scalar("MaskL1", loss_mask.item(), step + 1)
-            print(
-                f"step: {step + 1:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
-                flush=True,
+            pbar.set_description(
+                f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
             )
+            if board and steps % opt.display_count == 0:
+                board_add_images(board, "combine", visuals, steps)
+                board.add_scalar("epoch", epoch, steps)
+                board.add_scalar("metric", loss.item(), steps)
+                board.add_scalar("L1", loss_l1.item(), steps)
+                board.add_scalar("VGG", loss_vgg.item(), steps)
+                board.add_scalar("MaskL1", loss_mask.item(), steps)
+                print(
+                    f"step: {steps:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
+                    flush=True,
+                )
+            steps += 1
 
-        if (step + 1) % opt.save_count == 0:
+        if epoch % opt.save_count == 0:
             save_checkpoint(
                 model,
-                os.path.join(
-                    opt.checkpoint_dir, opt.name, "step_%06d.pth" % (step + 1)
-                ),
+                os.path.join(opt.checkpoint_dir, opt.name, f"epoch_{epoch:04d}.pth"),
             )
+        scheduler.step()
 
 
 def main():
@@ -218,14 +253,15 @@ def main():
     train_dataset = get_dataset_class(opt.dataset)(opt)
 
     # create dataloader
-    train_loader = CPDataLoader(opt, train_dataset)
+    train_loader = DataLoader(
+        train_dataset, batch_size=opt.batch_size, num_workers=opt.workers
+    )
 
     # visualization
     board = None
-    if opt.tensorboard_dir and not os.path.exists(opt.tensorboard_dir):
-        os.makedirs(opt.tensorboard_dir)
-    board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
-
+    if opt.tensorboard_dir:
+        os.makedirs(opt.tensorboard_dir, exist_ok=True)
+        board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
 
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
@@ -236,7 +272,7 @@ def main():
 
         if opt.data_parallel and torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
-        
+
         train_gmm(opt, train_loader, model, board)
         save_checkpoint(
             model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
