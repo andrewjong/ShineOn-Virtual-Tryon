@@ -7,12 +7,14 @@ import torch.nn.functional as F
 
 import argparse
 import os
-import time
-from networks import GMM, UnetGenerator, VGGLoss, load_checkpoint, save_checkpoint
-from datasets import (
-    get_dataset_class,
-    CPDataLoader,
+from networks.cpvton import (
+    GMM,
+    UnetGenerator,
+    VGGLoss,
+    load_checkpoint,
+    save_checkpoint,
 )
+from datasets import get_dataset_class
 
 from tensorboardX import SummaryWriter
 from visualization import board_add_images
@@ -85,7 +87,12 @@ def get_opt():
         help="number of epochs to linearly decay the learning rate",
         default=100,
     )
-    parser.add_argument("--datacap", type=float, default=float("inf"), help="limits the dataset to this many batches")
+    parser.add_argument(
+        "--datacap",
+        type=float,
+        default=float("inf"),
+        help="limits the dataset to this many batches",
+    )
     parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
 
     opt = parser.parse_args()

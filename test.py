@@ -2,8 +2,6 @@
 import argparse
 import os
 import os.path as osp
-from os.path import basename
-import time
 
 import torch
 import torch.nn as nn
@@ -12,7 +10,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from datasets import get_dataset_class, CPDataLoader, DATASETS
-from networks import GMM, UnetGenerator, load_checkpoint
+from networks.cpvton import GMM, UnetGenerator, load_checkpoint
 from visualization import board_add_images, save_images, get_save_paths
 
 
