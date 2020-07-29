@@ -4,13 +4,10 @@ This is our research work for WACV 2021.
 To get results of the *original baseline*, do not use this repository. Instead use the original [sergeywong/cp-vton](https://github.com/sergeywong/cp-vton).
 
 
-## Toward Characteristic-Preserving Image-based Virtual Try-On Network
+## WACV Video Virtual Try-On Network
 
-Reimplemented code for eccv2018 paper 'Toward Characteristic-Preserving Image-based Virtual Try-On Network'. 
+This code is tested with pytorch=1.5.1. Install the environment with `conda env create -f environment.yml`.
 
-The results may have some differences with those of the original code.
-
-This code is tested with pytorch=0.4.0
 
 ## Data preprocessing
 <details>
@@ -54,11 +51,9 @@ python train.py \
 --name train_gmm_viton-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
 --stage GMM \
 --shuffle \
---save_count 5000 \
---dataset viton_vvt_mpv \
---dataroot /data_hdd/cp-vton/viton_processed \
+--save_count 1 \
+--dataset vvt \
 --vvt_dataroot /data_hdd/fw_gan_vvt \
---mpv_dataroot /data_hdd/mpv_competition  \
 --workers 32 \
 --gpu_ids 0,1,2,3,4,5,6,7 \
 --batch_size 128
@@ -88,10 +83,8 @@ python test.py \
 --stage GMM \
 --workers 4 \
 --datamode "$DATAMODE" \
---dataset viton_vvt_mpv \
---data_list "$DATAMODE"_pairs.txt \
+--dataset vvt \
 --vvt_dataroot /data_hdd/vvt_competition \
---mpv_dataroot /data_hdd/mpv_competition \
 --checkpoint checkpoints/gmm_train_new/gmm_final.pth
 ```
 
@@ -126,11 +119,9 @@ python train.py \
 --name train_tom_viton-vvt-mpv_$(date +"%Y-%m-%d_%H-%M-%S") \
 --stage TOM \
 --shuffle \
---save_count 5000 \
---dataset viton_vvt_mpv \
---viton_dataroot /data_hdd/cp-vton/viton_processed \
+--save_count 1 \
+--dataset vvt \
 --vvt_dataroot /data_hdd/fw_gan_vvt \
---mpv_dataroot /data_hdd/mpv_competition  \
 --workers 32 \
 --gpu_ids 0,1,2,3,4,5,6,7 \
 --batch_size 128

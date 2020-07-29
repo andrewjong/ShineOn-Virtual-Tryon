@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch.nn import init
 from torchvision import models
+import torch.nn.functional as F
 import os
 
 import numpy as np
@@ -445,6 +446,24 @@ class GMM(nn.Module):
         theta = self.regression(correlation)
         grid = self.gridGen(theta)
         return grid, theta
+
+
+class TOM(nn.Module):
+
+    def __init__(self, opt):
+        super().__init__()
+        self.opt = opt
+        self.unet = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+
+    def forward(self, agnostic, warped_cloth):
+        concat_tensor = torch.cat([agnostic, warped_cloth], 1)
+        outputs = self.unet(concat_tensor)
+        p_rendered, m_composite = torch.split(outputs, 3, 1)
+        p_rendered = F.tanh(p_rendered)
+        m_composite = F.sigmoid(m_composite)
+        p_tryon = warped_cloth * m_composite + p_rendered * (1 - m_composite)
+
+        return p_rendered, m_composite, p_tryon
 
 
 class Self_Attn(nn.Module):
