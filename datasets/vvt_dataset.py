@@ -45,6 +45,10 @@ class VVTDataset(CpVtonDataset):
         #print("Globbing", search)
         cloth_path = sorted(glob(search))
         assert len(cloth_path) > 0, print(len(cloth_path), print(search))
+<<<<<<< HEAD
+=======
+
+>>>>>>> a98e1a7a0441832c4eebd359044828ba1a5d62fb
         if len(cloth_path) > 1:
             print(
                 f"WARNING: more than one cloth path found for {folder_id}-{cloth_id}:"
