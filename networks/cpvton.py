@@ -453,7 +453,7 @@ class TOM(nn.Module):
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
-        self.unet = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        self.unet = UnetGenerator(28, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
 
     def forward(self, agnostic, warped_cloth):
         concat_tensor = torch.cat([agnostic, warped_cloth], 1)
