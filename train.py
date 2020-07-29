@@ -12,7 +12,7 @@ from networks.cpvton import (
     UnetGenerator,
     VGGLoss,
     load_checkpoint,
-    save_checkpoint,
+    save_checkpoint, TOM,
 )
 from datasets import get_dataset_class
 
@@ -204,14 +204,7 @@ def train_tom(opt, train_loader, model, board):
             c = inputs["cloth"].to(device)
             cm = inputs["cloth_mask"].to(device)
 
-            concat_tensor = torch.cat([agnostic, c], 1)
-            concat_tensor = concat_tensor.to(device)
-
-            outputs = model(concat_tensor)
-            p_rendered, m_composite = torch.split(outputs, 3, 1)
-            p_rendered = F.tanh(p_rendered)
-            m_composite = F.sigmoid(m_composite)
-            p_tryon = c * m_composite + p_rendered * (1 - m_composite)
+            p_rendered, m_composite, p_tryon = model(agnostic, c)
 
             visuals = [
                 [im_h, silhouette, im_cocopose, densepose],
@@ -285,8 +278,7 @@ def main():
             model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
         )
     elif opt.stage == "TOM":
-        model = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
-        model.opt = opt
+        model = TOM(opt)
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
         if opt.data_parallel and torch.cuda.device_count() > 1:

@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
 from datasets import get_dataset_class, CPDataLoader, DATASETS
-from networks.cpvton import GMM, UnetGenerator, load_checkpoint
+from networks.cpvton import GMM, UnetGenerator, load_checkpoint, TOM
 from visualization import board_add_images, save_images, get_save_paths
 
 
@@ -138,11 +138,7 @@ def test_tom(opt, test_loader, model, board):
         c = inputs["cloth"].cuda()
         cm = inputs["cloth_mask"].cuda()
 
-        outputs = model(torch.cat([agnostic, c], 1))
-        p_rendered, m_composite = torch.split(outputs, 3, 1)
-        p_rendered = F.tanh(p_rendered)
-        m_composite = F.sigmoid(m_composite)
-        p_tryon = c * m_composite + p_rendered * (1 - m_composite)
+        p_rendered, m_composite, p_tryon = model(agnostic, c)
 
         visuals = [
             [im_h, shape, im_cocopose],
@@ -181,7 +177,7 @@ def main():
         with torch.no_grad():
             test_gmm(opt, train_loader, model, board)
     elif opt.stage == "TOM":
-        model = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        model = TOM(opt)
         load_checkpoint(model, opt.checkpoint)
         with torch.no_grad():
             test_tom(opt, train_loader, model, board)
