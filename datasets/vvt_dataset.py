@@ -51,11 +51,13 @@ class VVTDataset(CpVtonDataset):
 
         subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
 
+
         cloth_folder = (
             osp.join(self.root, subdir, folder_id)
             if self.stage == "GMM"
             else osp.join(self.root, self.opt.datamode, subdir, folder_id)
         )
+
         search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
         cloth_path_matches = sorted(glob(search))
         if len(cloth_path_matches) == 0:
@@ -69,6 +71,7 @@ class VVTDataset(CpVtonDataset):
         assert len(cloth_path_matches) > 0, f"{search=} not found"
 
         return cloth_path_matches[0]
+
 
     # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):
