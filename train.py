@@ -280,12 +280,7 @@ def main():
             model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
         )
     elif opt.stage == "TOM":
-<<<<<<< HEAD
-        model = UnetGenerator(28, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
-        model.opt = opt
-=======
         model = TOM(opt)
->>>>>>> c847160d05e7388c008c417c87f299b43a3d1b96
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
         if opt.data_parallel and torch.cuda.device_count() > 1:
