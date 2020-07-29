@@ -370,7 +370,7 @@ class UnetSkipConnectionBlock(nn.Module):
             except Exception as e:
                 print(x, type(x), x.size(), x.type())
                 raise e
-            print("model leaky relu")
+
             return torch.cat([x, x_prime], 1)
 
 class Vgg19(nn.Module):

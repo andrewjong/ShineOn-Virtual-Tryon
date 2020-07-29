@@ -38,16 +38,19 @@ class VVTDataset(CpVtonDataset):
         folder_id, cloth_id = folder_id.upper().split("-")
 
         subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
-        cloth_folder = osp.join(self.root, subdir, folder_id)
-        search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
-        # print("Globbing", search)
+
+        cloth_folder = osp.join(self.root, self.opt.datamode, subdir, folder_id)
+        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"
+        #print("Globbing", search)
         cloth_path = sorted(glob(search))
+        assert len(cloth_path) > 0, print(len(cloth_path), print(search))
         if len(cloth_path) > 1:
             print(
                 f"WARNING: more than one cloth path found for {folder_id}-{cloth_id}:"
                 f" {cloth_path}. Using the first one."
             )
         return cloth_path[0]
+
 
     # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):

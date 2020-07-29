@@ -161,6 +161,7 @@ def train_gmm(opt, train_loader, model, board):
 
 
 def train_tom(opt, train_loader, model, board):
+    torch.cuda.set_device(opt.gpu_ids[0])
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
     model.train()
@@ -177,6 +178,7 @@ def train_tom(opt, train_loader, model, board):
         lr_lambda=lambda e: 1.0
         - max(0, e - opt.keep_epochs) / float(opt.decay_epochs + 1),
     )
+
 
     steps = 0
     for epoch in tqdm(
@@ -221,7 +223,7 @@ def train_tom(opt, train_loader, model, board):
             optimizer.step()
 
             pbar.set_description(
-                f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
+                desc=f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
             )
             if board and steps % opt.display_count == 0:
                 board_add_images(board, "combine", visuals, steps)
@@ -278,7 +280,7 @@ def main():
             model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
         )
     elif opt.stage == "TOM":
-        model = UnetGenerator(25, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        model = UnetGenerator(28, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
         model.opt = opt
         if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
             load_checkpoint(model, opt.checkpoint)
