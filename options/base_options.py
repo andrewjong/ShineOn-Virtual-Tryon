@@ -12,24 +12,43 @@ class BaseOptions:
 
     def initialize(self, parser):
         parser.add_argument("--name", default="GMM")
+        # compute
         parser.add_argument(
             "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
         )
         parser.add_argument("-j", "--workers", type=int, default=4)
         parser.add_argument("-b", "--batch_size", type=int, default=8)
+        # data
         parser.add_argument(
             "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="cp"
         )
         parser.add_argument("--datamode", default="train")
-        parser.add_argument("--data_parallel", type=int, default=0)
         parser.add_argument("--stage", default="GMM")
+        parser.add_argument(
+            "--datacap",
+            type=float,
+            default=float("inf"),
+            help="limits the dataset to this many batches",
+        )
+        parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
+        # network dimensions
+        parser.add_argument(
+            "--in_channels",
+            type=int,
+            default=28,
+            help="number of inputs channels to the network",
+        )
+        parser.add_argument(
+            "--out_channels",
+            type=int,
+            default=3,
+            help="number of output channels from the network",
+        )
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
         parser.add_argument("--radius", type=int, default=5)
         parser.add_argument("--grid_size", type=int, default=5)
-        parser.add_argument(
-            "--lr", type=float, default=0.0001, help="initial learning rate for adam"
-        )
+        # logging
         parser.add_argument(
             "--tensorboard_dir",
             type=str,
@@ -54,13 +73,6 @@ class BaseOptions:
             help="how often to update tensorboard, in steps",
             default=100,
         )
-        parser.add_argument(
-            "--datacap",
-            type=float,
-            default=float("inf"),
-            help="limits the dataset to this many batches",
-        )
-        parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
         self.initialized = True
         return parser
 

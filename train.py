@@ -197,7 +197,7 @@ def main():
 
     if opt.checkpoint and os.path.exists(opt.checkpoint):
         load_checkpoint(model, opt.checkpoint)
-    if opt.data_parallel and torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
     train_fn(opt, train_loader, model, board)
     save_checkpoint(model, os.path.join(opt.checkpoint_dir, opt.name, final_save))
