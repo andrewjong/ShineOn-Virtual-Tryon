@@ -11,6 +11,9 @@ class TrainOptions(BaseOptions):
             default=1,
         )
         parser.add_argument(
+            "--lr", type=float, default=0.0001, help="initial learning rate for adam"
+        )
+        parser.add_argument(
             "--keep_epochs",
             type=int,
             help="number of epochs with initial learning rate",
