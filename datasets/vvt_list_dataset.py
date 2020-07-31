@@ -1,4 +1,3 @@
-import os
 import os.path as osp
 from glob import glob
 
@@ -7,7 +6,6 @@ from datasets import VVTDataset
 
 # Testing only
 class VVTListDataset(VVTDataset):
-
     def __init__(self, opt):
         self.data_list = opt.data_list
         self.image_paths = []
@@ -23,18 +21,26 @@ class VVTListDataset(VVTDataset):
                 # image dir should be our GFLA result
                 # we need to Dress cloth_id to image_dir
                 image_dir, cloth_id, pose_dir = line.strip().split()
-                image_paths = sorted(glob(f"{self.root}/lip_test_frames/{image_dir}/*.png"))
+                image_paths = sorted(
+                    glob(f"{self.root}/lip_test_frames/{image_dir}/*.png")
+                )
 
                 if self.opt.stage == "GMM":
                     # copies the same source cloth_file for the number of test frames
-                    cloth_file = glob(f"{self.root}/lip_clothes_person/{cloth_id}/*cloth*")[0]
+                    cloth_file = glob(
+                        f"{self.root}/lip_clothes_person/{cloth_id}/*cloth*"
+                    )[0]
                     cloth_paths = [cloth_file] * len(image_paths)
                 elif self.opt.stage == "TOM":
                     # take cloth files warped to the test frames; for combination with the test frames.
                     # here we switch from cloth_id to image_dir, because we saved warped clothes to the person id
-                    cloth_paths = sorted(glob(f"{self.root}/warp-cloth/{image_dir}/*.png"))
+                    cloth_paths = sorted(
+                        glob(f"{self.root}/warp-cloth/{image_dir}/*.png")
+                    )
 
-                assert len(image_paths) == len(cloth_paths), f"lens don't match on {image_dir}"
+                assert len(image_paths) == len(
+                    cloth_paths
+                ), f"lens don't match on {image_dir}"
                 self.image_paths.extend(image_paths)
                 self.cloth_paths.extend(cloth_paths)
 

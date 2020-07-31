@@ -1,16 +1,26 @@
-# from overrides import overrides
+import argparse
+import os.path as osp
 
 from datasets import CpVtonDataset, CPDataLoader
-import os.path as osp
+from options.train_options import TrainOptions
 
 
 class VitonDataset(CpVtonDataset):
+    @staticmethod
+    def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
+        parser = super(VitonDataset, VitonDataset).modify_commandline_options(parser, is_train)
+        parser.add_argument("--viton_dataroot", default="data")
+        parser.add_argument("--data_list", default="train_pairs.txt")
+        return parser
+
     """ CP-VTON dataset with the original Viton folder structure """
+
     def __init__(self, opt):
         super().__init__(opt)
+        self.data_list = opt.data_list
         self.data_path = osp.join(opt.viton_dataroot, opt.datamode)
 
-    #@overrides
+    # @overrides
     def load_file_paths(self):
         """
         Reads the datalist txt file for CP-VTON
@@ -28,11 +38,10 @@ class VitonDataset(CpVtonDataset):
         self.image_names = im_names
         self.cloth_names = c_names
 
-
     ########################
     # CLOTH REPRESENTATION
     ########################
-    #@overrides
+    # @overrides
     def get_input_cloth_path(self, index):
         """
         Get the file path for the product image input.
@@ -43,7 +52,7 @@ class VitonDataset(CpVtonDataset):
         cloth_path = osp.join(self.data_path, folder, c_name)
         return cloth_path
 
-    #@overrides
+    # @overrides
     def get_input_cloth_name(self, index):
         # determines the written thing
         return self.cloth_names[index]
@@ -52,18 +61,18 @@ class VitonDataset(CpVtonDataset):
     # PERSON REPRESENTATION
     ########################
 
-    #@overrides
+    # @overrides
     def get_person_image_name(self, index):
         """ basename of the image file """
         return self.image_names[index]
 
-    #@overrides
+    # @overrides
     def get_person_image_path(self, index):
         im_name = self.get_person_image_name(index)
         image_path = osp.join(self.data_path, "image", im_name)
         return image_path
 
-    #@overrides
+    # @overrides
     def get_person_parsed_path(self, index):
         """ path of the clothing seguemtnation """
         im_name = self.get_person_image_name(index)
@@ -71,7 +80,7 @@ class VitonDataset(CpVtonDataset):
         parsed_path = osp.join(self.data_path, "image-parse", parse_name)
         return parsed_path
 
-    #@overrides
+    # @overrides
     def get_person_cocopose_path(self, index):
         """ path to pose keypoints """
         im_name = self.get_person_image_name(index)
@@ -83,27 +92,14 @@ class VitonDataset(CpVtonDataset):
 if __name__ == "__main__":
     print("Check the dataset for geometric matching module!")
 
-    import argparse
+    opt = TrainOptions().parse()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--datamode", default="train")
-    parser.add_argument("--stage", default="GMM")
-    parser.add_argument("--data_list", default="train_pairs.txt")
-    parser.add_argument("--fine_width", type=int, default=192)
-    parser.add_argument("--fine_height", type=int, default=256)
-    parser.add_argument("--radius", type=int, default=3)
-    parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
-    parser.add_argument("-b", "--batch-size", type=int, default=4)
-    parser.add_argument("-j", "--workers", type=int, default=1)
-
-    opt = parser.parse_args()
     dataset = VitonDataset(opt)
     data_loader = CPDataLoader(opt, dataset)
 
     print(
-        "Size of the dataset: %05d, dataloader: %04d"
-        % (len(dataset), len(data_loader.data_loader))
+        f"Size of the dataset: {len(dataset):05d}, "
+        f"dataloader: {len(data_loader.data_loader):04d}"
     )
     first_item = dataset.__getitem__(0)
     first_batch = data_loader.next_batch()

@@ -1,17 +1,24 @@
 # coding=utf-8
+import argparse
 import os
 import os.path as osp
 from glob import glob
 
 from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
+from options.train_options import TrainOptions
 
 
 class VVTDataset(CpVtonDataset):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
+    @staticmethod
+    def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
+        parser = super(VVTDataset, VVTDataset).modify_commandline_options(parser, is_train)
+        parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
+        return parser
+
     def __init__(self, opt):
         super(VVTDataset, self).__init__(opt)
-        del self.data_list  # not using this
 
     # @overrides(CpVtonDataset)
     def load_file_paths(self):
@@ -39,10 +46,14 @@ class VVTDataset(CpVtonDataset):
 
         subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
 
-        cloth_folder = osp.join(self.root, subdir, folder_id) if self.stage == "GMM" else osp.join(self.root, self.opt.datamode, subdir, folder_id)
-        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"#f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*" if self.stage == "GMM" else f"{cloth_folder}/{folder_id.upper()}*cloth*"
+        cloth_folder = (
+            osp.join(self.root, subdir, folder_id)
+            if self.stage == "GMM"
+            else osp.join(self.root, self.opt.datamode, subdir, folder_id)
+        )
+        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"  # f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*" if self.stage == "GMM" else f"{cloth_folder}/{folder_id.upper()}*cloth*"
 
-        #print("Globbing", search)
+        # print("Globbing", search)
         cloth_path = sorted(glob(search))
         assert len(cloth_path) > 0, print(len(cloth_path), print(search))
 
@@ -52,7 +63,6 @@ class VVTDataset(CpVtonDataset):
                 f" {cloth_path}. Using the first one."
             )"""
         return cloth_path[0]
-
 
     # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):
@@ -119,29 +129,14 @@ class VVTDataset(CpVtonDataset):
 
 if __name__ == "__main__":
     print("Check the dataset for geometric matching module!")
+    opt = TrainOptions().parse()
 
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
-    parser.add_argument("--datamode", default="train")
-    parser.add_argument("--stage", default="GMM")
-    parser.add_argument("--data_list", default="train_pairs.txt")
-    parser.add_argument("--fine_width", type=int, default=192)
-    parser.add_argument("--fine_height", type=int, default=256)
-    parser.add_argument("--radius", type=int, default=3)
-    parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
-    parser.add_argument("-b", "--batch-size", type=int, default=4)
-    parser.add_argument("-j", "--workers", type=int, default=1)
-
-    opt = parser.parse_args()
     dataset = VVTDataset(opt)
     data_loader = CPDataLoader(opt, dataset)
 
     print(
-        "Size of the dataset: %05d, dataloader: %04d"
-        % (len(dataset), len(data_loader.data_loader))
+        f"Size of the dataset: {len(dataset):05d}, "
+        f"dataloader: {len(data_loader.data_loader):04d}"
     )
     first_item = dataset.__getitem__(0)
     first_batch = data_loader.next_batch()

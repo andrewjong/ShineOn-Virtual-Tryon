@@ -1,22 +1,32 @@
 # coding=utf-8
-import torch.utils.data as data
+from argparse import ArgumentParser
+
 import torchvision.transforms as transforms
 
-from datasets.viton_dataset import VitonDataset
+from datasets import BaseDataset
 from datasets.cpvton_dataset import CPDataLoader
 from datasets.mpv_dataset import MPVDataset
+from datasets.viton_dataset import VitonDataset
 from datasets.vvt_dataset import VVTDataset
+from options.train_options import TrainOptions
 
 
-class VitonVvtMpvDataset(data.Dataset):
+class VitonVvtMpvDataset(BaseDataset):
     """Combines datasets
     """
+
+    @staticmethod
+    def modify_commandline_options(parser: ArgumentParser, is_train):
+        parser = VitonDataset.modify_commandline_options(parser, is_train)
+        parser = VVTDataset.modify_commandline_options(parser, is_train)
+        parser = MPVDataset.modify_commandline_options(parser, is_train)
+        return parser
 
     def name(self):
         return "VitonVvtMpvDataset"
 
     def __init__(self, opt):
-        super(VitonVvtMpvDataset, self).__init__()
+        super(VitonVvtMpvDataset, self).__init__(opt)
         # base setting
         self.opt = opt
 
@@ -47,21 +57,8 @@ class VitonVvtMpvDataset(data.Dataset):
 if __name__ == "__main__":
     print("Check the dataset for geometric matching module!")
 
-    import argparse
+    opt = TrainOptions().parse()
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--datamode", default="train")
-    parser.add_argument("--stage", default="GMM")
-    parser.add_argument("--data_list", default="train_pairs.txt")
-    parser.add_argument("--fine_width", type=int, default=192)
-    parser.add_argument("--fine_height", type=int, default=256)
-    parser.add_argument("--radius", type=int, default=3)
-    parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
-    parser.add_argument("-b", "--batch-size", type=int, default=4)
-    parser.add_argument("-j", "--workers", type=int, default=1)
-
-    opt = parser.parse_args()
     dataset = VitonVvtMpvDataset(opt)
     data_loader = CPDataLoader(opt, dataset)
 
