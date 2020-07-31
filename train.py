@@ -7,13 +7,7 @@ import torch.nn.functional as F
 
 import argparse
 import os
-from networks.cpvton import (
-    GMM,
-    UnetGenerator,
-    VGGLoss,
-    load_checkpoint,
-    save_checkpoint, TOM,
-)
+from networks.cpvton import GMM, UnetGenerator, VGGLoss, load_checkpoint, save_checkpoint, TOM
 from datasets import get_dataset_class
 
 from tensorboardX import SummaryWriter
