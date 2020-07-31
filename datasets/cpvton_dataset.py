@@ -1,31 +1,41 @@
 # coding=utf-8
-import os
-from abc import ABC, abstractmethod
+import json
+from abc import abstractmethod
+from argparse import ArgumentParser
+
+import numpy as np
 import torch
 import torch.utils.data as data
 import torchvision.transforms as transforms
-
 from PIL import Image
 from PIL import ImageDraw
 
-import os.path as osp
-import numpy as np
-import json
-
+from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 
-class CpVtonDataset(ABC, data.Dataset):
+class CpVtonDataset(BaseDataset):
     """ Loads all the necessary items for CP-Vton """
 
+    @staticmethod
+    def modify_commandline_options(parser: ArgumentParser, is_train):
+        if is_train:
+            parser.add_argument(
+                "--cloth_mask_threshold",
+                type=int,
+                default=240,
+                help="threshold to remove white background for the cloth mask; "
+                "everything above this value is removed [0-255].",
+            )
+        return parser
+
     def __init__(self, opt):
-        super(CpVtonDataset, self).__init__()
-        self.CLOTH_THRESH = 240
+        super(CpVtonDataset, self).__init__(opt)
+        self.cloth_mask_threshold = opt.cloth_mask_threshold
         # base setting
         self.opt = opt
         self.datamode = opt.datamode  # train or test or self-defined
         self.stage = opt.stage  # GMM or TOM
-        self.data_list = opt.data_list
         self.fine_height = opt.fine_height
         self.fine_width = opt.fine_width
         self.radius = opt.radius
@@ -83,7 +93,7 @@ class CpVtonDataset(ABC, data.Dataset):
         # make the mask
         low = torch.zeros_like(input_cloth)
         high = torch.ones_like(input_cloth)
-        cloth_mask = torch.where(input_cloth >= self.CLOTH_THRESH, low, high)
+        cloth_mask = torch.where(input_cloth >= self.cloth_mask_threshold, low, high)
         cloth_mask = cloth_mask[0].unsqueeze(0)  # the mask should be a single channel
         return cloth_mask
 
@@ -212,7 +222,7 @@ class CpVtonDataset(ABC, data.Dataset):
         try:
             silhouette = self.to_tensor_and_norm_rgb(_parse_shape)  # [-1,1]
         except Exception as e1:
-            #print("ERROR:", e1)
+            # print("ERROR:", e1)
             silhouette = self.to_tensor_and_norm_gray(_parse_shape)
         except Exception as e2:
             raise e2
@@ -267,7 +277,7 @@ class CpVtonDataset(ABC, data.Dataset):
                 try:
                     one_map_tensor = self.to_tensor_and_norm_rgb(one_map)  # [-1,1]
                 except Exception as e1:
-                    #print("ERROR:", e1)
+                    # print("ERROR:", e1)
                     one_map_tensor = self.to_tensor_and_norm_gray(one_map)
                 except Exception as e2:
                     raise e2
@@ -290,9 +300,9 @@ class CpVtonDataset(ABC, data.Dataset):
                     )
         # just for visualization
         try:
-            im_cocopose = self.to_tensor_and_norm_rgb(im_cocopose)      # [-1,1]
+            im_cocopose = self.to_tensor_and_norm_rgb(im_cocopose)  # [-1,1]
         except Exception as e1:
-            #print("ERROR:", e1)
+            # print("ERROR:", e1)
             im_cocopose = self.to_tensor_and_norm_gray(im_cocopose)
         except Exception as e2:
             raise e2
@@ -337,7 +347,7 @@ class CpVtonDataset(ABC, data.Dataset):
             "cloth_path": self.get_input_cloth_path(index),
             "image_name": self.get_person_image_name(index),
             "image_path": self.get_person_image_path(index),
-            "grid_vis": grid_vis
+            "grid_vis": grid_vis,
         }
         # cloth representation
         result.update(self.get_cloth_representation(index))
@@ -390,8 +400,8 @@ class CPDataLoader(object):
             dataset,
             batch_size=opt.batch_size,
             shuffle=(train_sampler is None),
-            #num_workers=opt.workers,
-            #pin_memory=True,
+            # num_workers=opt.workers,
+            # pin_memory=True,
             sampler=train_sampler,
         )
         self.dataset = dataset

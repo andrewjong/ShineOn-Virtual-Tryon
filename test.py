@@ -1,51 +1,16 @@
 # coding=utf-8
-import argparse
 import os
 import os.path as osp
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
-from datasets import get_dataset_class, CPDataLoader, DATASETS
-from networks.cpvton import GMM, UnetGenerator, load_checkpoint, TOM
+from datasets import get_dataset_class, CPDataLoader
+from networks.cpvton import GMM, load_checkpoint, TOM
+from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
-
-
-def get_opt():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("--name", default="GMM")
-    parser.add_argument("--gpu_ids", default="")
-    parser.add_argument("-j", "--workers", type=int, default=1)
-    parser.add_argument("-b", "--batch-size", type=int, default=4)
-
-    parser.add_argument("--dataroot", default="data")
-    parser.add_argument("--vvt_dataroot", default="/data_hdd/vvt_competition")
-    parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
-    parser.add_argument("--datamode", default="train")
-    parser.add_argument("--dataset", choices=DATASETS.keys(), default="cp")
-    parser.add_argument("--stage", default="GMM")
-    parser.add_argument("--data_list", default="train_pairs.txt")
-    parser.add_argument("--fine_width", type=int, default=192)
-    parser.add_argument("--fine_height", type=int, default=256)
-    parser.add_argument("--radius", type=int, default=5)
-    parser.add_argument("--grid_size", type=int, default=5)
-    parser.add_argument("--tensorboard_dir", type=str, help="save tensorboard infos")
-    parser.add_argument(
-        "--result_dir", type=str, default="result", help="save result infos"
-    )
-    parser.add_argument(
-        "--checkpoint", type=str, default="", help="model checkpoint for test"
-    )
-    parser.add_argument("--display_count", type=int, default=1)
-    parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
-
-    opt = parser.parse_args()
-    return opt
 
 
 def test_gmm(opt, test_loader, model, board):
@@ -153,8 +118,7 @@ def test_tom(opt, test_loader, model, board):
 
 
 def main():
-    opt = get_opt()
-    print(opt)
+    opt = TestOptions().parse()
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
     # create dataset

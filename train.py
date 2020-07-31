@@ -1,97 +1,23 @@
 # coding=utf-8
-from torch.utils.data import DataLoader
-from tqdm import tqdm
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-import argparse
-import os
-from networks.cpvton import GMM, UnetGenerator, VGGLoss, load_checkpoint, save_checkpoint, TOM
-from datasets import get_dataset_class
-
 from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from datasets import find_dataset_using_name
+from networks.cpvton import (
+    GMM,
+    VGGLoss,
+    load_checkpoint,
+    save_checkpoint,
+    TOM,
+)
+from options.train_options import TrainOptions
 from visualization import board_add_images
-
-
-def get_opt():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("--name", default="GMM")
-    parser.add_argument(
-        "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
-    )
-    parser.add_argument("-j", "--workers", type=int, default=4)
-    parser.add_argument("-b", "--batch_size", type=int, default=8)
-
-    parser.add_argument("--viton_dataroot", default="data")
-    parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
-    parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
-    parser.add_argument("--datamode", default="train")
-    parser.add_argument(
-        "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="cp"
-    )
-    parser.add_argument("--data_parallel", type=int, default=0)
-    parser.add_argument("--stage", default="GMM")
-    parser.add_argument("--data_list", default="train_pairs.txt")
-    parser.add_argument("--fine_width", type=int, default=192)
-    parser.add_argument("--fine_height", type=int, default=256)
-    parser.add_argument("--radius", type=int, default=5)
-    parser.add_argument("--grid_size", type=int, default=5)
-    parser.add_argument(
-        "--lr", type=float, default=0.0001, help="initial learning rate for adam"
-    )
-    parser.add_argument(
-        "--tensorboard_dir",
-        type=str,
-        default="tensorboard",
-        help="save tensorboard infos. pass empty string '' to disable tensorboard",
-    )
-    parser.add_argument(
-        "--checkpoint_dir",
-        type=str,
-        default="checkpoints",
-        help="save checkpoint infos",
-    )
-    parser.add_argument(
-        "--checkpoint", type=str, default="", help="model checkpoint for initialization"
-    )
-    parser.add_argument(
-        "--display_count",
-        type=int,
-        help="how often to update tensorboard, in steps",
-        default=100,
-    )
-    parser.add_argument(
-        "--save_count",
-        type=int,
-        help="how often to save a checkpoint, in epochs",
-        default=1,
-    )
-    parser.add_argument(
-        "--keep_epochs",
-        type=int,
-        help="number of epochs with initial learning rate",
-        default=100,
-    )
-    parser.add_argument(
-        "--decay_epochs",
-        type=int,
-        help="number of epochs to linearly decay the learning rate",
-        default=100,
-    )
-    parser.add_argument(
-        "--datacap",
-        type=float,
-        default=float("inf"),
-        help="limits the dataset to this many batches",
-    )
-    parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
-
-    opt = parser.parse_args()
-    opt.gpu_ids = [int(id) for id in opt.gpu_ids.split(",")]
-    return opt
 
 
 def train_gmm(opt, train_loader, model, board):
@@ -180,7 +106,6 @@ def train_tom(opt, train_loader, model, board):
         - max(0, e - opt.keep_epochs) / float(opt.decay_epochs + 1),
     )
 
-
     steps = 0
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
@@ -241,12 +166,11 @@ def train_tom(opt, train_loader, model, board):
 
 
 def main():
-    opt = get_opt()
-    print(opt)
-    print("Start to train stage: %s, named: %s!" % (opt.stage, opt.name))
+    opt = TrainOptions().parse()
+    print(f"Start to train stage: {opt.stage}, named: {opt.name}!")
 
     # create dataset
-    train_dataset = get_dataset_class(opt.dataset)(opt)
+    train_dataset = find_dataset_using_name(opt.dataset)(opt)
 
     # create dataloader
     train_loader = DataLoader(
@@ -271,14 +195,12 @@ def main():
     else:
         raise NotImplementedError(f"Model [{opt.stage}] is not implemented")
 
-    if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
+    if opt.checkpoint and os.path.exists(opt.checkpoint):
         load_checkpoint(model, opt.checkpoint)
     if opt.data_parallel and torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
     train_fn(opt, train_loader, model, board)
-    save_checkpoint(
-        model, os.path.join(opt.checkpoint_dir, opt.name, final_save)
-    )
+    save_checkpoint(model, os.path.join(opt.checkpoint_dir, opt.name, final_save))
 
     print("Finished training %s, named: %s!" % (opt.stage, opt.name))
 
