@@ -262,32 +262,25 @@ def main():
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
         model = GMM(opt)
-        model.opt = opt
-        if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
-            load_checkpoint(model, opt.checkpoint)
-
-        if opt.data_parallel and torch.cuda.device_count() > 1:
-            model = nn.DataParallel(model)
-
-        train_gmm(opt, train_loader, model, board)
-        save_checkpoint(
-            model, os.path.join(opt.checkpoint_dir, opt.name, "gmm_final.pth")
-        )
+        train_fn = train_gmm
+        final_save = "gmm_final.pth"
     elif opt.stage == "TOM":
         model = TOM(opt)
-        if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
-            load_checkpoint(model, opt.checkpoint)
-        if opt.data_parallel and torch.cuda.device_count() > 1:
-            model = nn.DataParallel(model)
-
-        train_tom(opt, train_loader, model, board)
-        save_checkpoint(
-            model, os.path.join(opt.checkpoint_dir, opt.name, "tom_final.pth")
-        )
+        train_fn = train_tom
+        final_save = "tom_final.pth"
     else:
-        raise NotImplementedError("Model [%s] is not implemented" % opt.stage)
+        raise NotImplementedError(f"Model [{opt.stage}] is not implemented")
 
-    print("Finished training %s, nameed: %s!" % (opt.stage, opt.name))
+    if not opt.checkpoint == "" and os.path.exists(opt.checkpoint):
+        load_checkpoint(model, opt.checkpoint)
+    if opt.data_parallel and torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+    train_fn(opt, train_loader, model, board)
+    save_checkpoint(
+        model, os.path.join(opt.checkpoint_dir, opt.name, final_save)
+    )
+
+    print("Finished training %s, named: %s!" % (opt.stage, opt.name))
 
 
 if __name__ == "__main__":
