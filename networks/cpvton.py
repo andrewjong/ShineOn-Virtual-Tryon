@@ -583,10 +583,13 @@ class GMM(nn.Module):
     def __init__(self, opt):
         super(GMM, self).__init__()
         self.extractionA = FeatureExtraction(
-            1 + 3 + 18 + 3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d
+            opt.in_channels,  # 1 + 3 + 18 + 3
+            ngf=64,
+            n_layers=3,
+            norm_layer=nn.BatchNorm2d,
         )
         self.extractionB = FeatureExtraction(
-            3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d
+            3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d,  # 3
         )
         self.l2norm = FeatureL2Norm()
         self.correlation = FeatureCorrelation()
@@ -613,7 +616,7 @@ class TOM(nn.Module):
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
-        self.unet = UnetGenerator(28, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        self.unet = UnetGenerator(opt.in_channels, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
 
     def forward(self, agnostic, warped_cloth):
         concat_tensor = torch.cat([agnostic, warped_cloth], 1)

@@ -35,14 +35,8 @@ class BaseOptions:
         parser.add_argument(
             "--in_channels",
             type=int,
-            default=28,
+            default=25,
             help="number of inputs channels to the network",
-        )
-        parser.add_argument(
-            "--out_channels",
-            type=int,
-            default=3,
-            help="number of output channels from the network",
         )
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
