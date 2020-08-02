@@ -20,7 +20,7 @@ class BaseOptions:
         parser.add_argument("-b", "--batch_size", type=int, default=8)
         # data
         parser.add_argument(
-            "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="cp"
+            "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="vvt"
         )
         parser.add_argument("--datamode", default="train")
         parser.add_argument("--stage", default="GMM")
@@ -174,6 +174,7 @@ class BaseOptions:
             id = int(str_id)
             if id >= 0:
                 opt.gpu_ids.append(id)
+        print(opt.gpu_ids)
         if len(opt.gpu_ids) > 0:
             torch.cuda.set_device(opt.gpu_ids[0])
         return opt
