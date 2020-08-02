@@ -173,21 +173,3 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         return super().__getitem__(index)
 
 
-if __name__ == "__main__":
-    print("Check the dataset for geometric matching module!")
-    opt = TrainOptions().parse()
-
-    dataset = VVTDataset(opt)
-    dataloader = DataLoader(dataset, batch_size=opt.batch_size, num_workers=opt.workers,
-                            shuffle=not opt.no_shuffle)
-
-    print(
-        f"Size of the dataset: {len(dataset):05d}, "
-        f"dataloader: {len(dataloader):04d}"
-    )
-    first_item = dataset[0]
-    first_batch = next(iter(dataloader))
-
-    from IPython import embed
-
-    embed()
