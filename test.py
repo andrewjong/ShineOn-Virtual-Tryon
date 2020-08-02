@@ -6,6 +6,7 @@ import os.path as osp
 import torch
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import log
@@ -24,7 +25,7 @@ def test_gmm(opt, test_loader, model, board):
 
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
 
-    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    pbar = tqdm(enumerate(test_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
         # produce subfolders for each subdataset
@@ -82,7 +83,7 @@ def test_tom(opt, test_loader, model, board):
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
     print("Dataset size: %05d!" % (len(test_loader.dataset)), flush=True)
 
-    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    pbar = tqdm(enumerate(test_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
         # use subfolders for each subdataset
@@ -129,7 +130,9 @@ def main():
     train_dataset = get_dataset_class(opt.dataset)(opt)
 
     # create dataloader
-    train_loader = CPDataLoader(opt, train_dataset)
+    train_loader = DataLoader(
+        train_dataset, batch_size=opt.batch_size, num_workers=opt.workers
+    )
 
     # visualization
     board = None
