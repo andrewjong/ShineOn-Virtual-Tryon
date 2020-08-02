@@ -3,7 +3,6 @@ import argparse
 import os.path as osp
 
 from datasets.vvt_dataset import VVTDataset
-from options.train_options import TrainOptions
 
 
 class MPVDataset(VVTDataset):
@@ -78,21 +77,3 @@ class MPVDataset(VVTDataset):
         return pose_path
 
 
-if __name__ == "__main__":
-    print("Check the dataset for geometric matching module!")
-
-    opt = TrainOptions().parse()
-
-    dataset = MPVDataset(opt)
-    data_loader = CPDataLoader(opt, dataset)
-
-    print(
-        f"Size of the dataset: {len(dataset):05d}, "
-        f"dataloader: {len(data_loader.data_loader):04d}"
-    )
-    first_item = dataset.__getitem__(0)
-    first_batch = data_loader.next_batch()
-
-    from IPython import embed
-
-    embed()
