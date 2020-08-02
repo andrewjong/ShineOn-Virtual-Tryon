@@ -1,3 +1,5 @@
+
+
 import argparse
 import os
 
@@ -24,6 +26,10 @@ class BaseOptions:
         )
         parser.add_argument("--datamode", default="train")
         parser.add_argument("--stage", default="GMM")
+        parser.add_argument("--dataparallel",
+                            type=int,
+                            default=0,
+                            help="add 1 to enable dataparallel model")
         parser.add_argument(
             "--datacap",
             type=float,

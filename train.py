@@ -40,10 +40,15 @@ def train_gmm(opt, train_loader, model, board):
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
+
         pbar = tqdm(train_loader, unit="step")
         for inputs in pbar:
-            if steps > opt.datacap:
+
+            # ensure epoch is over when steps is divisible by datacap
+            if steps % opt.datacap == 0:
                 tqdm.write(f"Reached dataset cap {opt.datacap}")
+                # increment steps
+                steps += 1
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
@@ -54,6 +59,7 @@ def train_gmm(opt, train_loader, model, board):
             c = inputs["cloth"].to(device)
             im_c = inputs["im_cloth"].to(device)
             im_g = inputs["grid_vis"].to(device)
+
 
             grid, theta = model(agnostic, c)
             warped_cloth = F.grid_sample(c, grid, padding_mode="border")
@@ -197,7 +203,7 @@ def main():
 
     if opt.checkpoint and os.path.exists(opt.checkpoint):
         load_checkpoint(model, opt.checkpoint)
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.device_count() > 1 and opt.dataparallel:
         model = nn.DataParallel(model)
     train_fn(opt, train_loader, model, board)
     save_checkpoint(model, os.path.join(opt.checkpoint_dir, opt.name, final_save))
