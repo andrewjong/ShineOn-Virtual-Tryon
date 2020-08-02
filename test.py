@@ -9,8 +9,8 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from datasets import find_dataset_using_name
 import log
-from datasets import get_dataset_class, CPDataLoader
 from networks.cpvton import GMM, load_checkpoint, TOM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
@@ -127,7 +127,7 @@ def main():
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
     # create dataset
-    train_dataset = get_dataset_class(opt.dataset)(opt)
+    train_dataset = find_dataset_using_name(opt.dataset)(opt)
 
     # create dataloader
     train_loader = DataLoader(

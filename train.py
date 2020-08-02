@@ -24,6 +24,21 @@ from visualization import board_add_images
 logger = log.setup_custom_logger("logger")
 
 
+def maybe_combine_frames_and_channels(opt, inputs):
+    """ if n_frames is true, combines frames and channels dim for all the tensors"""
+    if hasattr(opt, "n_frames"):
+
+        def maybe_combine(t):
+            if isinstance(t, torch.Tensor):
+                bs, n_frames, c, h, w = t.shape
+                t = t.view(bs, n_frames * c, h, w)
+            return t
+
+        inputs = {k: maybe_combine(v) for k, v in inputs.items()}
+
+    return inputs
+
+
 def train_gmm(opt, train_loader, model, board):
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
@@ -124,6 +139,7 @@ def train_tom(opt, train_loader, model, board):
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
                 break
+            inputs = maybe_combine_frames_and_channels(opt, inputs)
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
             maybe_densepose = (
