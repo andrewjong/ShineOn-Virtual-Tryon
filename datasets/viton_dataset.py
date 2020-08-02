@@ -1,8 +1,7 @@
 import argparse
 import os.path as osp
 
-from datasets import CpVtonDataset, CPDataLoader
-from options.train_options import TrainOptions
+from datasets.cpvton_dataset import CpVtonDataset
 
 
 class VitonDataset(CpVtonDataset):

@@ -189,7 +189,7 @@ def main():
         train_dataset,
         batch_size=opt.batch_size,
         num_workers=opt.workers,
-        shuffle=opt.shuffle,
+        shuffle=not opt.no_shuffle,
     )
 
     # visualization
