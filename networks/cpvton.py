@@ -583,7 +583,7 @@ class GMM(nn.Module):
     def __init__(self, opt):
         super(GMM, self).__init__()
         self.extractionA = FeatureExtraction(
-            opt.in_channels,  # 1 + 3 + 18 + 3
+            opt.person_in_channels,  # 1 + 3 + 18 + 3
             ngf=64,
             n_layers=3,
             norm_layer=nn.BatchNorm2d,
@@ -616,7 +616,7 @@ class TOM(nn.Module):
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
-        self.unet = UnetGenerator(opt.in_channels, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        self.unet = UnetGenerator(opt.person_in_channels, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
 
     def forward(self, agnostic, warped_cloth):
         concat_tensor = torch.cat([agnostic, warped_cloth], 1)
