@@ -41,14 +41,12 @@ def train_gmm(opt, train_loader, model, board):
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
 
-        pbar = tqdm(train_loader, unit="step")
-        for inputs in pbar:
+        pbar = tqdm(enumerate(train_loader), unit="step")
+        for i, inputs in pbar:
 
             # ensure epoch is over when steps is divisible by datacap
-            if steps % opt.datacap == 0:
+            if i >= opt.datacap:
                 tqdm.write(f"Reached dataset cap {opt.datacap}")
-                # increment steps
-                steps += 1
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
@@ -117,11 +115,10 @@ def train_tom(opt, train_loader, model, board):
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
-        pbar = tqdm(train_loader, unit="step")
-        for inputs in pbar:
-            if steps % opt.datacap == 0:
+        pbar = tqdm(enumerate(train_loader), unit="step")
+        for i, inputs in pbar:
+            if i >= opt.datacap:
                 tqdm.write(f"Reached dataset cap {opt.datacap}")
-                steps += 1
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
