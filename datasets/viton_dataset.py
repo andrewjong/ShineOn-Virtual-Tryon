@@ -6,14 +6,14 @@ from options.train_options import TrainOptions
 
 
 class VitonDataset(CpVtonDataset):
+    """ CP-VTON dataset with the original Viton folder structure """
+
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
         parser = super(VitonDataset, VitonDataset).modify_commandline_options(parser, is_train)
         parser.add_argument("--viton_dataroot", default="data")
         parser.add_argument("--data_list", default="train_pairs.txt")
         return parser
-
-    """ CP-VTON dataset with the original Viton folder structure """
 
     def __init__(self, opt):
         super().__init__(opt)
