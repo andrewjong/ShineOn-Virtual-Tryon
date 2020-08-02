@@ -38,10 +38,21 @@ class BaseOptions:
         parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
         # network dimensions
         parser.add_argument(
-            "--in_channels",
+            "--person_in_channels",
             type=int,
-            default=25,
-            help="number of inputs channels to the network",
+            default=1 + 3 + 18,  # silhouette + head + cocopose
+            help="number of base channels for person representation",
+        )
+        parser.add_argument(
+            "--cloth_in_channels",
+            type=int,
+            default=3,
+            help="number of channels for cloth representation",
+        )
+        parser.add_argument(
+            "--densepose",
+            action="store_true",
+            help="use me to add densepose (auto adds 3 to --person_in_channels)",
         )
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
@@ -139,8 +150,17 @@ class BaseOptions:
         #     suffix = ("_" + opt.suffix.format(**vars(opt))) if opt.suffix != "" else ""
         #     opt.name = opt.name + suffix
         #
+
+        opt = BaseOptions.apply_gpu_ids(opt)
+        opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
+
         self.print_options(opt)
 
+        self.opt = opt
+        return self.opt
+
+    @staticmethod
+    def apply_gpu_ids(opt):
         # set gpu ids
         str_ids = opt.gpu_ids.split(",")
         opt.gpu_ids = []
@@ -150,6 +170,10 @@ class BaseOptions:
                 opt.gpu_ids.append(id)
         if len(opt.gpu_ids) > 0:
             torch.cuda.set_device(opt.gpu_ids[0])
+        return opt
 
-        self.opt = opt
-        return self.opt
+    @staticmethod
+    def apply_densepose_to_person_in_channels(opt):
+        if opt.densepose:
+            opt.person_in_channels += 3
+        return opt

@@ -129,6 +129,7 @@ class CpVtonDataset(BaseDataset):
         :param index:
         :return:
         """
+        ret = {}
         # person image
         image = self.get_person_image(index)
         # load parsing image
@@ -143,20 +144,26 @@ class CpVtonDataset(BaseDataset):
         # load pose points
         _pose_map, im_cocopose = self.get_input_person_pose(index)
 
-        densepose = self.get_person_densepose(index)
+        _agnostic_items = [silhouette, im_head, _pose_map]
+        if self.opt.densepose:
+            densepose = self.get_person_densepose(index)
+            ret["densepose"] = densepose
+            _agnostic_items.append(densepose)
 
         # person-agnostic representation
-        agnostic = torch.cat([silhouette, im_head, _pose_map, densepose], 0)
+        agnostic = torch.cat(_agnostic_items, 0)
 
-        return {
-            "silhouette": silhouette,
-            "image": image,
-            "im_head": im_head,
-            "im_cloth": im_cloth,
-            "im_cocopose": im_cocopose,
-            "densepose": densepose,
-            "agnostic": agnostic,
-        }
+        ret.update(
+            {
+                "silhouette": silhouette,
+                "image": image,
+                "im_head": im_head,
+                "im_cloth": im_cloth,
+                "im_cocopose": im_cocopose,
+                "agnostic": agnostic,
+            }
+        )
+        return ret
 
     def get_person_image(self, index):
         """

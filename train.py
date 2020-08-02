@@ -52,7 +52,9 @@ def train_gmm(opt, train_loader, model, board):
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
-            densepose = inputs["densepose"]
+            maybe_densepose = (
+                [inputs["densepose"].to(device)] if "densepose" in inputs else []
+            )
             im_h = inputs["im_head"].to(device)
             silhouette = inputs["silhouette"].to(device)
             agnostic = inputs["agnostic"].to(device)
@@ -60,14 +62,13 @@ def train_gmm(opt, train_loader, model, board):
             im_c = inputs["im_cloth"].to(device)
             im_g = inputs["grid_vis"].to(device)
 
-
             grid, theta = model(agnostic, c)
             warped_cloth = F.grid_sample(c, grid, padding_mode="border")
             # warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
             warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
             visuals = [
-                [im_h, silhouette, im_cocopose, densepose],
+                [im_h, silhouette, im_cocopose] + maybe_densepose,
                 [c, warped_cloth, im_c],
                 [warped_grid, (warped_cloth + im) * 0.5, im],
             ]
@@ -123,7 +124,9 @@ def train_tom(opt, train_loader, model, board):
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
-            densepose = inputs["densepose"].to(device)
+            maybe_densepose = (
+                [inputs["densepose"].to(device)] if "densepose" in inputs else []
+            )
             im_h = inputs["im_head"].to(device)
             silhouette = inputs["silhouette"].to(device)
 
@@ -134,7 +137,7 @@ def train_tom(opt, train_loader, model, board):
             p_rendered, m_composite, p_tryon = model(agnostic, c)
 
             visuals = [
-                [im_h, silhouette, im_cocopose, densepose],
+                [im_h, silhouette, im_cocopose] + maybe_densepose,
                 [c, cm * 2 - 1, m_composite * 2 - 1],
                 [p_rendered, p_tryon, im],
             ]
