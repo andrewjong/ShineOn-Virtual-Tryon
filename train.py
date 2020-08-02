@@ -119,8 +119,9 @@ def train_tom(opt, train_loader, model, board):
     ):
         pbar = tqdm(train_loader, unit="step")
         for inputs in pbar:
-            if steps > opt.datacap:
+            if steps % opt.datacap == 0:
                 tqdm.write(f"Reached dataset cap {opt.datacap}")
+                steps += 1
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
