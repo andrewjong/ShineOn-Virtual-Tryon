@@ -1,6 +1,6 @@
 # coding=utf-8
 import json
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from argparse import ArgumentParser
 
 import numpy as np
@@ -14,7 +14,7 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 
-class CpVtonDataset(BaseDataset):
+class CpVtonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
 
     @staticmethod
