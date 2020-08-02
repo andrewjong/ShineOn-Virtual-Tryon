@@ -2,7 +2,6 @@
 import argparse
 import os.path as osp
 
-from datasets.cpvton_dataset import CPDataLoader
 from datasets.vvt_dataset import VVTDataset
 from options.train_options import TrainOptions
 

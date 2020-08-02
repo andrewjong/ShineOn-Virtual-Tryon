@@ -4,11 +4,10 @@ import logging
 import os
 import os.path as osp
 from glob import glob
-from typing import Set
 
 from torch.utils.data import DataLoader
 
-from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
+from datasets.cpvton_dataset import CpVtonDataset
 from datasets.n_frames_interface import NFramesInterface
 from options.train_options import TrainOptions
 

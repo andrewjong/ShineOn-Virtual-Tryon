@@ -35,7 +35,6 @@ class BaseOptions:
             default=float("inf"),
             help="limits the dataset to this many batches",
         )
-        parser.add_argument("--shuffle", action="store_true", help="shuffle input data")
         # network dimensions
         parser.add_argument(
             "--person_in_channels",

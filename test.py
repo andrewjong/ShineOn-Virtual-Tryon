@@ -131,7 +131,7 @@ def main():
 
     # create dataloader
     train_loader = DataLoader(
-        train_dataset, batch_size=opt.batch_size, num_workers=opt.workers
+        train_dataset, batch_size=opt.batch_size, num_workers=opt.workers, shuffle=False
     )
 
     # visualization
