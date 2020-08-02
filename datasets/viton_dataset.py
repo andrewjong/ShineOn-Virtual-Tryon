@@ -87,4 +87,3 @@ class VitonDataset(CpVtonDataset):
         pose_path = osp.join(self.data_path, "pose", _pose_name)
         return pose_path
 
-

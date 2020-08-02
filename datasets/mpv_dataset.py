@@ -2,10 +2,10 @@
 import argparse
 import os.path as osp
 
-from datasets.vvt_dataset import VVTDataset
+from datasets.cpvton_dataset import CpVtonDataset
 
 
-class MPVDataset(VVTDataset):
+class MPVDataset(CpVtonDataset):
     """ CP-VTON dataset with the MPV folder structure. """
 
     @staticmethod
@@ -75,5 +75,4 @@ class MPVDataset(VVTDataset):
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
         pose_path = pose_path.replace(".jpg", "_keypoints.json")
         return pose_path
-
 

@@ -5,7 +5,7 @@ class TrainOptions(BaseOptions):
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
         # data
-        parser.add_argument("--no_shuffle", action="store_true", help="shuffle input data")
+        parser.add_argument("--no_shuffle", action="store_true", help="don't shuffle input data")
         # checkpoints
         parser.add_argument(
             "--save_count",
