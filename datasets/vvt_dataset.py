@@ -13,7 +13,9 @@ class VVTDataset(CpVtonDataset):
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(VVTDataset, VVTDataset).modify_commandline_options(parser, is_train)
+        parser = super(VVTDataset, VVTDataset).modify_commandline_options(
+            parser, is_train
+        )
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         return parser
 
@@ -46,13 +48,12 @@ class VVTDataset(CpVtonDataset):
 
         subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
 
-
         cloth_folder = (
             osp.join(self.root, subdir, folder_id)
             if self.stage == "GMM"
             else osp.join(self.root, self.opt.datamode, subdir, folder_id)
         )
-        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"  # f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*" if self.stage == "GMM" else f"{cloth_folder}/{folder_id.upper()}*cloth*"
+        search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
 
         # print("Globbing", search)
 
