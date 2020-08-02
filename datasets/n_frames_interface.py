@@ -39,7 +39,6 @@ class NFramesInterface(ABC):
 
     def __init__(self, opt):
         """ sets n_frames """
-        print("NFramesInterface __init__ called")
         self._n_frames = opt.n_frames
         assert self._n_frames >= 1, "--n_frames Must be a positive integer"
 
