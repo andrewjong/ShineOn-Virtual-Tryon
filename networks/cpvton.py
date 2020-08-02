@@ -1,4 +1,5 @@
 # coding=utf-8
+import math
 import os
 
 import numpy as np
@@ -582,6 +583,7 @@ class GMM(nn.Module):
 
     def __init__(self, opt):
         super(GMM, self).__init__()
+        # n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
         self.extractionA = FeatureExtraction(
             opt.person_in_channels,  # 1 + 3 + 18 + 3
             ngf=64,
@@ -589,7 +591,7 @@ class GMM(nn.Module):
             norm_layer=nn.BatchNorm2d,
         )
         self.extractionB = FeatureExtraction(
-            3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d,  # 3
+            3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d
         )
         self.l2norm = FeatureL2Norm()
         self.correlation = FeatureCorrelation()
@@ -616,17 +618,51 @@ class TOM(nn.Module):
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
-        self.unet = UnetGenerator(opt.person_in_channels, 4, 6, ngf=64, norm_layer=nn.InstanceNorm2d)
+        n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
+        self.unet = UnetGenerator(
+            input_nc=opt.person_in_channels * n_frames,
+            output_nc=4 * n_frames,
+            num_downs=6,
+            ngf=int(
+                64 * (math.log(n_frames) + 1)
+            ),  # scale up the generator features conservatively for the number of images
+            norm_layer=nn.InstanceNorm2d,
+        )
 
     def forward(self, agnostic, warped_cloth):
+        # comment andrew: Do we need to interleave the concatenation? Or can we leave it
+        #  like this? Theoretically the unet will learn where things are, so let's try
+        #  simple concat for now.
         concat_tensor = torch.cat([agnostic, warped_cloth], 1)
         outputs = self.unet(concat_tensor)
-        p_rendered, m_composite = torch.split(outputs, 3, 1)
-        p_rendered = F.tanh(p_rendered)
-        m_composite = F.sigmoid(m_composite)
-        p_tryon = warped_cloth * m_composite + p_rendered * (1 - m_composite)
 
-        return p_rendered, m_composite, p_tryon
+        # comment andrew: given what we realized above, is the complexity of the
+        #  indexing below even necessary?
+
+        # Explanation: Output channels are formatted as 3 channel image + 1 mask.
+        # Need to select this for every frame.
+        # say self.opt.n_frames = 5, then the indices are
+        # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+        outputs_indices = torch.arange(0, 4 * self.opt.n_frames)
+        # Selector makes every 4th one 0:
+        # [1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0]
+        selector = (outputs_indices - 3) % 4
+        # Everything non-zero is part of the image:
+        # [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 16, 17, 18]
+        p_rendered_indices = selector.nonzero()
+        # Everywhere where it is zero is the mask:
+        # [3, 7, 11, 15, 19]
+        m_composite_indices = (selector == 0).nonzero()
+        # Now we can isolate properly :)
+        p_rendereds = torch.index_select(outputs, dim=1, index=p_rendered_indices)
+        m_composites = torch.index_select(outputs, dim=1, index=m_composite_indices)
+
+        p_rendereds = F.tanh(p_rendereds)
+        m_composites = F.sigmoid(m_composites)
+        # Todo: this will not broadcast properly?
+        p_tryons = warped_cloth * m_composites + p_rendereds * (1 - m_composites)
+
+        return p_rendereds, m_composites, p_tryons
 
 
 class Self_Attn(nn.Module):
