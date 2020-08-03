@@ -46,7 +46,7 @@ def train_gmm(opt, train_loader, model, board):
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
 
-        pbar = tqdm(enumerate(train_loader), unit="step")
+        pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
         for i, inputs in pbar:
 
             # ensure epoch is over when steps is divisible by datacap
