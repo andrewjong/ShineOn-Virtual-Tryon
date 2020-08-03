@@ -2,6 +2,7 @@ import functools
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
 
+import torch
 from torch.utils.data.dataloader import default_collate
 
 
@@ -31,7 +32,7 @@ class NFramesInterface(ABC):
         parser.add_argument(
             "--n_frames",
             type=int,
-            default=5,
+            default=1,
             help="Total number of frames to load at once. This is useful for video "
             "training. Set to 1 for images.",
         )
@@ -74,3 +75,18 @@ class NFramesInterface(ABC):
             return collated
 
         return wrapper
+
+
+def maybe_combine_frames_and_channels(opt, inputs):
+    """ if n_frames is true, combines frames and channels dim for all the tensors"""
+    if hasattr(opt, "n_frames"):
+
+        def maybe_combine(t):
+            if isinstance(t, torch.Tensor):
+                bs, n_frames, c, h, w = t.shape
+                t = t.view(bs, n_frames * c, h, w)
+            return t
+
+        inputs = {k: maybe_combine(v) for k, v in inputs.items()}
+
+    return inputs
