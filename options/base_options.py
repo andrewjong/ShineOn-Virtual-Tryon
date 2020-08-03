@@ -83,6 +83,12 @@ class BaseOptions:
             help="how often to update tensorboard, in steps",
             default=100,
         )
+        parser.add_argument(
+            "--loglevel",
+            choices=("debug", "info", "warning", "error", "critical"),
+            default="info",
+            help="choose a log level",
+        )
         self.initialized = True
         return parser
 

@@ -1,11 +1,14 @@
 # coding=utf-8
 import argparse
+import logging
 import os
 import os.path as osp
 from glob import glob
 
 from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
 from options.train_options import TrainOptions
+
+logger = logging.getLogger("logger")
 
 
 class VVTDataset(CpVtonDataset):
@@ -56,18 +59,15 @@ class VVTDataset(CpVtonDataset):
         search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
         cloth_path_matches = sorted(glob(search))
         if len(cloth_path_matches) == 0:
-            print(f"WARNING: {search=} not found, relaxing search to any cloth term. We should probably fix this later.")
+            logger.debug(
+                f"{search=} not found, relaxing search to any cloth term. We should probably fix this later."
+            )
             search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth*"
             cloth_path_matches = sorted(glob(search))
-            print(f"{search=} found {cloth_path_matches=}")
+            logger.debug(f"{search=} found {cloth_path_matches=}")
 
         assert len(cloth_path_matches) > 0, f"{search=} not found"
 
-        # if len(cloth_path_matches) > 1:
-        #     print(
-        #         f"WARNING: more than one cloth path found for {folder_id}-{cloth_id}:"
-        #         f" {cloth_path_matches}. Using the first one."
-        #     )
         return cloth_path_matches[0]
 
     # @overrides(CpVtonDataset)

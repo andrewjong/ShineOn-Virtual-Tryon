@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 import os
 import os.path as osp
 
@@ -7,11 +8,13 @@ import torch.nn.functional as F
 from tensorboardX import SummaryWriter
 from tqdm import tqdm
 
+import log
 from datasets import get_dataset_class, CPDataLoader
 from networks.cpvton import GMM, load_checkpoint, TOM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
 
+logger = log.setup_custom_logger("logger")
 
 def test_gmm(opt, test_loader, model, board):
     model.cuda()
@@ -119,6 +122,7 @@ def test_tom(opt, test_loader, model, board):
 
 def main():
     opt = TestOptions().parse()
+    logger.setLevel(getattr(logging, opt.loglevel.upper()))
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
     # create dataset
