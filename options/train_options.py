@@ -21,13 +21,13 @@ class TrainOptions(BaseOptions):
             "--keep_epochs",
             type=int,
             help="number of epochs with initial learning rate",
-            default=100,
+            default=5,
         )
         parser.add_argument(
             "--decay_epochs",
             type=int,
             help="number of epochs to linearly decay the learning rate",
-            default=100,
+            default=5,
         )
         self.isTrain = True
         return parser

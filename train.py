@@ -180,7 +180,8 @@ def train_tom(opt, train_loader, model, board):
 
 
 def main():
-    opt = TrainOptions().parse()
+    options_object = TrainOptions()
+    opt = options_object.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
     logger.info(f"Start to train stage: {opt.stage}, named: {opt.name}!")
 
@@ -200,6 +201,7 @@ def main():
     if opt.tensorboard_dir:
         os.makedirs(opt.tensorboard_dir, exist_ok=True)
         board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+        board.add_text("options", options_object.options_formatted_str)
 
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
