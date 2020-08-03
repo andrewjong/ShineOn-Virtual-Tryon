@@ -145,6 +145,8 @@ class BaseOptions:
             opt_file.write(message)
             opt_file.write("\n")
 
+        self.options_formatted_str = message
+
     def parse(self):
         """Parse our options, create checkpoints directory suffix, and set up gpu device."""
         opt = self.gather_options()

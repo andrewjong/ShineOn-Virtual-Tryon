@@ -122,7 +122,8 @@ def test_tom(opt, test_loader, model, board):
 
 
 def main():
-    opt = TestOptions().parse()
+    options_object = TestOptions()
+    opt = options_object.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
@@ -137,9 +138,9 @@ def main():
     # visualization
     board = None
     if opt.tensorboard_dir:
-        if not os.path.exists(opt.tensorboard_dir):
-            os.makedirs(opt.tensorboard_dir)
+        os.makedirs(opt.tensorboard_dir, exist_ok=True)
         board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+        board.add_text("options", options_object.options_formatted_str)
 
     # create model & train
     if opt.stage == "GMM":
