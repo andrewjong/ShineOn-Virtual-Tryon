@@ -629,38 +629,32 @@ class TOM(nn.Module):
             norm_layer=nn.InstanceNorm2d,
         )
 
-    def forward(self, agnostic, warped_cloth):
+    def forward(self, agnostics, warped_cloths):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
-        concat_tensor = torch.cat([agnostic, warped_cloth], 1)
+        concat_tensor = torch.cat([agnostics, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
 
-        # comment andrew: given what we realized above, is the complexity of the
-        #  indexing below even necessary?
-
-        # Explanation: Output channels are formatted as 3 channel image + 1 mask.
-        # Need to select this for every frame.
-        # say self.opt.n_frames = 5, then the indices are
-        # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
-        outputs_indices = torch.arange(0, 4 * self.opt.n_frames)
-        # Selector makes every 4th one 0:
-        # [1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3, 0]
-        selector = (outputs_indices - 3) % 4
-        # Everything non-zero is part of the image:
-        # [0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13, 14, 16, 17, 18]
-        p_rendered_indices = selector.nonzero()
-        # Everywhere where it is zero is the mask:
-        # [3, 7, 11, 15, 19]
-        m_composite_indices = (selector == 0).nonzero()
-        # Now we can isolate properly :)
-        p_rendereds = torch.index_select(outputs, dim=1, index=p_rendered_indices)
-        m_composites = torch.index_select(outputs, dim=1, index=m_composite_indices)
+        # teach the u-net to make the 1st part the rendered images, and
+        # the 2nd part the masks
+        boundary = 4 * self.opt.n_frames - self.opt.n_frames
+        p_rendereds = outputs[:, 0:boundary, :, :]
+        m_composites = outputs[:, boundary:, :, :]
 
         p_rendereds = F.tanh(p_rendereds)
         m_composites = F.sigmoid(m_composites)
-        # Todo: this will not broadcast properly?
-        p_tryons = warped_cloth * m_composites + p_rendereds * (1 - m_composites)
+
+        # chunk for operation per individual frame
+        warped_cloths = torch.chunk(warped_cloths, self.opt.n_frames)
+        p_rendereds = torch.chunk(p_rendereds, self.opt.n_frames)
+        m_composites = torch.chunk(m_composites, self.opt.n_frames)
+
+        p_tryons = [
+            wc * mask + p * (1 - mask)
+            for wc, p, mask in zip(warped_cloths, p_rendereds, m_composites)
+        ]
+        p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons
 
