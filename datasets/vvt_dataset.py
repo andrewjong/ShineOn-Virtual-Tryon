@@ -1,5 +1,6 @@
 # coding=utf-8
 import argparse
+import logging
 import os
 import os.path as osp
 from glob import glob
@@ -7,13 +8,17 @@ from glob import glob
 from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
 from options.train_options import TrainOptions
 
+logger = logging.getLogger("logger")
+
 
 class VVTDataset(CpVtonDataset):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(VVTDataset, VVTDataset).modify_commandline_options(parser, is_train)
+        parser = super(VVTDataset, VVTDataset).modify_commandline_options(
+            parser, is_train
+        )
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         return parser
 
@@ -46,25 +51,24 @@ class VVTDataset(CpVtonDataset):
 
         subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
 
-
         cloth_folder = (
             osp.join(self.root, subdir, folder_id)
             if self.stage == "GMM"
             else osp.join(self.root, self.opt.datamode, subdir, folder_id)
         )
-        search = f"{cloth_folder}/{folder_id.upper()}*cloth*"  # f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*" if self.stage == "GMM" else f"{cloth_folder}/{folder_id.upper()}*cloth*"
+        search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
+        cloth_path_matches = sorted(glob(search))
+        if len(cloth_path_matches) == 0:
+            logger.debug(
+                f"{search=} not found, relaxing search to any cloth term. We should probably fix this later."
+            )
+            search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth*"
+            cloth_path_matches = sorted(glob(search))
+            logger.debug(f"{search=} found {cloth_path_matches=}")
 
-        # print("Globbing", search)
+        assert len(cloth_path_matches) > 0, f"{search=} not found"
 
-        cloth_path = sorted(glob(search))
-        assert len(cloth_path) > 0, print(len(cloth_path), print(search))
-
-        """if len(cloth_path) > 1:
-            print(
-                f"WARNING: more than one cloth path found for {folder_id}-{cloth_id}:"
-                f" {cloth_path}. Using the first one."
-            )"""
-        return cloth_path[0]
+        return cloth_path_matches[0]
 
     # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):

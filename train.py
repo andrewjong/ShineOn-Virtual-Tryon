@@ -1,4 +1,5 @@
 # coding=utf-8
+import logging
 import os
 
 import torch
@@ -8,6 +9,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+import log
 from datasets import find_dataset_using_name
 from networks.cpvton import (
     GMM,
@@ -18,6 +20,8 @@ from networks.cpvton import (
 )
 from options.train_options import TrainOptions
 from visualization import board_add_images
+
+logger = log.setup_custom_logger("logger")
 
 
 def train_gmm(opt, train_loader, model, board):
@@ -46,7 +50,7 @@ def train_gmm(opt, train_loader, model, board):
 
             # ensure epoch is over when steps is divisible by datacap
             if i >= opt.datacap:
-                tqdm.write(f"Reached dataset cap {opt.datacap}")
+                logger.info(f"Reached dataset cap {opt.datacap}")
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
@@ -81,7 +85,7 @@ def train_gmm(opt, train_loader, model, board):
                 board_add_images(board, "combine", visuals, steps)
                 board.add_scalar("epoch", epoch, steps)
                 board.add_scalar("metric", loss.item(), steps)
-                tqdm.write(f"step: {steps:8d}, loss: {loss.item():4f}")
+                logger.info(f"step: {steps:8d}, loss: {loss.item():4f}")
             steps += 1
 
         if epoch % opt.save_count == 0:
@@ -118,7 +122,7 @@ def train_tom(opt, train_loader, model, board):
         pbar = tqdm(enumerate(train_loader), unit="step")
         for i, inputs in pbar:
             if i >= opt.datacap:
-                tqdm.write(f"Reached dataset cap {opt.datacap}")
+                logger.info(f"Reached dataset cap {opt.datacap}")
                 break
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
@@ -158,7 +162,7 @@ def train_tom(opt, train_loader, model, board):
                 board.add_scalar("L1", loss_l1.item(), steps)
                 board.add_scalar("VGG", loss_vgg.item(), steps)
                 board.add_scalar("MaskL1", loss_mask.item(), steps)
-                print(
+                logger.info(
                     f"step: {steps:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
                     flush=True,
                 )
@@ -174,14 +178,18 @@ def train_tom(opt, train_loader, model, board):
 
 def main():
     opt = TrainOptions().parse()
-    print(f"Start to train stage: {opt.stage}, named: {opt.name}!")
+    logger.setLevel(getattr(logging, opt.loglevel.upper()))
+    logger.info(f"Start to train stage: {opt.stage}, named: {opt.name}!")
 
     # create dataset
     train_dataset = find_dataset_using_name(opt.dataset)(opt)
 
     # create dataloader
     train_loader = DataLoader(
-        train_dataset, batch_size=opt.batch_size, num_workers=opt.workers
+        train_dataset,
+        batch_size=opt.batch_size,
+        num_workers=opt.workers,
+        shuffle=opt.shuffle,
     )
 
     # visualization
@@ -209,7 +217,7 @@ def main():
     train_fn(opt, train_loader, model, board)
     save_checkpoint(model, os.path.join(opt.checkpoint_dir, opt.name, final_save))
 
-    print("Finished training %s, named: %s!" % (opt.stage, opt.name))
+    logger.info(f"Finished training {opt.stage}, named: {opt.name}!")
 
 
 if __name__ == "__main__":
