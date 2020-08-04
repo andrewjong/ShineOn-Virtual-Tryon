@@ -19,14 +19,14 @@ class CpVtonDataset(BaseDataset):
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
-        if is_train:
-            parser.add_argument(
-                "--cloth_mask_threshold",
-                type=int,
-                default=240,
-                help="threshold to remove white background for the cloth mask; "
-                "everything above this value is removed [0-255].",
-            )
+
+        parser.add_argument(
+            "--cloth_mask_threshold",
+            type=int,
+            default=240,
+            help="threshold to remove white background for the cloth mask; "
+            "everything above this value is removed [0-255].",
+        )
         return parser
 
     def __init__(self, opt):

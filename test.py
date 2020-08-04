@@ -6,10 +6,11 @@ import os.path as osp
 import torch
 import torch.nn.functional as F
 from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import log
-from datasets import get_dataset_class, CPDataLoader
+from datasets import find_dataset_using_name
 from networks.cpvton import GMM, load_checkpoint, TOM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
@@ -24,7 +25,7 @@ def test_gmm(opt, test_loader, model, board):
 
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
 
-    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    pbar = tqdm(enumerate(test_loader), total=len(test_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
         # produce subfolders for each subdataset
@@ -126,10 +127,16 @@ def main():
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
     # create dataset
-    train_dataset = get_dataset_class(opt.dataset)(opt)
+    #train_dataset = get_dataset_class(opt.dataset)(opt)
+    test_dataset = find_dataset_using_name(opt.dataset)(opt)
 
     # create dataloader
-    train_loader = CPDataLoader(opt, train_dataset)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=opt.batch_size,
+        num_workers=opt.workers,
+        shuffle=opt.shuffle,
+    )
 
     # visualization
     board = None
@@ -143,12 +150,12 @@ def main():
         model = GMM(opt)
         load_checkpoint(model, opt.checkpoint)
         with torch.no_grad():
-            test_gmm(opt, train_loader, model, board)
+            test_gmm(opt, test_loader, model, board)
     elif opt.stage == "TOM":
         model = TOM(opt)
         load_checkpoint(model, opt.checkpoint)
         with torch.no_grad():
-            test_tom(opt, train_loader, model, board)
+            test_tom(opt, test_loader, model, board)
     else:
         raise NotImplementedError("Model [%s] is not implemented" % opt.stage)
 
