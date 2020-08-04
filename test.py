@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from datasets import find_dataset_using_name
 import log
+from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from networks.cpvton import GMM, load_checkpoint, TOM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
@@ -18,15 +19,18 @@ from visualization import board_add_images, save_images, get_save_paths
 logger = log.setup_custom_logger("logger")
 
 def test_gmm(opt, test_loader, model, board):
-    model.cuda()
+    device = torch.device("cuda", opt.gpu_ids[0])
+    model.to(device)
     model.eval()
 
     base_name = os.path.basename(opt.checkpoint)
 
-    save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
+    save_root = os.path.join(opt.result_dir, opt.name, base_name, opt.datamode)
+    print(f"Saving to {save_root}")
 
-    pbar = tqdm(enumerate(test_loader))
+    pbar = tqdm(enumerate(test_loader), total=len(test_loader))
     for step, inputs in pbar:
+        inputs = maybe_combine_frames_and_channels(opt, inputs)
         dataset_names = inputs["dataset_name"]
         # produce subfolders for each subdataset
         warp_cloth_dirs = [
@@ -45,16 +49,18 @@ def test_gmm(opt, test_loader, model, board):
 
         pbar.set_description(c_names[0])
         # unpack the rest of the data
-        im = inputs["image"].cuda()
-        im_cocopose = inputs["im_cocopose"].cuda()
-        densepose = inputs["densepose"].cuda()
-        im_h = inputs["im_head"].cuda()
-        shape = inputs["silhouette"].cuda()
-        agnostic = inputs["agnostic"].cuda()
-        c = inputs["cloth"].cuda()
-        cm = inputs["cloth_mask"].cuda()
-        im_c = inputs["im_cloth"].cuda()
-        im_g = inputs["grid_vis"].cuda()
+        im = inputs["image"].to(device)
+        im_cocopose = inputs["im_cocopose"].to(device)
+        maybe_densepose = (
+            [inputs["densepose"].to(device)] if "densepose" in inputs else []
+        )
+        im_h = inputs["im_head"].to(device)
+        silhouette = inputs["silhouette"].to(device)
+        agnostic = inputs["agnostic"].to(device)
+        c = inputs["cloth"].to(device)
+        cm = inputs["cloth_mask"].to(device)
+        im_c = inputs["im_cloth"].to(device)
+        im_g = inputs["grid_vis"].to(device)
 
         # forward pass
         grid, theta = model(agnostic, c)
@@ -68,7 +74,7 @@ def test_gmm(opt, test_loader, model, board):
 
         if opt.tensorboard_dir and (step + 1) % opt.display_count == 0:
             visuals = [
-                [im_h, shape, im_cocopose, densepose],
+                [im_h, silhouette, im_cocopose] + maybe_densepose,
                 [c, warped_cloth, im_c],
                 [warped_grid, (warped_cloth + im) * 0.5, im],
             ]
@@ -76,7 +82,8 @@ def test_gmm(opt, test_loader, model, board):
 
 
 def test_tom(opt, test_loader, model, board):
-    model.cuda()
+    device = torch.device("cuda", opt.gpu_ids[0])
+    model.to(device)
     model.eval()
 
     base_name = os.path.basename(opt.checkpoint)
@@ -98,19 +105,22 @@ def test_tom(opt, test_loader, model, board):
 
         pbar.set_description(im_names[0])
 
-        im = inputs["image"].cuda()
+        im = inputs["image"].to(device)
         im_cocopose = inputs["im_cocopose"]
         im_h = inputs["im_head"]
-        shape = inputs["silhouette"]
+        silhouette = inputs["silhouette"]
+        maybe_densepose = (
+            [inputs["densepose"].to(device)] if "densepose" in inputs else []
+        )
 
-        agnostic = inputs["agnostic"].cuda()
-        c = inputs["cloth"].cuda()
-        cm = inputs["cloth_mask"].cuda()
+        agnostic = inputs["agnostic"].to(device)
+        c = inputs["cloth"].to(device)
+        cm = inputs["cloth_mask"].to(device)
 
         p_rendered, m_composite, p_tryon = model(agnostic, c)
 
         visuals = [
-            [im_h, shape, im_cocopose],
+            [im_h, silhouette, im_cocopose] + maybe_densepose,
             [c, 2 * cm - 1, m_composite],
             [p_rendered, p_tryon, im],
         ]
