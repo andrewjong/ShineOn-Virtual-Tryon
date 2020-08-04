@@ -24,7 +24,8 @@ def test_gmm(opt, test_loader, model, board):
 
     base_name = os.path.basename(opt.checkpoint)
 
-    save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
+    save_root = os.path.join(opt.result_dir, opt.name, base_name, opt.datamode)
+    print(f"Saving to {save_root}")
 
     pbar = tqdm(enumerate(test_loader), total=len(test_loader))
     for step, inputs in pbar:
