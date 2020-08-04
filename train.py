@@ -88,13 +88,14 @@ def train_gmm(opt, train_loader, model, board):
                 board.add_scalar("epoch", epoch, steps)
                 board.add_scalar("metric", loss.item(), steps)
                 logger.info(f"step: {steps:8d}, loss: {loss.item():4f}")
-            steps += 1
+            
 
-        if epoch % opt.save_count == 0:
-            save_checkpoint(
-                model,
-                os.path.join(opt.checkpoint_dir, opt.name, f"epoch_{epoch:04d}.pth"),
-            )
+            if steps % opt.save_count == 0:
+                save_checkpoint(
+                    model,
+                    os.path.join(opt.checkpoint_dir, opt.name, f"model_epoch_{epoch:04d}_step_{steps:06d}.pth"),
+                )
+            steps += 1
         scheduler.step()
 
 
@@ -167,13 +168,14 @@ def train_tom(opt, train_loader, model, board):
                 logger.info(
                     f"step: {steps:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
                 )
-            steps += 1
+            
 
-        if epoch % opt.save_count == 0:
-            save_checkpoint(
-                model,
-                os.path.join(opt.checkpoint_dir, opt.name, f"epoch_{epoch:04d}.pth"),
-            )
+            if steps % opt.save_count == 0:
+                save_checkpoint(
+                    model,
+                    os.path.join(opt.checkpoint_dir, opt.name, f"model_epoch_{epoch:04d}_step_{steps:06d}.pth"),
+                )
+            steps += 1
         scheduler.step()
 
 

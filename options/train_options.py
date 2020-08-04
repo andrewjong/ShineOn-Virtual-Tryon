@@ -10,8 +10,8 @@ class TrainOptions(BaseOptions):
         parser.add_argument(
             "--save_count",
             type=int,
-            help="how often to save a checkpoint, in epochs",
-            default=1,
+            help="how often to save a checkpoint, in steps",
+            default=1000,
         )
         # optimization
         parser.add_argument(
