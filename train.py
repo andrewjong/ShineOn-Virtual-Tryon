@@ -121,7 +121,7 @@ def train_tom(opt, train_loader, model, board):
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
-        pbar = tqdm(enumerate(train_loader), unit="step")
+        pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
         for i, inputs in pbar:
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
