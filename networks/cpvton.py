@@ -382,6 +382,7 @@ class UnetGenerator(nn.Module):
         ngf=64,
         norm_layer=nn.BatchNorm2d,
         use_dropout=False,
+        use_self_attn=False,
     ):
         super(UnetGenerator, self).__init__()
         # construct unet structure
@@ -411,7 +412,7 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            self_attn=1,
+            self_attn=use_self_attn,
         )
         # Self_Attn(ngf * 2, 'relu')
         unet_block = UnetSkipConnectionBlock(
@@ -420,7 +421,7 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            self_attn=1,
+            self_attn=use_self_attn,
         )
         # Self_Attn(ngf, 'relu')
         unet_block = UnetSkipConnectionBlock(
@@ -451,7 +452,7 @@ class UnetSkipConnectionBlock(nn.Module):
         outermost=False,
         innermost=False,
         norm_layer=nn.BatchNorm2d,
-        self_attn=None,
+        self_attn=False,
         use_dropout=False,
     ):
         super(UnetSkipConnectionBlock, self).__init__()
@@ -627,6 +628,7 @@ class TOM(nn.Module):
                 64 * (math.log(n_frames) + 1)
             ),  # scale up the generator features conservatively for the number of images
             norm_layer=nn.InstanceNorm2d,
+            use_self_attn=opt.self_attn
         )
 
     def forward(self, agnostics, warped_cloths):
