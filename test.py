@@ -26,7 +26,7 @@ def test_gmm(opt, test_loader, model, board):
 
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
 
-    pbar = tqdm(enumerate(test_loader))
+    pbar = tqdm(enumerate(test_loader), total=len(test_loader))
     for step, inputs in pbar:
         inputs = maybe_combine_frames_and_channels(opt, inputs)
         dataset_names = inputs["dataset_name"]
