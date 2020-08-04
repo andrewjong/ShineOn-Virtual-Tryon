@@ -1,7 +1,6 @@
 import importlib
 
 from .base_dataset import BaseDataset
-from .cpvton_dataset import CpVtonDataset, CPDataLoader
 from .mpv_dataset import MPVDataset
 from .viton_dataset import VitonDataset
 from .viton_vvt_mpv_dataset import VitonVvtMpvDataset

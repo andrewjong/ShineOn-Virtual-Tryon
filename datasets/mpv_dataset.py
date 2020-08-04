@@ -2,12 +2,10 @@
 import argparse
 import os.path as osp
 
-from datasets.cpvton_dataset import CPDataLoader
-from datasets.vvt_dataset import VVTDataset
-from options.train_options import TrainOptions
+from datasets.cpvton_dataset import CpVtonDataset
 
 
-class MPVDataset(VVTDataset):
+class MPVDataset(CpVtonDataset):
     """ CP-VTON dataset with the MPV folder structure. """
 
     @staticmethod
@@ -78,22 +76,3 @@ class MPVDataset(VVTDataset):
         pose_path = pose_path.replace(".jpg", "_keypoints.json")
         return pose_path
 
-
-if __name__ == "__main__":
-    print("Check the dataset for geometric matching module!")
-
-    opt = TrainOptions().parse()
-
-    dataset = MPVDataset(opt)
-    data_loader = CPDataLoader(opt, dataset)
-
-    print(
-        f"Size of the dataset: {len(dataset):05d}, "
-        f"dataloader: {len(data_loader.data_loader):04d}"
-    )
-    first_item = dataset.__getitem__(0)
-    first_batch = data_loader.next_batch()
-
-    from IPython import embed
-
-    embed()

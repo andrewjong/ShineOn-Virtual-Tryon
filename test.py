@@ -9,6 +9,7 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from datasets import find_dataset_using_name
 import log
 from datasets import find_dataset_using_name
 from networks.cpvton import GMM, load_checkpoint, TOM
@@ -25,7 +26,7 @@ def test_gmm(opt, test_loader, model, board):
 
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
 
-    pbar = tqdm(enumerate(test_loader), total=len(test_loader))
+    pbar = tqdm(enumerate(test_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
         # produce subfolders for each subdataset
@@ -83,7 +84,7 @@ def test_tom(opt, test_loader, model, board):
     save_root = os.path.join(opt.result_dir, base_name, opt.datamode)
     print("Dataset size: %05d!" % (len(test_loader.dataset)), flush=True)
 
-    pbar = tqdm(enumerate(test_loader.data_loader), total=len(test_loader.data_loader))
+    pbar = tqdm(enumerate(test_loader))
     for step, inputs in pbar:
         dataset_names = inputs["dataset_name"]
         # use subfolders for each subdataset
@@ -122,12 +123,13 @@ def test_tom(opt, test_loader, model, board):
 
 
 def main():
-    opt = TestOptions().parse()
+    options_object = TestOptions()
+    opt = options_object.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
     print("Start to test stage: %s, named: %s!" % (opt.stage, opt.name))
 
     # create dataset
-    #train_dataset = get_dataset_class(opt.dataset)(opt)
+
     test_dataset = find_dataset_using_name(opt.dataset)(opt)
 
     # create dataloader
@@ -136,14 +138,15 @@ def main():
         batch_size=opt.batch_size,
         num_workers=opt.workers,
         shuffle=opt.shuffle,
+
     )
 
     # visualization
     board = None
     if opt.tensorboard_dir:
-        if not os.path.exists(opt.tensorboard_dir):
-            os.makedirs(opt.tensorboard_dir)
+        os.makedirs(opt.tensorboard_dir, exist_ok=True)
         board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+        board.add_text("options", options_object.options_formatted_str)
 
     # create model & train
     if opt.stage == "GMM":

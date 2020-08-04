@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 import log
 from datasets import find_dataset_using_name
+from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from networks.cpvton import (
     GMM,
     VGGLoss,
@@ -45,13 +46,14 @@ def train_gmm(opt, train_loader, model, board):
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
 
-        pbar = tqdm(enumerate(train_loader), unit="step")
+        pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
         for i, inputs in pbar:
 
             # ensure epoch is over when steps is divisible by datacap
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
                 break
+            inputs = maybe_combine_frames_and_channels(opt, inputs)
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
             maybe_densepose = (
@@ -124,6 +126,7 @@ def train_tom(opt, train_loader, model, board):
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
                 break
+            inputs = maybe_combine_frames_and_channels(opt, inputs)
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
             maybe_densepose = (
@@ -177,7 +180,8 @@ def train_tom(opt, train_loader, model, board):
 
 
 def main():
-    opt = TrainOptions().parse()
+    options_object = TrainOptions()
+    opt = options_object.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
     logger.info(f"Start to train stage: {opt.stage}, named: {opt.name}!")
 
@@ -189,7 +193,7 @@ def main():
         train_dataset,
         batch_size=opt.batch_size,
         num_workers=opt.workers,
-        shuffle=opt.shuffle,
+        shuffle=not opt.no_shuffle,
     )
 
     # visualization
@@ -197,6 +201,7 @@ def main():
     if opt.tensorboard_dir:
         os.makedirs(opt.tensorboard_dir, exist_ok=True)
         board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+        board.add_text("options", options_object.options_formatted_str)
 
     # create model & train & save the final checkpoint
     if opt.stage == "GMM":
