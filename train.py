@@ -138,17 +138,17 @@ def train_tom(opt, train_loader, model, board):
             c = inputs["cloth"].to(device)
             cm = inputs["cloth_mask"].to(device)
 
-            p_rendered, m_composite, p_tryon = model(agnostic, c)
-
+            p_rendered, m_composite, p_tryon = model(agnostic, c)          
+            
             visuals = [
                 [im_h, silhouette, im_cocopose] + maybe_densepose,
-                [c, cm * 2 - 1, m_composite * 2 - 1],
-                [p_rendered, p_tryon, im],
+                [c, cm * 2 - 1, m_composite[0] * 2 - 1],
+                [p_rendered[0], p_tryon, im],
             ]
 
             loss_l1 = criterionL1(p_tryon, im)
             loss_vgg = criterionVGG(p_tryon, im)
-            loss_mask = criterionMask(m_composite, cm)
+            loss_mask = criterionMask(m_composite[0], cm)
             loss = loss_l1 + loss_vgg + loss_mask
             optimizer.zero_grad()
             loss.backward()
@@ -166,7 +166,6 @@ def train_tom(opt, train_loader, model, board):
                 board.add_scalar("MaskL1", loss_mask.item(), steps)
                 logger.info(
                     f"step: {steps:8d}, loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
-                    flush=True,
                 )
             steps += 1
 
