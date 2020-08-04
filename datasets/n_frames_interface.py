@@ -1,3 +1,4 @@
+import collections
 import functools
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
@@ -85,6 +86,11 @@ def maybe_combine_frames_and_channels(opt, inputs):
             if isinstance(t, torch.Tensor):
                 bs, n_frames, c, h, w = t.shape
                 t = t.view(bs, n_frames * c, h, w)
+            elif isinstance(t, collections.abc.Sequence) and not isinstance(t, str):
+                # unpack
+                if opt.n_frames == 1:
+                    t = t[0]
+
             return t
 
         inputs = {k: maybe_combine(v) for k, v in inputs.items()}

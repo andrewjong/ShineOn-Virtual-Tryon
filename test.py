@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from datasets import find_dataset_using_name
 import log
+from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from networks.cpvton import GMM, load_checkpoint, TOM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
@@ -27,6 +28,7 @@ def test_gmm(opt, test_loader, model, board):
 
     pbar = tqdm(enumerate(test_loader))
     for step, inputs in pbar:
+        inputs = maybe_combine_frames_and_channels(opt, inputs)
         dataset_names = inputs["dataset_name"]
         # produce subfolders for each subdataset
         warp_cloth_dirs = [
