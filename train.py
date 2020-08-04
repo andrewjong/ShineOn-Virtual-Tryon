@@ -99,7 +99,6 @@ def train_gmm(opt, train_loader, model, board):
 
 
 def train_tom(opt, train_loader, model, board):
-    torch.cuda.set_device(opt.gpu_ids[0])
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
     model.train()
