@@ -1,11 +1,10 @@
 # coding=utf-8
 import json
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 from argparse import ArgumentParser
 
 import numpy as np
 import torch
-import torch.utils.data as data
 import torchvision.transforms as transforms
 from PIL import Image
 from PIL import ImageDraw
@@ -14,19 +13,18 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 
-class CpVtonDataset(BaseDataset):
+class CpVtonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
-        if is_train:
-            parser.add_argument(
-                "--cloth_mask_threshold",
-                type=int,
-                default=240,
-                help="threshold to remove white background for the cloth mask; "
-                "everything above this value is removed [0-255].",
-            )
+        parser.add_argument(
+            "--cloth_mask_threshold",
+            type=int,
+            default=240,
+            help="threshold to remove white background for the cloth mask; "
+            "everything above this value is removed [0-255].",
+        )
         return parser
 
     def __init__(self, opt):
@@ -393,32 +391,3 @@ class CpVtonDataset(BaseDataset):
 
         return result
 
-
-class CPDataLoader(object):
-    def __init__(self, opt, dataset):
-        super(CPDataLoader, self).__init__()
-
-        if opt.shuffle:
-            train_sampler = torch.utils.data.sampler.RandomSampler(dataset)
-        else:
-            train_sampler = None
-
-        self.data_loader = torch.utils.data.DataLoader(
-            dataset,
-            batch_size=opt.batch_size,
-            shuffle=(train_sampler is None),
-            # num_workers=opt.workers,
-            # pin_memory=True,
-            sampler=train_sampler,
-        )
-        self.dataset = dataset
-        self.data_iter = self.data_loader.__iter__()
-
-    def next_batch(self):
-        try:
-            batch = self.data_iter.__next__()
-        except StopIteration:
-            self.data_iter = self.data_loader.__iter__()
-            batch = self.data_iter.__next__()
-
-        return batch

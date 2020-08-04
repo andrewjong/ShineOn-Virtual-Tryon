@@ -5,37 +5,55 @@ import os
 import os.path as osp
 from glob import glob
 
-from datasets.cpvton_dataset import CpVtonDataset, CPDataLoader
+from torch.utils.data import DataLoader
+
+from datasets.cpvton_dataset import CpVtonDataset
+from datasets.n_frames_interface import NFramesInterface
 from options.train_options import TrainOptions
 
 logger = logging.getLogger("logger")
 
 
-class VVTDataset(CpVtonDataset):
+class VVTDataset(CpVtonDataset, NFramesInterface):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(VVTDataset, VVTDataset).modify_commandline_options(
-            parser, is_train
-        )
+        parser = CpVtonDataset.modify_commandline_options(parser, is_train)
+        parser = NFramesInterface.modify_commandline_options(parser, is_train)
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         return parser
 
+    @staticmethod
+    def extract_folder_id(image_path):
+        return image_path.split(os.sep)[-2]
+
     def __init__(self, opt):
-        super(VVTDataset, self).__init__(opt)
+        self._video_start_indices = set()
+        CpVtonDataset.__init__(self, opt)
+        NFramesInterface.__init__(self, opt)
 
     # @overrides(CpVtonDataset)
     def load_file_paths(self):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
-        search = f"{self.root}/{folder}/**/*.png"
-        self.image_names = sorted(glob(search))
+        videos_search = f"{self.root}/{folder}/*/"
+        video_folders = sorted(glob(videos_search))
 
-    @staticmethod
-    def extract_folder_id(image_path):
-        return image_path.split(os.sep)[-2]
+        for video_folder in video_folders:
+            self._record_video_start_index()  # starts with 0
+            self._add_video_frames_to_image_names(video_folder)
+
+    def _add_video_frames_to_image_names(self, video_folder):
+        search = f"{video_folder}/*.png"
+        frames = sorted(glob(search))
+        self.image_names.extend(frames)
+
+    def _record_video_start_index(self):
+        # add the video index
+        beg_index = len(self.image_names)
+        self._video_start_indices.add(beg_index)
 
     ########################
     # CLOTH REPRESENTATION
@@ -135,21 +153,26 @@ class VVTDataset(CpVtonDataset):
         densepose_path = osp.join(self.root, folder, id, iuv_fname)
         return densepose_path
 
+    # @overrides(NFramesInterface)
+    def collect_n_frames_indices(self, index):
+        """ Walks backwards from the current index to collect self.n_frames indices
+        before it"""
+        indices = []
+        # walk backwards to gather frame indices
+        for i in range(index, index - self._n_frames, -1):
+            assert i > -1, "index can't be negative, something's wrong!"
+            # if we reach the video boundary, dupe this index for the remaining times
+            if i in self._video_start_indices:
+                num_times = self._n_frames - len(indices)
+                dupes = [i] * num_times
+                indices = dupes + indices  # prepend
+                break  # end
+            else:
+                indices.insert(0, i)
+        return indices
 
-if __name__ == "__main__":
-    print("Check the dataset for geometric matching module!")
-    opt = TrainOptions().parse()
+    @NFramesInterface.return_n_frames
+    def __getitem__(self, index):
+        return super().__getitem__(index)
 
-    dataset = VVTDataset(opt)
-    data_loader = CPDataLoader(opt, dataset)
 
-    print(
-        f"Size of the dataset: {len(dataset):05d}, "
-        f"dataloader: {len(data_loader.data_loader):04d}"
-    )
-    first_item = dataset.__getitem__(0)
-    first_batch = data_loader.next_batch()
-
-    from IPython import embed
-
-    embed()

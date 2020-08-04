@@ -4,7 +4,6 @@ from argparse import ArgumentParser
 import torchvision.transforms as transforms
 
 from datasets import BaseDataset
-from datasets.cpvton_dataset import CPDataLoader
 from datasets.mpv_dataset import MPVDataset
 from datasets.viton_dataset import VitonDataset
 from datasets.vvt_dataset import VVTDataset

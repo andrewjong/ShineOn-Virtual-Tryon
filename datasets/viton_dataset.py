@@ -1,19 +1,18 @@
 import argparse
 import os.path as osp
 
-from datasets import CpVtonDataset, CPDataLoader
-from options.train_options import TrainOptions
+from datasets.cpvton_dataset import CpVtonDataset
 
 
 class VitonDataset(CpVtonDataset):
+    """ CP-VTON dataset with the original Viton folder structure """
+
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
         parser = super(VitonDataset, VitonDataset).modify_commandline_options(parser, is_train)
         parser.add_argument("--viton_dataroot", default="data")
         parser.add_argument("--data_list", default="train_pairs.txt")
         return parser
-
-    """ CP-VTON dataset with the original Viton folder structure """
 
     def __init__(self, opt):
         super().__init__(opt)
@@ -88,22 +87,3 @@ class VitonDataset(CpVtonDataset):
         pose_path = osp.join(self.data_path, "pose", _pose_name)
         return pose_path
 
-
-if __name__ == "__main__":
-    print("Check the dataset for geometric matching module!")
-
-    opt = TrainOptions().parse()
-
-    dataset = VitonDataset(opt)
-    data_loader = CPDataLoader(opt, dataset)
-
-    print(
-        f"Size of the dataset: {len(dataset):05d}, "
-        f"dataloader: {len(data_loader.data_loader):04d}"
-    )
-    first_item = dataset.__getitem__(0)
-    first_batch = data_loader.next_batch()
-
-    from IPython import embed
-
-    embed()
