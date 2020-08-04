@@ -620,7 +620,7 @@ class TOM(nn.Module):
         self.opt = opt
         n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
         self.unet = UnetGenerator(
-            input_nc=opt.person_in_channels * n_frames,
+            input_nc= (opt.person_in_channels + 3) * n_frames, # plus 3 b/c TOM input_nc is person_in_channels + 3
             output_nc=4 * n_frames,
             num_downs=6,
             ngf=int(
