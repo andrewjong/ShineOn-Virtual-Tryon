@@ -57,6 +57,7 @@ class BaseOptions:
         parser.add_argument("--fine_height", type=int, default=256)
         parser.add_argument("--radius", type=int, default=5)
         parser.add_argument("--grid_size", type=int, default=5)
+        parser.add_argument("--self_attn", action="store_true", help="Add self-attention")
         # logging
         parser.add_argument(
             "--tensorboard_dir",

@@ -22,6 +22,11 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         parser = CpVtonDataset.modify_commandline_options(parser, is_train)
         parser = NFramesInterface.modify_commandline_options(parser, is_train)
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
+        parser.add_argument(
+            "--warp_cloth_dir",
+            default="warp-cloth",
+            help="path to the GMM-generated intermediary warp-cloth folder for TOM",
+        )
         return parser
 
     @staticmethod
@@ -67,14 +72,16 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         # it also removes the ending sub-id, which is the garment id
         folder_id, cloth_id = folder_id.upper().split("-")
 
-        subdir = "clothes_person/img" if self.stage == "GMM" else "warp-cloth"
+        if self.stage == "GMM":
+            path = osp.join(self.root, "clothes_person", "img")
+        else:
+            # TOM
+            if self.opt.warp_cloth_dir == "warp-cloth":  # symlink version
+                path = osp.join(self.root, self.opt.datamode, "warp-cloth")
+            else:  # user specifies the path
+                path = self.opt.warp_cloth_dir
 
-
-        cloth_folder = (
-            osp.join(self.root, subdir, folder_id)
-            if self.stage == "GMM"
-            else osp.join(self.root, self.opt.datamode, subdir, folder_id)
-        )
+        cloth_folder = osp.join(path, folder_id)
 
         search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
         cloth_path_matches = sorted(glob(search))
@@ -89,7 +96,6 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         assert len(cloth_path_matches) > 0, f"{search=} not found"
 
         return cloth_path_matches[0]
-
 
     # @overrides(CpVtonDataset)
     def get_input_cloth_name(self, index):
@@ -174,5 +180,3 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
     @NFramesInterface.return_n_frames
     def __getitem__(self, index):
         return super().__getitem__(index)
-
-

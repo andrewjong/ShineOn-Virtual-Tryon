@@ -121,7 +121,7 @@ def train_tom(opt, train_loader, model, board):
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
-        pbar = tqdm(enumerate(train_loader), unit="step")
+        pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
         for i, inputs in pbar:
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
@@ -143,13 +143,13 @@ def train_tom(opt, train_loader, model, board):
             
             visuals = [
                 [im_h, silhouette, im_cocopose] + maybe_densepose,
-                [c, cm * 2 - 1, m_composite[0] * 2 - 1],
-                [p_rendered[0], p_tryon, im],
+                [c, cm * 2 - 1, m_composite * 2 - 1],
+                [p_rendered, p_tryon, im],
             ]
 
             loss_l1 = criterionL1(p_tryon, im)
             loss_vgg = criterionVGG(p_tryon, im)
-            loss_mask = criterionMask(m_composite[0], cm)
+            loss_mask = criterionMask(m_composite, cm)
             loss = loss_l1 + loss_vgg + loss_mask
             optimizer.zero_grad()
             loss.backward()
