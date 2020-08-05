@@ -147,10 +147,11 @@ def main():
 
     # visualization
     board = None
-    if opt.tensorboard_dir:
-        os.makedirs(opt.tensorboard_dir, exist_ok=True)
-        board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
-        board.add_text("options", options_object.options_formatted_str)
+    # Disable Tensorboard for test
+    # if opt.tensorboard_dir:
+    #     os.makedirs(opt.tensorboard_dir, exist_ok=True)
+    #     board = SummaryWriter(log_dir=os.path.join(opt.tensorboard_dir, opt.name))
+    #     board.add_text("options", options_object.options_formatted_str)
 
     # create model & train
     if opt.stage == "GMM":
