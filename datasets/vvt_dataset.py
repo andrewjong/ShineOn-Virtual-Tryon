@@ -74,16 +74,21 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
 
         if self.stage == "GMM":
             path = osp.join(self.root, "clothes_person", "img")
+            keyword = "cloth_front"
         else:
             # TOM
             if self.opt.warp_cloth_dir == "warp-cloth":  # symlink version
                 path = osp.join(self.root, self.opt.datamode, "warp-cloth")
             else:  # user specifies the path
                 path = self.opt.warp_cloth_dir
+            frame_keyword_start = image_path.find("frame_")
+            frame_keyword_end = image_path.rfind(".")
+            frame_word = image_path[frame_keyword_start:frame_keyword_end]
+            keyword = f"cloth_front*{frame_word}"
 
         cloth_folder = osp.join(path, folder_id)
 
-        search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth_front.*"
+        search = f"{cloth_folder}/{folder_id}-{cloth_id}*{keyword}.*"
         cloth_path_matches = sorted(glob(search))
         if len(cloth_path_matches) == 0:
             logger.debug(
