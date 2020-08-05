@@ -621,14 +621,15 @@ class TOM(nn.Module):
         self.opt = opt
         n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
         self.unet = UnetGenerator(
-            input_nc= (opt.person_in_channels + 3) * n_frames, # plus 3 b/c TOM input_nc is person_in_channels + 3
+            input_nc=(opt.person_in_channels + opt.cloth_in_channels)
+            * n_frames,  # plus 3 b/c TOM input_nc is person_in_channels + 3
             output_nc=4 * n_frames,
             num_downs=6,
             ngf=int(
                 64 * (math.log(n_frames) + 1)
             ),  # scale up the generator features conservatively for the number of images
             norm_layer=nn.InstanceNorm2d,
-            use_self_attn=opt.self_attn
+            use_self_attn=opt.self_attn,
         )
 
     def forward(self, agnostics, warped_cloths):
@@ -648,13 +649,15 @@ class TOM(nn.Module):
         m_composites = F.sigmoid(m_composites)
 
         # chunk for operation per individual frame
-        warped_cloths = torch.chunk(warped_cloths, self.opt.n_frames)
-        p_rendereds = torch.chunk(p_rendereds, self.opt.n_frames)
-        m_composites = torch.chunk(m_composites, self.opt.n_frames)
+        warped_cloths_chunked = torch.chunk(warped_cloths, self.opt.n_frames)
+        p_rendereds_chunked = torch.chunk(p_rendereds, self.opt.n_frames)
+        m_composites_chunked = torch.chunk(m_composites, self.opt.n_frames)
 
         p_tryons = [
             wc * mask + p * (1 - mask)
-            for wc, p, mask in zip(warped_cloths, p_rendereds, m_composites)
+            for wc, p, mask in zip(
+                warped_cloths_chunked, p_rendereds_chunked, m_composites_chunked
+            )
         ]
         p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
 
