@@ -12,13 +12,13 @@ from tqdm import tqdm
 import log
 from datasets import find_dataset_using_name
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from networks.cpvton import (
-    GMM,
+from models.networks.cpvton import (
     VGGLoss,
     load_checkpoint,
     save_checkpoint,
-    TOM,
 )
+from models.unet_masking_model import TOM
+from models.warp_model import GMM
 from options.train_options import TrainOptions
 from visualization import board_add_images
 

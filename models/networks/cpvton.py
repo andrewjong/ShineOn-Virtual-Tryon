@@ -1,5 +1,4 @@
 # coding=utf-8
-import math
 import os
 
 import numpy as np
@@ -8,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
 from torchvision import models
+
+from models.networks.attention import Self_Attn
 
 
 def weights_init_normal(m):
@@ -576,144 +577,6 @@ class VGGLoss(nn.Module):
         for i in self.layids:
             loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())
         return loss
-
-
-class GMM(nn.Module):
-    """ Geometric Matching Module
-    """
-
-    def __init__(self, opt):
-        super(GMM, self).__init__()
-        # n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
-        self.extractionA = FeatureExtraction(
-            opt.person_in_channels,  # 1 + 3 + 18 + 3
-            ngf=64,
-            n_layers=3,
-            norm_layer=nn.BatchNorm2d,
-        )
-        self.extractionB = FeatureExtraction(
-            3, ngf=64, n_layers=3, norm_layer=nn.BatchNorm2d
-        )
-        self.l2norm = FeatureL2Norm()
-        self.correlation = FeatureCorrelation()
-        self.regression = FeatureRegression(
-            input_nc=192, output_dim=2 * opt.grid_size ** 2
-        )
-        self.gridGen = TpsGridGen(
-            opt.fine_height, opt.fine_width, grid_size=opt.grid_size
-        )
-
-    def forward(self, inputA, inputB):
-        featureA = self.extractionA(inputA)
-        featureB = self.extractionB(inputB)
-        featureA = self.l2norm(featureA)
-        featureB = self.l2norm(featureB)
-        correlation = self.correlation(featureA, featureB)
-
-        theta = self.regression(correlation)
-        grid = self.gridGen(theta)
-        return grid, theta
-
-
-class TOM(nn.Module):
-    def __init__(self, opt):
-        super().__init__()
-        self.opt = opt
-        n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
-        self.unet = UnetGenerator(
-            input_nc=(opt.person_in_channels + opt.cloth_in_channels)
-            * n_frames,  # plus 3 b/c TOM input_nc is person_in_channels + 3
-            output_nc=4 * n_frames,
-            num_downs=6,
-            ngf=int(
-                64 * (math.log(n_frames) + 1)
-            ),  # scale up the generator features conservatively for the number of images
-            norm_layer=nn.InstanceNorm2d,
-            use_self_attn=opt.self_attn,
-        )
-
-    def forward(self, agnostics, warped_cloths):
-        # comment andrew: Do we need to interleave the concatenation? Or can we leave it
-        #  like this? Theoretically the unet will learn where things are, so let's try
-        #  simple concat for now.
-        concat_tensor = torch.cat([agnostics, warped_cloths], 1)
-        outputs = self.unet(concat_tensor)
-
-        # teach the u-net to make the 1st part the rendered images, and
-        # the 2nd part the masks
-        boundary = 4 * self.opt.n_frames - self.opt.n_frames
-        p_rendereds = outputs[:, 0:boundary, :, :]
-        m_composites = outputs[:, boundary:, :, :]
-
-        p_rendereds = F.tanh(p_rendereds)
-        m_composites = F.sigmoid(m_composites)
-
-        # chunk for operation per individual frame
-        warped_cloths_chunked = torch.chunk(warped_cloths, self.opt.n_frames)
-        p_rendereds_chunked = torch.chunk(p_rendereds, self.opt.n_frames)
-        m_composites_chunked = torch.chunk(m_composites, self.opt.n_frames)
-
-        p_tryons = [
-            wc * mask + p * (1 - mask)
-            for wc, p, mask in zip(
-                warped_cloths_chunked, p_rendereds_chunked, m_composites_chunked
-            )
-        ]
-        p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
-
-        return p_rendereds, m_composites, p_tryons
-
-
-class Self_Attn(nn.Module):
-    """
-    Self attention Layer
-    Source: https://github.com/heykeetae/Self-Attention-GAN/blob/master/sagan_models.py
-    """
-
-    def __init__(self, in_dim, activation):
-        super(Self_Attn, self).__init__()
-        self.chanel_in = in_dim
-        self.activation = activation
-
-        self.query_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1
-        )
-        self.key_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=in_dim // 8, kernel_size=1
-        )
-        self.value_conv = nn.Conv2d(
-            in_channels=in_dim, out_channels=in_dim, kernel_size=1
-        )
-        self.gamma = nn.Parameter(torch.zeros(1))
-
-        self.softmax = nn.Softmax(dim=-1)  #
-
-    def forward(self, x):
-        """
-            inputs :
-                x : input feature maps( B X C X W X H)
-            returns :
-                out : self attention value + input feature
-                attention: B X N X N (N is Width*Height)
-        """
-        m_batchsize, C, width, height = x.size()
-        proj_query = (
-            self.query_conv(x).view(m_batchsize, -1, width * height).permute(0, 2, 1)
-        )  # B X CX(N)
-        proj_key = self.key_conv(x).view(
-            m_batchsize, -1, width * height
-        )  # B X C x (*W*H)
-        energy = torch.bmm(proj_query, proj_key)  # transpose check
-        attention = self.softmax(energy)  # BX (N) X (N)
-        proj_value = self.value_conv(x).view(
-            m_batchsize, -1, width * height
-        )  # B X C X N
-
-        out = torch.bmm(proj_value, attention.permute(0, 2, 1))
-        out = out.view(m_batchsize, C, width, height)
-
-        out = self.gamma * out + x
-        return out  # , attention
 
 
 def save_checkpoint(model, save_path):

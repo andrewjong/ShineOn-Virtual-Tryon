@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch.nn.utils.spectral_norm as spectral_norm
 import torchvision
 
-from networks.sync_batchnorm import SynchronizedBatchNorm2d
+from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
 
 
 # ResNet block that uses SPADE.

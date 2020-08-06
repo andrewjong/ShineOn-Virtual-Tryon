@@ -5,14 +5,15 @@ import os.path as osp
 
 import torch
 import torch.nn.functional as F
-from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from datasets import find_dataset_using_name
 import log
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from networks.cpvton import GMM, load_checkpoint, TOM
+from models.networks.cpvton import load_checkpoint
+from models.unet_masking_model import TOM
+from models.warp_model import GMM
 from options.test_options import TestOptions
 from visualization import board_add_images, save_images, get_save_paths
 

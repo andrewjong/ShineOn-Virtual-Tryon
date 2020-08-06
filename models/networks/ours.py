@@ -1,7 +1,9 @@
 import torch.nn.functional as F
 from torch import nn
 
-from networks.cpvton import GMM, TOM, load_checkpoint
+from models.networks.cpvton import load_checkpoint
+from models.unet_masking_model import TOM
+from models.warp_model import GMM
 
 
 class UnifiedCpVton(nn.Module):
