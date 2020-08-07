@@ -1,14 +1,17 @@
+import argparse
+
 import pytorch_lightning as pl
+
+from models import BaseModel
+
 """ Self Attentive Multi-Spade """
 
-class SamsModel(pl.LightningModule):
-    @staticmethod
-    def modify_commandline_options(parser, is_train):
-
-        parser.add_argument("--no_gan_loss", dest="gan_loss", action="store_false")
-        parser.add_argument("--no_attention", dest="attention", action="store_false", help=("disable attention"))
-        parser.add_argument("--attention_location", choices=("combine-spade", "post-layer"))
-        pass
+class SamsModel(BaseModel):
+    @classmethod
+    def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
+        parser = argparse.ArgumentParser(parents=[parser], add_help=False)
+        parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
+        return parser
 
     def __init__(self):
         pass

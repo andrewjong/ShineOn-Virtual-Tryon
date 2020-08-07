@@ -2,19 +2,13 @@
 import os.path as osp
 from argparse import ArgumentParser
 
-import pytorch_lightning as pl
 import torch.nn as nn
 import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel
-from models.networks.cpvton import (
-    FeatureExtraction,
-    FeatureL2Norm,
-    FeatureCorrelation,
-    FeatureRegression,
-    TpsGridGen,
-)
+from models.networks.cpvton.warp import FeatureExtraction, FeatureL2Norm, \
+    FeatureCorrelation, FeatureRegression, TpsGridGen
 from visualization import tensor_list_for_board, get_save_paths, save_images
 
 
