@@ -1,15 +1,17 @@
 import torch.nn.functional as F
 from torch import nn
 
-from networks.cpvton import GMM, TOM, load_checkpoint
+from models.networks.cpvton import load_checkpoint
+from models.unet_mask_model import UnetMaskModel
+from models.warp_model import WarpModel
 
 
 class UnifiedCpVton(nn.Module):
     def __init__(self, opt):
         super().__init__()
         self.opt = opt
-        self.gmm = GMM(opt)
-        self.tom = TOM(opt)
+        self.gmm = WarpModel(opt)
+        self.tom = UnetMaskModel(opt)
 
     def load_pretrained(self, gmm_checkpoint_path=None, tom_checkpoint_path=None):
         if gmm_checkpoint_path:

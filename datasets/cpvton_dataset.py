@@ -33,7 +33,6 @@ class CpVtonDataset(BaseDataset, ABC):
         # base setting
         self.opt = opt
         self.datamode = opt.datamode  # train or test or self-defined
-        self.stage = opt.stage  # GMM or TOM
         self.fine_height = opt.fine_height
         self.fine_width = opt.fine_width
         self.radius = opt.radius
@@ -344,7 +343,9 @@ class CpVtonDataset(BaseDataset, ABC):
     def __getitem__(self, index):
         # grid visualization for warping
         grid_vis = (
-            self.open_image_as_normed_tensor("grid.png") if self.stage == "GMM" else ""
+            self.open_image_as_normed_tensor("grid.png")
+            if self.opt.model == "warp"
+            else ""
         )
         result = {
             "dataset_name": self.__class__.__name__,
@@ -390,4 +391,3 @@ class CpVtonDataset(BaseDataset, ABC):
         # run_assertions()
 
         return result
-

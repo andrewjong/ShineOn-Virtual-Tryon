@@ -72,7 +72,7 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         # it also removes the ending sub-id, which is the garment id
         folder_id, cloth_id = folder_id.upper().split("-")
 
-        if self.stage == "GMM":
+        if self.opt.model == "warp":
             path = osp.join(self.root, "clothes_person", "img")
             keyword = "cloth_front"
         else:
@@ -98,7 +98,9 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
             cloth_path_matches = sorted(glob(search))
             logger.debug(f"{search=} found {cloth_path_matches=}")
 
-        assert len(cloth_path_matches) > 0, f"{search=} not found"
+        assert len(cloth_path_matches) > 0, (
+            f"{search=} not found. Try specifying --warp_cloth_dir"
+        )
 
         return cloth_path_matches[0]
 

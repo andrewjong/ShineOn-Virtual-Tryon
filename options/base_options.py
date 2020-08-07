@@ -4,6 +4,7 @@ import os
 import torch
 
 import datasets
+import models
 
 
 class BaseOptions:
@@ -23,11 +24,10 @@ class BaseOptions:
             "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="vvt"
         )
         parser.add_argument("--datamode", default="train")
-        parser.add_argument("--stage", default="GMM")
         parser.add_argument(
-            "--dataparallel",
-            action="store_true",
-            help="pass flag to enable dataparallel model",
+            "--model",
+            help="which model to use. choices: "
+            "'warp' (aka 'gmm'), 'unet_mask' (aka 'tom'), 'sams'.",
         )
         parser.add_argument(
             "--datacap",
@@ -35,42 +35,24 @@ class BaseOptions:
             default=float("inf"),
             help="limits the dataset to this many batches",
         )
-        # network dimensions
-        parser.add_argument(
-            "--person_in_channels",
-            type=int,
-            default=1 + 3 + 18,  # silhouette + head + cocopose
-            help="number of base channels for person representation",
-        )
-        parser.add_argument(
-            "--cloth_in_channels",
-            type=int,
-            default=3,
-            help="number of channels for cloth representation",
-        )
-        parser.add_argument(
-            "--densepose",
-            action="store_true",
-            help="use me to add densepose (auto adds 3 to --person_in_channels)",
-        )
-        parser.add_argument("--fine_width", type=int, default=192)
-        parser.add_argument("--fine_height", type=int, default=256)
-        parser.add_argument("--radius", type=int, default=5)
-        parser.add_argument("--grid_size", type=int, default=5)
-        parser.add_argument("--self_attn", action="store_true", help="Add self-attention")
         # logging
         parser.add_argument(
-            "--tensorboard_dir",
-            type=str,
-            default="tensorboard",
-            help="save tensorboard infos. pass empty string '' to disable tensorboard",
+            "--experiments_dir",
+            default="experiments",
+            help="where to store logs and checkpoints",
         )
-        parser.add_argument(
-            "--checkpoint_dir",
-            type=str,
-            default="checkpoints",
-            help="save checkpoint infos",
-        )
+        # parser.add_argument(
+        #     "--tensorboard_dir",
+        #     type=str,
+        #     default="tensorboard",
+        #     help="save tensorboard infos. pass empty string '' to disable tensorboard",
+        # )
+        # parser.add_argument(
+        #     "--checkpoint_dir",
+        #     type=str,
+        #     default="checkpoints",
+        #     help="save checkpoint infos",
+        # )
         parser.add_argument(
             "--checkpoint",
             type=str,
@@ -88,6 +70,12 @@ class BaseOptions:
             choices=("debug", "info", "warning", "error", "critical"),
             default="info",
             help="choose a log level",
+        )
+        # debug
+        parser.add_argument(
+            "--fast_dev_run",
+            action="store_true",
+            help="quickly test out the pipeline",
         )
         self.initialized = True
         return parser
@@ -107,11 +95,12 @@ class BaseOptions:
         # get the basic options
         opt, _ = parser.parse_known_args()
 
+        opt = BaseOptions.apply_model_synonyms(opt)
         # modify model-related parser options
-        # model_name = opt.model
-        # model_option_setter = models.get_option_setter(model_name)
-        # parser = model_option_setter(parser, self.isTrain)
-        # opt, _ = parser.parse_known_args()  # parse again with new defaults
+        model_name = opt.model
+        model_option_setter = models.get_option_setter(model_name)
+        parser = model_option_setter(parser, self.isTrain)
+        opt, _ = parser.parse_known_args()  # parse again with new defaults
 
         # modify dataset-related parser options
         dataset_name = opt.dataset
@@ -121,6 +110,7 @@ class BaseOptions:
         # save and return the parser
         self.parser = parser
         return parser.parse_args()
+
 
     def print_options(self, opt):
         """Print and save options
@@ -139,12 +129,12 @@ class BaseOptions:
         print(message)
 
         # save to the disk
-        expr_dir = os.path.join(opt.checkpoint_dir, opt.name)
-        os.makedirs(expr_dir, exist_ok=True)
-        file_name = os.path.join(expr_dir, "{}_opt.txt".format(opt.datamode))
-        with open(file_name, "wt") as opt_file:
-            opt_file.write(message)
-            opt_file.write("\n")
+        # expr_dir = os.path.join(opt.checkpoint_dir, opt.name)
+        # os.makedirs(expr_dir, exist_ok=True)
+        # file_name = os.path.join(expr_dir, "{}_opt.txt".format(opt.datamode))
+        # with open(file_name, "wt") as opt_file:
+        #     opt_file.write(message)
+        #     opt_file.write("\n")
 
         self.options_formatted_str = message
 
@@ -159,6 +149,7 @@ class BaseOptions:
         #     opt.name = opt.name + suffix
         #
 
+        opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
         opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
 
@@ -185,4 +176,17 @@ class BaseOptions:
     def apply_densepose_to_person_in_channels(opt):
         if opt.densepose:
             opt.person_in_channels += 3
+        return opt
+
+    @staticmethod
+    def apply_model_synonyms(opt):
+        opt.model = opt.model.lower()
+        before = opt.model
+        if opt.model == "gmm":
+            opt.model = "warp"
+        elif opt.model == "tom" or opt.model == "unet":
+            opt.model = "unet_mask"
+
+        if before != opt.model:
+            print(f"User passed --model {before}, assuming you meant {opt.model}")
         return opt
