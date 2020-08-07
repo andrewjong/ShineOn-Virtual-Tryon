@@ -13,6 +13,7 @@ logger = log.setup_custom_logger("logger")
 def main(train=True):
     options_obj = TrainOptions() if train else TestOptions()
     opt = options_obj.parse()
+    logger.setLevel(opt.loglevel)
 
     model_class = find_model_using_name(opt.model)
     if opt.checkpoint or not train:
