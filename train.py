@@ -1,3 +1,4 @@
+import logging
 import os.path as osp
 
 from pytorch_lightning import Trainer
@@ -13,7 +14,7 @@ logger = log.setup_custom_logger("logger")
 def main(train=True):
     options_obj = TrainOptions() if train else TestOptions()
     opt = options_obj.parse()
-    logger.setLevel(opt.loglevel)
+    logger.setLevel(getattr(logging, opt.loglevel.upper()))
 
     model_class = find_model_using_name(opt.model)
     if opt.checkpoint or not train:
