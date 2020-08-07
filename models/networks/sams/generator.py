@@ -8,8 +8,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.networks.base_network import BaseNetwork
 
-from models.networks.sams.spade import SPADEResnetBlock
+from models import BaseModel
+from models.networks.sams.spade import AnySpadeResBlock
 
+
+class SamsGenerator(BaseModel):
+    @classmethod
+    def modify_commandline_options(cls, parser, is_train):
+        parser = super(SamsGenerator, cls).modify_commandline_options(parser, is_train)
+        parser.add_argument()
+        parser.set_defaults(norm_G='spectralspadesyncbatch3x3')
+        parser.add_argument('--num_upsampling_layers',
+                            choices=('normal', 'more', 'most'), default='normal',
+                            help="If 'more', adds upsampling layer between the two middle resnet blocks. If 'most', also add one more upsampling + resnet layer at the end of the generator")
+
+        return parser
+    pass
 
 class SPADEGenerator(BaseNetwork):
     """ For reference only """
@@ -37,20 +51,20 @@ class SPADEGenerator(BaseNetwork):
             # downsampled segmentation map instead of random z
             self.fc = nn.Conv2d(self.opt.semantic_nc, 16 * nf, 3, padding=1)
 
-        self.head_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
+        self.head_0 = AnySpadeResBlock(16 * nf, 16 * nf, opt.norm_G, TODO, TODO)
 
-        self.G_middle_0 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
-        self.G_middle_1 = SPADEResnetBlock(16 * nf, 16 * nf, opt)
+        self.G_middle_0 = AnySpadeResBlock(16 * nf, 16 * nf, opt.norm_G, TODO, TODO)
+        self.G_middle_1 = AnySpadeResBlock(16 * nf, 16 * nf, opt.norm_G, TODO, TODO)
 
-        self.up_0 = SPADEResnetBlock(16 * nf, 8 * nf, opt)
-        self.up_1 = SPADEResnetBlock(8 * nf, 4 * nf, opt)
-        self.up_2 = SPADEResnetBlock(4 * nf, 2 * nf, opt)
-        self.up_3 = SPADEResnetBlock(2 * nf, 1 * nf, opt)
+        self.up_0 = AnySpadeResBlock(16 * nf, 8 * nf, opt.norm_G, TODO, TODO)
+        self.up_1 = AnySpadeResBlock(8 * nf, 4 * nf, opt.norm_G, TODO, TODO)
+        self.up_2 = AnySpadeResBlock(4 * nf, 2 * nf, opt.norm_G, TODO, TODO)
+        self.up_3 = AnySpadeResBlock(2 * nf, 1 * nf, opt.norm_G, TODO, TODO)
 
         final_nc = nf
 
         if opt.num_upsampling_layers == 'most':
-            self.up_4 = SPADEResnetBlock(1 * nf, nf // 2, opt)
+            self.up_4 = AnySpadeResBlock(1 * nf, nf // 2, opt.norm_G, TODO, TODO)
             final_nc = nf // 2
 
         self.conv_img = nn.Conv2d(final_nc, 3, 3, padding=1)

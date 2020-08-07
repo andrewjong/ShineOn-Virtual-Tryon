@@ -4,6 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import re
+from typing import Type
 
 import torch
 import torch.nn as nn
@@ -31,10 +32,13 @@ class SPADE(nn.Module):
     |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
     """
 
-    def __init__(
-        self, norm_nc, label_nc, param_free_norm_type="syncbatch", kernel_size=3
-    ):
+    def __init__(self, config_text, norm_nc, label_nc):
         super().__init__()
+
+        assert config_text.startswith("spade")
+        parsed = re.search("spade(\D+)(\d)x\d", config_text)
+        param_free_norm_type = str(parsed.group(1))
+        ks = int(parsed.group(2))
 
         if param_free_norm_type == "instance":
             self.param_free_norm = nn.InstanceNorm2d(norm_nc, affine=False)
@@ -49,16 +53,14 @@ class SPADE(nn.Module):
             )
 
         # The dimension of the intermediate embedding space. Yes, hardcoded.
-        nhidden = 128
+        self.nhidden = nhidden = 128
 
-        pw = kernel_size // 2
+        pw = ks // 2
         self.mlp_shared = nn.Sequential(
-            nn.Conv2d(label_nc, nhidden, kernel_size=kernel_size, padding=pw), nn.ReLU()
+            nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw), nn.ReLU()
         )
-        self.mlp_gamma = nn.Conv2d(
-            nhidden, norm_nc, kernel_size=kernel_size, padding=pw
-        )
-        self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=kernel_size, padding=pw)
+        self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
+        self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
 
     def forward(self, x, segmap):
 
@@ -77,9 +79,11 @@ class SPADE(nn.Module):
         return out
 
 
-class SPADEResnetBlock(nn.Module):
+class AnySpadeResBlock(nn.Module):
     """
-    ResNet block that uses SPADE.
+    Modified from original SPADEResnetBlock, accepts a spade_class argument
+
+    -- Original Text --
     It differs from the ResNet block of pix2pixHD in that
     it takes in the segmentation map as input, learns the skip connection if necessary,
     and applies normalization first and then convolution.
@@ -88,7 +92,22 @@ class SPADEResnetBlock(nn.Module):
     The code was inspired from https://github.com/LMescheder/GAN_stability.
     """
 
-    def __init__(self, fin, fout, opt):
+    def __init__(
+        self,
+        fin: int,
+        fout: int,
+        norm_G: str,
+        segmap_nc: int,
+        spade_class: Type[SPADE] = SPADE,
+    ):
+        """
+
+        Args:
+            fin:
+            fout:
+            norm_G:
+            spade_class: SPADE, MultiSpade, or AttnMultiSpade; default=SPADE
+        """
         super().__init__()
         # Attributes
         self.learned_shortcut = fin != fout
@@ -101,18 +120,18 @@ class SPADEResnetBlock(nn.Module):
             self.conv_s = nn.Conv2d(fin, fout, kernel_size=1, bias=False)
 
         # apply spectral norm if specified
-        if "spectral" in opt.norm_G:
+        if "spectral" in norm_G:
             self.conv_0 = spectral_norm(self.conv_0)
             self.conv_1 = spectral_norm(self.conv_1)
             if self.learned_shortcut:
                 self.conv_s = spectral_norm(self.conv_s)
 
         # define normalization layers
-        spade_config_str = opt.norm_G.replace("spectral", "")
-        self.norm_0 = SPADE(spade_config_str, fin, opt.semantic_nc)
-        self.norm_1 = SPADE(spade_config_str, fmiddle, opt.semantic_nc)
+        spade_config_str = norm_G.replace("spectral", "")
+        self.norm_0 = spade_class(spade_config_str, fin, segmap_nc)
+        self.norm_1 = spade_class(spade_config_str, fmiddle, segmap_nc)
         if self.learned_shortcut:
-            self.norm_s = SPADE(spade_config_str, fin, opt.semantic_nc)
+            self.norm_s = spade_class(spade_config_str, fin, segmap_nc)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input

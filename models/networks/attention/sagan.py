@@ -8,7 +8,7 @@ class SelfAttention(nn.Module):
     Source: https://github.com/heykeetae/Self-Attention-GAN/blob/master/sagan_models.py
     """
 
-    def __init__(self, in_dim, activation):
+    def __init__(self, in_dim, activation=nn.LeakyReLU):
         super(SelfAttention, self).__init__()
         self.chanel_in = in_dim
         self.activation = activation
