@@ -1,7 +1,7 @@
 import torch
 from torch import nn as nn
 
-from models.networks.attention.sagan import Self_Attn
+from models.networks.attention.sagan import SelfAttention
 
 
 # Defines the Unet generator.
@@ -141,8 +141,8 @@ class UnetSkipConnectionBlock(nn.Module):
             down = [downrelu, downconv, downnorm]
             up = [uprelu, upsample, upconv, upnorm]
             if self_attn:
-                down.append(Self_Attn(inner_nc, "relu"))
-                up.append(Self_Attn(outer_nc, "relu"))
+                down.append(SelfAttention(inner_nc, "relu"))
+                up.append(SelfAttention(outer_nc, "relu"))
 
             if use_dropout:
                 model = down + [submodule] + up + [nn.Dropout(0.5)]
