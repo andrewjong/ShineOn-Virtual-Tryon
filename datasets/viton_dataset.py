@@ -9,7 +9,9 @@ class VitonDataset(CpVtonDataset):
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(VitonDataset, VitonDataset).modify_commandline_options(parser, is_train)
+        parser = super(VitonDataset, VitonDataset).modify_commandline_options(
+            parser, is_train
+        )
         parser.add_argument("--viton_dataroot", default="data")
         parser.add_argument("--data_list", default="train_pairs.txt")
         return parser
@@ -47,7 +49,7 @@ class VitonDataset(CpVtonDataset):
         Called by get_input_cloth()
         """
         c_name = self.get_input_cloth_name(index)
-        folder = "cloth" if self.stage == "GMM" else "warp-cloth"
+        folder = "cloth" if self.opt.model == "warp" else "warp-cloth"
         cloth_path = osp.join(self.data_path, folder, c_name)
         return cloth_path
 
@@ -86,4 +88,3 @@ class VitonDataset(CpVtonDataset):
         _pose_name = im_name.replace(".jpg", "_keypoints.json")
         pose_path = osp.join(self.data_path, "pose", _pose_name)
         return pose_path
-

@@ -42,7 +42,7 @@ class MPVDataset(CpVtonDataset):
     # @overrides(CpVtonDataset)
     def get_input_cloth_path(self, index):
         cloth_name = self.get_input_cloth_name(index)
-        subdir = "all" if self.stage == "GMM" else "warp-cloth"
+        subdir = "all" if self.opt.model == "warp" else "warp-cloth"
         cloth_path = osp.join(self.root, subdir, cloth_name)
         return cloth_path
 

@@ -46,7 +46,7 @@ def board_add_images(board, tag_name, img_tensors_list, step_count):
     tensor = tensor_list_for_board(img_tensors_list)
 
     for i, img in enumerate(tensor):
-        board.add_image("%s/%03d" % (tag_name, i), img, step_count)
+        board.add_image(f"{tag_name}/{i:03d}", img, step_count)
 
 
 def get_save_paths(img_names, save_dirs):
