@@ -1,16 +1,18 @@
+# Credit probably goes to Junyan somewhere
 import torch
 from torch import nn as nn
 
 from models.networks.attention.sagan import SelfAttention
 
 
-# Defines the Unet generator.
-# |num_downs|: number of downsamplings in UNet. For example,
-# if |num_downs| == 7, image of size 128x128 will become of size 1x1
-# at the bottleneck
-
-
 class UnetGenerator(nn.Module):
+    """
+    Defines the Unet generator.
+    |num_downs|: number of downsamplings in UNet. For example,
+    if |num_downs| == 7, image of size 128x128 will become of size 1x1
+    at the bottleneck
+    """
+
     def __init__(
         self,
         input_nc,
@@ -76,11 +78,13 @@ class UnetGenerator(nn.Module):
         return self.model(input)
 
 
-# Defines the submodule with skip connection.
-# X -------------------identity---------------------- X
-#   |-- downsampling -- |submodule| -- upsampling --|
-
 class UnetSkipConnectionBlock(nn.Module):
+    """
+    Defines the submodule with skip connection.
+    X -------------------identity---------------------- X
+      |-- downsampling -- |submodule| -- upsampling --|
+    """
+
     def __init__(
         self,
         outer_nc,
