@@ -2,6 +2,7 @@
 Copyright (C) 2019 NVIDIA Corporation.  All rights reserved.
 Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 """
+import argparse
 from typing import List, Dict
 
 import torch
@@ -10,6 +11,7 @@ from torch import Tensor
 from torch import nn
 
 from datasets.tryon_dataset import TryonDataset
+from models.networks import BaseNetwork
 from models.networks.sams import (
     AnySpadeResBlock,
     MultiSpade,
@@ -18,7 +20,20 @@ from models.networks.sams import (
 from models.networks.sams.prev_frames_encoder import ImageEncoder
 
 
-class SamsGenerator(nn.Module):
+class SamsGenerator(BaseNetwork):
+    @classmethod
+    def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
+        parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
+        parser.add_argument(
+            "--num_upsampling_layers",
+            choices=("normal", "more", "most"),
+            default="normal",
+            help="If 'more', adds upsampling layer between the two middle resnet "
+                 "blocks. If 'most', also add one more upsampling + resnet layer at "
+                 "the end of the generator",
+        )
+        return parser
+
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams

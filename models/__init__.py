@@ -1,5 +1,7 @@
 import importlib
 
+import torch
+
 from models.base_model import BaseModel
 
 
@@ -30,3 +32,5 @@ def get_option_setter(model_name):
     """Return the static method <modify_commandline_options> of the dataset class."""
     model_class = find_model_using_name(model_name)
     return model_class.modify_commandline_options
+
+

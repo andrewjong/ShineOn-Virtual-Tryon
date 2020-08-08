@@ -10,6 +10,7 @@ from models import BaseModel
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 
+
 """ Self Attentive Multi-Spade """
 
 
@@ -19,17 +20,11 @@ class SamsModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(inputs=("agnostic", "cloth", "densepose", "flow"))
-        parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
         parser.add_argument(
             "--gan_mode", default="hinge", choices=GANLoss.AVAILABLE_MODES
         )
         parser.add_argument(
-            "--num_upsampling_layers",
-            choices=("normal", "more", "most"),
-            default="normal",
-            help="If 'more', adds upsampling layer between the two middle resnet "
-            "blocks. If 'most', also add one more upsampling + resnet layer at "
-            "the end of the generator",
+            "--netD", default="multiscale", choices=("multiscale", "nlayer")
         )
         return parser
 
@@ -37,10 +32,10 @@ class SamsModel(BaseModel):
         super().__init__(hparams)
         self.generator = SamsGenerator(hparams)
 
-        self.multiscale_discriminator = None  # TODO
+        self.netD = None  # TODO
         self.temporal_discriminator = None  # TODO
 
-        self.criterion_gan = GANLoss("hinge")
+        self.criterion_gan = GANLoss(hparams.gan_mode)
         self.criterion_l1 = L1Loss()
         self.criterion_vgg = VGGLoss()
         self.crit_adv_multiscale = None  # TODO
@@ -61,7 +56,7 @@ class SamsModel(BaseModel):
             result = self._discriminator_step(batch, batch)
             pass
             # discriminator, remember to update discriminator slower
-            # disc_0_outputs = self.multiscale_discriminator(batch)
+            # disc_0_outputs = self.netD(batch)
             # disc_1_outputs = self.temporal_discriminator(batch)
 
         return result
@@ -113,3 +108,41 @@ class SamsModel(BaseModel):
         result = {"loss": 0}
         return result
 
+    def discriminate(self, input_semantics, fake_image, real_image):
+        """
+        Given fake and real image, return the prediction of discriminator
+        for each fake and real image.
+        """
+        fake_concat = torch.cat([input_semantics, fake_image], dim=1)
+        real_concat = torch.cat([input_semantics, real_image], dim=1)
+
+        # In Batch Normalization, the fake and real images are
+        # recommended to be in the same batch to avoid disparate
+        # statistics in fake and real images.
+        # So both fake and real images are fed to D all at once.
+        fake_and_real = torch.cat([fake_concat, real_concat], dim=0)
+
+        discriminator_out = self.netD(fake_and_real)
+
+        pred_fake, pred_real = divide_pred(discriminator_out)
+
+        return pred_fake, pred_real
+
+
+def divide_pred(pred):
+    """
+    Take the prediction of fake and real images from the combined batch
+    """
+    # the prediction contains the intermediate outputs of multiscale GAN,
+    # so it's usually a list
+    if type(pred) == list:
+        fake = []
+        real = []
+        for p in pred:
+            fake.append([tensor[: tensor.size(0) // 2] for tensor in p])
+            real.append([tensor[tensor.size(0) // 2 :] for tensor in p])
+    else:
+        fake = pred[: pred.size(0) // 2]
+        real = pred[pred.size(0) // 2 :]
+
+    return fake, real

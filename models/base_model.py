@@ -107,10 +107,3 @@ class BaseModel(pl.LightningModule, abc.ABC):
         )
         return [optimizer], [scheduler]
 
-    @abc.abstractmethod
-    def training_step(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def test_step(self, *args, **kwargs):
-        pass
