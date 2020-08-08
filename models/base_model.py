@@ -54,6 +54,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument(
             "--self_attn", action="store_true", help="Add self-attention"
         )
+        parser.add_arguement(
+            "--optical_flow", action="store_true", help="add flag to enable optical flow"
+        )
         return parser
 
     def __init__(self, hparams, *args, **kwargs):

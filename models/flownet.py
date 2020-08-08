@@ -3,10 +3,11 @@ import torch
 import sys
 from torchvision import transforms
 import os
+from models.base_model import BaseModel
 from PIL import Image
 import matplotlib.pyplot as plt
 from flownet2_pytorch.utils.flow_utils import visulize_flow_file
-class FlowNet():
+class FlowNet(BaseModel):
 
     def __init__(self):
         #BaseModel.initialize(self, opt)
@@ -58,7 +59,7 @@ class FlowNet():
     def norm(self, t):
         return torch.sum(t * t, dim=1, keepdim=True)
 
-f = FlowNet()
+"""f = FlowNet()
 to_tensor_and_norm_rgb = transforms.Compose(
             [
                 transforms.ToTensor(),
@@ -103,4 +104,4 @@ im1 = flow_.squeeze().data.cpu().numpy().transpose(1, 2, 0)
 #im2 = conf_.squeeze().data.cpu().numpy().transpose(1, 2, 0)
 writeFlow("im1.flo", im1)
 visulize_flow_file("im1.flo", "./")
-#writeFlow("im2.flo", im2)
+#writeFlow("im2.flo", im2)"""

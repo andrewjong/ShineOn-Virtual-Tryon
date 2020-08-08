@@ -10,6 +10,7 @@ from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
+from models.flownet import FlowNet
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
 
@@ -36,7 +37,9 @@ class UnetMaskModel(BaseModel):
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
         )
+        self.flownet = FlowNet() # should i add any args here, maybe
         self.criterionVGG = VGGLoss()
+        self.prev_frame = torch.zeros(3, hparams.fine_height, hparams.fine_width)
 
     def forward(self, person_representation, warped_cloths):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
@@ -78,7 +81,9 @@ class UnetMaskModel(BaseModel):
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
+
         p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
+
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)
