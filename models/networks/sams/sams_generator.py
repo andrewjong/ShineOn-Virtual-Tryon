@@ -2,7 +2,7 @@
 Copyright (C) 2019 NVIDIA Corporation.  All rights reserved.
 Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
 """
-from typing import List
+from typing import List, Dict
 
 import torch
 import torch.nn.functional as F
@@ -10,9 +10,12 @@ from torch import Tensor
 from torch import nn
 
 from datasets.tryon_dataset import TryonDataset
-from models.networks.sams.attn_multispade import AttentiveMultiSpade
-from models.networks.sams.multispade import MultiSpade
-from models.networks.sams.spade import AnySpadeResBlock, SPADE
+from models.networks.sams import (
+    AnySpadeResBlock,
+    SPADE,
+    MultiSpade,
+    AttentiveMultiSpade,
+)
 
 
 class SamsGenerator(nn.Module):
@@ -115,43 +118,50 @@ class SamsGenerator(nn.Module):
         step = start
         kwargs = {
             "norm_G": self.hparams.norm_G,
-            "label_channels_list": TryonDataset.RGB_CHANNELS,
+            "label_channels_dict": TryonDataset.RGB_CHANNELS,
             "spade_class": SPADE,
         }
-        # TODO: what goes in as the segmentation map for the prev outputs encoder?
-        layers = [
-            AnySpadeResBlock(
-                TryonDataset.RGB_CHANNELS * self.hparams.n_frames, start, **kwargs
-            )
-        ]
-        layers.extend(
-            [
+        # comment: what goes in as the segmentation map for the prev outputs encoder?
+        #   answer: Arun specifies ONLY the segmentation map, no guidance images
+        # TODO: Sequential won't work for segmaps, fix this
+        layers = (
+            [  # the first layer
+                AnySpadeResBlock(
+                    TryonDataset.RGB_CHANNELS * self.hparams.n_frames, start, **kwargs
+                )
+            ]  # up layers
+            + [
                 AnySpadeResBlock(channels, channels + step, **kwargs)
                 for channels in range(start, total, step=step)
-            ]
-        )
-        layers.extend(
-            [AnySpadeResBlock(total, total, **kwargs) for _ in range(num_same)]
+            ]  # same layers
+            + [AnySpadeResBlock(total, total, **kwargs) for _ in range(num_same)]
         )
         encoder = nn.Sequential(*layers)
         return encoder
 
-    def forward(self, prev_synth_outputs: List[Tensor], segmaps_list: List[Tensor]):
+    def forward(
+        self,
+        prev_synth_outputs: List[Tensor],
+        prev_segmaps: List[Tensor],
+        current_segmaps_dict: Dict[str:Tensor],
+    ):
         """
         Args:
             prev_synth_outputs: previous synthesized frames
-            segmaps_list: segmentation maps for the current frame
+            prev_segmaps: segmaps for the previous frames
+            current_segmaps_dict: segmentation maps for the current frame
 
         Returns: synthesized output for the current frame
         """
         # TODO: what goes in as the segmentation map for the prev outputs encoder?
         prev_synth_outputs = torch.cat(prev_synth_outputs, dim=1)
-        x = self.encoder(prev_synth_outputs)
+        prev_segmaps = torch.cat(prev_segmaps, dim=1)
+        x = self.encoder(prev_synth_outputs, prev_segmaps)
 
-        x = self.head_0(x, segmaps_list)
+        x = self.head_0(x, current_segmaps_dict)
 
         x = self.up(x)
-        x = self.G_middle_0(x, segmaps_list)
+        x = self.G_middle_0(x, current_segmaps_dict)
 
         if (
             self.hparams.num_upsampling_layers == "more"
@@ -159,20 +169,20 @@ class SamsGenerator(nn.Module):
         ):
             x = self.up(x)
 
-        x = self.G_middle_1(x, segmaps_list)
+        x = self.G_middle_1(x, current_segmaps_dict)
 
         x = self.up(x)
-        x = self.up_0(x, segmaps_list)
+        x = self.up_0(x, current_segmaps_dict)
         x = self.up(x)
-        x = self.up_1(x, segmaps_list)
+        x = self.up_1(x, current_segmaps_dict)
         x = self.up(x)
-        x = self.up_2(x, segmaps_list)
+        x = self.up_2(x, current_segmaps_dict)
         x = self.up(x)
-        x = self.up_3(x, segmaps_list)
+        x = self.up_3(x, current_segmaps_dict)
 
         if self.hparams.num_upsampling_layers == "most":
             x = self.up(x)
-            x = self.up_4(x, segmaps_list)
+            x = self.up_4(x, current_segmaps_dict)
 
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)
