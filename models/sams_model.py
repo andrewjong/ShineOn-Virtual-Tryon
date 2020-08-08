@@ -1,6 +1,6 @@
 import argparse
 from torch import Tensor
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import pytorch_lightning as pl
 import torch
@@ -73,19 +73,28 @@ class SamsModel(BaseModel):
             key: batch[key] for key in self.hparams.inputs
         }
         # make a buffer of previous frames
-        shape = segmaps["image"][0]
-        prev_frames: List[Tensor] = [torch.zeros(*shape) for _ in range(self.n_frames)]
+        frame_shape: Tuple = segmaps["image"][0].shape
+        prev_frames: List[Tensor] = [
+            torch.zeros(*frame_shape, device=self.device) for _ in range(self.n_frames)
+        ]
+        agnostic_shape: Tuple = segmaps["agnostic"][0].shape
         # generate previous frames before this one
         for frame_idx in range(self.n_frames):
             # prepare data
             this_frame_segmaps: Dict[str:Tensor] = {
                 key: segmap[frame_idx] for key, segmap in segmaps.items()
             }
+            prev_frame_agnostics = [
+                batch["agnostic"][i] for i in range(0, frame_idx)
+            ] + [
+                torch.zeros(*agnostic_shape, device=self.device)
+                for _ in range(frame_idx, self.n_frames)
+            ]
             # forward
             synth_output: Tensor = self.generator.forward(
-                prev_frames, TODO, this_frame_segmaps
+                prev_frames, prev_frame_agnostics, this_frame_segmaps
             )
-            # comment: should we detach()? Ziwei says yes
+            # comment: should we detach()? Ziwei says yes, easier to train
             prev_frames[frame_idx] = synth_output.detach()
 
         # loss
@@ -101,4 +110,6 @@ class SamsModel(BaseModel):
         return result
 
     def _discriminator_step(self, batch, batch_idx, optimizer_idx):
-        pass
+        result = {"loss": 0}
+        return result
+

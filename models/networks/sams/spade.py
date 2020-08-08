@@ -4,7 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import re
-from typing import Type, Tuple
+from typing import Type, Tuple, Union, Dict
 
 import torch
 import torch.nn as nn
@@ -108,7 +108,7 @@ class AnySpadeResBlock(nn.Module):
         fin: int,
         fout: int,
         norm_G: str,
-        label_channels_list: int,
+        label_channels: Union[int, Dict[str:int]],
         spade_class: Type[SPADE] = SPADE,
     ):
         """
@@ -117,6 +117,7 @@ class AnySpadeResBlock(nn.Module):
             fin:
             fout:
             norm_G:
+            label_channels:
             spade_class: SPADE, MultiSpade, or AttnMultiSpade; default=SPADE
         """
         super().__init__()
@@ -139,10 +140,10 @@ class AnySpadeResBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = norm_G.replace("spectral", "")
-        self.spade_0 = spade_class(spade_config_str, fin, label_channels_list)
-        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels_list)
+        self.spade_0 = spade_class(spade_config_str, fin, label_channels)
+        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels)
         if self.learned_shortcut:
-            self.norm_s = spade_class(spade_config_str, fin, label_channels_list)
+            self.norm_s = spade_class(spade_config_str, fin, label_channels)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input

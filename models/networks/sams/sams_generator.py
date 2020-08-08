@@ -12,10 +12,10 @@ from torch import nn
 from datasets.tryon_dataset import TryonDataset
 from models.networks.sams import (
     AnySpadeResBlock,
-    SPADE,
     MultiSpade,
     AttentiveMultiSpade,
 )
+from models.networks.sams.prev_frames_encoder import ImageEncoder
 
 
 class SamsGenerator(nn.Module):
@@ -29,7 +29,7 @@ class SamsGenerator(nn.Module):
         # downsampled segmentation map instead of random z
 
         # parameters according to WC-Vid2Vid page 23
-        self.encoder = self.define_encoder(num_encode_up=5, num_same=3)
+        self.encoder = ImageEncoder(self.hparams, num_encode_up=5, num_same=3)
 
         label_channels_list = sum(
             getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
@@ -103,42 +103,6 @@ class SamsGenerator(nn.Module):
 
         self.up = nn.Upsample(scale_factor=2)
 
-    def define_encoder(self, num_encode_up, num_same):
-        """
-        Creates the encoder for the previous N frames
-        Args:
-            num_encode_up: number of layers to sample up to the total amount (16 * self.hparams.ngf)
-            num_same: number of layers to keep the channels the same
-
-        Returns: encoder layers
-        """
-        assert num_encode_up % 2 == 0, f"Pass a multiple of 2; got {num_encode_up=}"
-        total = 16 * self.hparams.ngf
-        start = total // num_encode_up
-        step = start
-        kwargs = {
-            "norm_G": self.hparams.norm_G,
-            "label_channels_dict": TryonDataset.RGB_CHANNELS,
-            "spade_class": SPADE,
-        }
-        # comment: what goes in as the segmentation map for the prev outputs encoder?
-        #   answer: Arun specifies ONLY the segmentation map, no guidance images
-        # TODO: Sequential won't work for segmaps, fix this
-        layers = (
-            [  # the first layer
-                AnySpadeResBlock(
-                    TryonDataset.RGB_CHANNELS * self.hparams.n_frames, start, **kwargs
-                )
-            ]  # up layers
-            + [
-                AnySpadeResBlock(channels, channels + step, **kwargs)
-                for channels in range(start, total, step=step)
-            ]  # same layers
-            + [AnySpadeResBlock(total, total, **kwargs) for _ in range(num_same)]
-        )
-        encoder = nn.Sequential(*layers)
-        return encoder
-
     def forward(
         self,
         prev_synth_outputs: List[Tensor],
@@ -153,7 +117,6 @@ class SamsGenerator(nn.Module):
 
         Returns: synthesized output for the current frame
         """
-        # TODO: what goes in as the segmentation map for the prev outputs encoder?
         prev_synth_outputs = torch.cat(prev_synth_outputs, dim=1)
         prev_segmaps = torch.cat(prev_segmaps, dim=1)
         x = self.encoder(prev_synth_outputs, prev_segmaps)
