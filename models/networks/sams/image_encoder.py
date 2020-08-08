@@ -1,3 +1,4 @@
+import logging
 from math import log2
 
 from torch import nn, Tensor
@@ -5,6 +6,7 @@ from torch import nn, Tensor
 from datasets.tryon_dataset import TryonDataset
 from models.networks.sams import SPADE, AnySpadeResBlock
 
+logger = logging.getLogger("logger")
 
 class ImageEncoder(nn.Module):
     """ Andrew's implementation of the image encoder from WC-Vid2Vid """
@@ -22,6 +24,9 @@ class ImageEncoder(nn.Module):
         #   for us, let's just pass in agnostic
         start_step = 5
         end_step = int(log2(total_features))
+        if end_step < start_step and power2_growth > 0:
+            power2_growth = -power2_growth
+            logger.warning(f"{total_features=} < {hparams.ngf=}, making things small")
         assert end_step >= start_step, f"{end_step=} !>= {start_step=}"
         self.layers = nn.ModuleList(
             [  # the first layer
