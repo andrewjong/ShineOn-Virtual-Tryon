@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List
 
 import torch
 from torch import Tensor, nn
@@ -25,16 +25,17 @@ class AttentiveMultiSpade(MultiSpade):
             nn.LeakyReLU(),
         )
 
-    def forward(self, x: Tensor, segs_concatted: Tensor):
-        segmaps_list = torch.split(segs_concatted, self.label_channels_list, dim=1)
+    def forward(self, x: Tensor, segmaps_list: List[Tensor]):
+        if isinstance(segmaps_list, Tensor):
+            segmaps_list = [segmaps_list]
         # parallel spade on each segmap
         outputs = [
             self.spade_layers[i](x, segmap) for i, segmap in enumerate(segmaps_list)
         ]
         # stack maps on channels
-        concatted_back_together = torch.cat(outputs, dim=1)
+        outputs_together = torch.cat(outputs, dim=1)
         # attend
-        attended = self.attention_layer(concatted_back_together)
+        attended = self.attention_layer(outputs_together)
         # reduce num channels back to og
         result = self.mlp_final(attended)
         return result

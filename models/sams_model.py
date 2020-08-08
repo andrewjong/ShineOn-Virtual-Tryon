@@ -57,7 +57,7 @@ class SamsModel(BaseModel):
 
         if optimizer_idx == 0:
             result = self._generator_step(batch, batch_idx)
-        elif optimizer_idx == 1:
+        else:
             result = self._discriminator_step(batch, batch)
             pass
             # discriminator, remember to update discriminator slower
@@ -79,11 +79,9 @@ class SamsModel(BaseModel):
         for frame_idx in range(self.n_frames):
             # prepare data
             this_frame_segmaps: List[Tensor] = [seg[frame_idx] for seg in segmaps]
-            segmaps_cat: Tensor = torch.cat(this_frame_segmaps, dim=1)
-            prev_frames_cat: Tensor = torch.cat(prev_frames, dim=1)
             # forward
-            synth_output: Tensor = self.generator(prev_frames_cat, segmaps_cat)
-            prev_frames[frame_idx] = synth_output
+            synth_output: Tensor = self.generator(prev_frames, this_frame_segmaps)
+            prev_frames[frame_idx] = synth_output.detach()  # comment: should we detach()? Ziwei says yes
 
         # loss
         ground_truth = segmaps["image"][-1]
