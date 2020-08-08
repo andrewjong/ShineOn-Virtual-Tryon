@@ -15,6 +15,7 @@ from datasets.util import segment_cloths_from_image
 
 class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
+
     RGB_CHANNELS = 3
 
     COCOPOSE_CHANNELS = 18
@@ -154,14 +155,14 @@ class TryonDataset(BaseDataset, ABC):
         # load pose points
         _pose_map, im_cocopose = self.get_input_person_pose(index)
 
-        _agnostic_items = [silhouette, im_head, _pose_map]
-        if self.opt.densepose:
+        if "agnostic" in self.opt.person_inputs:
+            _agnostic_items = [silhouette, im_head, _pose_map]
+            agnostic = torch.cat(_agnostic_items, 0)
+            ret["agnostic"] = agnostic
+
+        if "densepose" in self.opt.person_inputs:
             densepose = self.get_person_densepose(index)
             ret["densepose"] = densepose
-            _agnostic_items.append(densepose)
-
-        # person-agnostic representation
-        agnostic = torch.cat(_agnostic_items, 0)
 
         ret.update(
             {
@@ -170,7 +171,6 @@ class TryonDataset(BaseDataset, ABC):
                 "im_head": im_head,
                 "im_cloth": im_cloth,
                 "im_cocopose": im_cocopose,
-                "agnostic": agnostic,
             }
         )
         return ret
