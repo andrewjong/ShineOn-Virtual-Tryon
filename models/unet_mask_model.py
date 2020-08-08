@@ -20,9 +20,7 @@ class UnetMaskModel(BaseModel):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
-        parser.set_defaults(
-            person_inputs=("agnostic", "densepose"), cloth_inputs=("cloth")
-        )
+        parser.set_defaults(person_inputs=("agnostic", "densepose"))
         return parser
 
     def __init__(self, hparams):
