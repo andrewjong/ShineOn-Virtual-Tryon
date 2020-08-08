@@ -33,9 +33,8 @@ class SPADE(nn.Module):
     """
 
     @staticmethod
-    def parse_config_text(config_text) -> Tuple[Type[nn.Module], int]:
+    def parse_config_text(config_text: str) -> Tuple[Type[nn.Module], int]:
         """
-
         Args:
             config_text: something like spadeinstance3x3
 
@@ -109,7 +108,7 @@ class AnySpadeResBlock(nn.Module):
         fin: int,
         fout: int,
         norm_G: str,
-        segmap_nc: int,
+        label_channels_list: int,
         spade_class: Type[SPADE] = SPADE,
     ):
         """
@@ -140,18 +139,18 @@ class AnySpadeResBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = norm_G.replace("spectral", "")
-        self.norm_0 = spade_class(spade_config_str, fin, segmap_nc)
-        self.norm_1 = spade_class(spade_config_str, fmiddle, segmap_nc)
+        self.spade_0 = spade_class(spade_config_str, fin, label_channels_list)
+        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels_list)
         if self.learned_shortcut:
-            self.norm_s = spade_class(spade_config_str, fin, segmap_nc)
+            self.norm_s = spade_class(spade_config_str, fin, label_channels_list)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input
     def forward(self, x, seg):
         x_s = self.shortcut(x, seg)
 
-        dx = self.conv_0(self.actvn(self.norm_0(x, seg)))
-        dx = self.conv_1(self.actvn(self.norm_1(dx, seg)))
+        dx = self.conv_0(self.actvn(self.spade_0(x, seg)))
+        dx = self.conv_1(self.actvn(self.spade_1(dx, seg)))
 
         out = x_s + dx
 

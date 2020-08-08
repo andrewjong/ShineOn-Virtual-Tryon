@@ -148,6 +148,7 @@ class BaseOptions:
 
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
+        opt = BaseOptions.apply_sort_inputs(opt)
 
         self.print_options(opt)
 
@@ -179,4 +180,9 @@ class BaseOptions:
 
         if before != opt.model:
             print(f"User passed --model {before}, assuming you meant {opt.model}")
+        return opt
+
+    @staticmethod
+    def apply_sort_inputs(opt):
+        opt.inputs = sorted(opt.inputs)
         return opt
