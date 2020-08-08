@@ -31,9 +31,7 @@ class WarpModel(BaseModel):
         parser = super(WarpModel, cls).modify_commandline_options(parser, is_train)
         parser.add_argument("--ngf", type=int, default=64)
         parser.add_argument("--grid_size", type=int, default=5)
-        parser.set_defaults(
-            person_inputs=("agnostic", "densepose"), cloth_inputs=("cloth")
-        )
+        parser.set_defaults(person_inputs=("agnostic", "densepose"))
         parser.add_argument("--inputs_B", default="cloth")
         return parser
 

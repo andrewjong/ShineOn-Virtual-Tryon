@@ -45,6 +45,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
             "--cloth_inputs",
             nargs="+",
             required=True,
+            default=("cloth",),
             help="List of items to pass as the cloth inputs.",
         )
         parser.add_argument("--fine_width", type=int, default=192)
