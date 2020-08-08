@@ -1,4 +1,4 @@
-from typing import Iterable
+from typing import Iterable, List
 
 import torch
 from torch import Tensor, nn
@@ -30,16 +30,17 @@ class MultiSpade(SPADE):
             for label_nc in label_channels_list
         )
 
-    def forward(self, x: Tensor, segs_concatted: Tensor):
+    def forward(self, x: Tensor, segmaps_list: List[Tensor]):
         """
         Args:
             x: input
-            segs_concatted: segmaps concatenated on channel in the correct order
+            segmaps_list: list of segmaps
 
         Returns: transformed x
         """
+        if isinstance(segmaps_list, Tensor):
+            segmaps_list = [segmaps_list]
         # split on channel dimensions
-        segmaps_list = torch.split(segs_concatted, self.label_channels_list, dim=1)
         assert len(segmaps_list) == len(self.spade_layers)
         for i, segmap in enumerate(segmaps_list):
             layer = self.spade_layers[i]
