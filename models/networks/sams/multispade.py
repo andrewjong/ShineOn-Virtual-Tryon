@@ -36,7 +36,7 @@ class MultiSpade(SPADE):
         if isinstance(label_channels_dict, int):
             label_channels_dict = {MultiSpade.DEFAULT_KEY: label_channels_dict}
         self.sort_fn = sort_fn
-        self.label_channels: Dict[str,int] = label_channels_dict
+        self.label_channels: Dict[str, int] = label_channels_dict
         self.spade_layers: nn.ModuleDict = nn.ModuleDict(
             {
                 key: SPADE(config_text, norm_nc, label_nc)
@@ -44,7 +44,7 @@ class MultiSpade(SPADE):
             }
         )
 
-    def forward(self, x: Tensor, segmaps_dict: Dict[str,Tensor]):
+    def forward(self, x: Tensor, segmaps_dict: Dict[str, Tensor]):
         """
         Args:
             x: input
@@ -54,7 +54,9 @@ class MultiSpade(SPADE):
         """
         if isinstance(segmaps_dict, Tensor):
             segmaps_dict = {MultiSpade.DEFAULT_KEY: segmaps_dict}
-        assert len(segmaps_dict) == len(self.spade_layers)
+        assert len(segmaps_dict) == len(
+            self.spade_layers
+        ), f"{len(segmaps_dict)=} != {len(self.spade_layers)=}"
         # run sequentially in the requested order
         for key, segmap in self.sort_fn(segmaps_dict.items()):
             layer = self.spade_layers[key]

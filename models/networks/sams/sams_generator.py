@@ -60,30 +60,30 @@ class SamsGenerator(BaseNetwork):
             self.hparams, hparams.encoder_power2_growth, hparams.encoder_num_same
         )
 
-        label_channels_list = sum(
-            getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
+        label_channels_dict = {
+            inp: getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
             for inp in sorted(self.inputs)
-        )
+        }
         multispade_class = AttentiveMultiSpade if hparams.self_attn else MultiSpade
         self.head_0 = AnySpadeResBlock(
             16 * num_feat,
             16 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
         self.G_middle_0 = AnySpadeResBlock(
             16 * num_feat,
             16 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
         self.G_middle_1 = AnySpadeResBlock(
             16 * num_feat,
             16 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
 
@@ -91,28 +91,28 @@ class SamsGenerator(BaseNetwork):
             16 * num_feat,
             8 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
         self.up_1 = AnySpadeResBlock(
             8 * num_feat,
             4 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
         self.up_2 = AnySpadeResBlock(
             4 * num_feat,
             2 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
         self.up_3 = AnySpadeResBlock(
             2 * num_feat,
             1 * num_feat,
             hparams.norm_G,
-            label_channels_list,
+            label_channels_dict,
             multispade_class,
         )
 
@@ -123,7 +123,7 @@ class SamsGenerator(BaseNetwork):
                 1 * num_feat,
                 num_feat // 2,
                 hparams.norm_G,
-                label_channels_list,
+                label_channels_dict,
                 multispade_class,
             )
             final_nc = num_feat // 2
