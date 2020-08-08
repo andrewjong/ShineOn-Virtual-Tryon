@@ -8,7 +8,8 @@ from torch.nn import functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel
-from models.networks.cpvton import UnetGenerator, VGGLoss
+from models.networks.vgg import VGGLoss
+from models.networks.cpvton.unet import UnetGenerator
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
 

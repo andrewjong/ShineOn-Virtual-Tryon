@@ -2,14 +2,14 @@ import torch
 from torch import nn as nn
 
 
-class Self_Attn(nn.Module):
+class SelfAttention(nn.Module):
     """
     Self attention Layer
     Source: https://github.com/heykeetae/Self-Attention-GAN/blob/master/sagan_models.py
     """
 
-    def __init__(self, in_dim, activation):
-        super(Self_Attn, self).__init__()
+    def __init__(self, in_dim, activation=nn.LeakyReLU):
+        super(SelfAttention, self).__init__()
         self.chanel_in = in_dim
         self.activation = activation
 
