@@ -1,6 +1,5 @@
-from typing import Iterable, List, Dict, Callable
+from typing import Dict, Callable
 
-import torch
 from torch import Tensor, nn
 
 from models.networks.sams.spade import SPADE
@@ -15,7 +14,7 @@ class MultiSpade(SPADE):
         self,
         config_text: str,
         norm_nc: int,
-        label_channels_dict: Dict[str:int],
+        label_channels_dict: Dict[str, int],
         sort_fn: Callable = sorted,
     ):
         """
@@ -31,12 +30,13 @@ class MultiSpade(SPADE):
                 i.e. the order layers are called). Default is natural sorting order 
                 (alphabetical)
         """
-        # purposefully avoid super call(), we are ducktyping
+        # skip super call of SPADE and go to nn.Module, we are ducktyping
+        nn.Module.__init__(self)
 
         if isinstance(label_channels_dict, int):
             label_channels_dict = {MultiSpade.DEFAULT_KEY: label_channels_dict}
         self.sort_fn = sort_fn
-        self.label_channels: Dict[str:int] = label_channels_dict
+        self.label_channels: Dict[str,int] = label_channels_dict
         self.spade_layers: nn.ModuleDict = nn.ModuleDict(
             {
                 key: SPADE(config_text, norm_nc, label_nc)
@@ -44,7 +44,7 @@ class MultiSpade(SPADE):
             }
         )
 
-    def forward(self, x: Tensor, segmaps_dict: Dict[str:Tensor]):
+    def forward(self, x: Tensor, segmaps_dict: Dict[str,Tensor]):
         """
         Args:
             x: input

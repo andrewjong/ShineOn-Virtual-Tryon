@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import util
+from datasets.tryon_dataset import TryonDataset
+from models.base_model import parse_channels
 from models.networks import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 
@@ -31,14 +33,14 @@ class MultiscaleDiscriminator(BaseNetwork):
 
         # define properties of each discriminator of the multiscale discriminator
         subnetD = util.find_class_in_module(
-            opt.netD_subarch + "discriminator", "models.networks.discriminators"
+            opt.netD_subarch + "discriminator", "models.networks.discriminator"
         )
         subnetD.modify_commandline_options(parser, is_train)
 
         return parser
 
     def __init__(self, opt):
-        super().__init__(opt)
+        super().__init__()
         self.opt = opt
 
         for i in range(opt.num_D):
@@ -79,6 +81,9 @@ class NLayerDiscriminator(BaseNetwork):
     def modify_commandline_options(parser, is_train):
         parser.add_argument(
             "--n_layers_D", type=int, default=4, help="# layers in each discriminator"
+        )
+        parser.add_argument(
+            "--ndf", type=int, default=64, help="num discriminator features"
         )
         return parser
 
@@ -121,11 +126,11 @@ class NLayerDiscriminator(BaseNetwork):
             self.add_module("model" + str(n), nn.Sequential(*sequence[n]))
 
     def compute_D_input_nc(self, opt):
-        input_nc = opt.label_nc + opt.output_nc
-        if opt.contain_dontcare_label:
-            input_nc += 1
-        if not opt.no_instance:
-            input_nc += 1
+        input_nc = (
+            parse_channels(opt.person_inputs)
+            + parse_channels(opt.cloth_inputs)
+            + TryonDataset.RGB_CHANNELS
+        )
         return input_nc
 
     def forward(self, input):

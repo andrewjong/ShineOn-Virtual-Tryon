@@ -2,7 +2,7 @@
 from torch.nn import init
 
 from models.networks.base_network import BaseNetwork
-from models.networks.discriminators import *
+from models.networks.discriminator import *
 from models.networks.loss import *
 from models.networks.sams.sams_generator import SamsGenerator
 

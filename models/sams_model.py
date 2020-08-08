@@ -5,55 +5,68 @@ from typing import List, Dict, Tuple
 import pytorch_lightning as pl
 import torch
 from torch.nn import L1Loss
+from torch.optim import Adam
 
-from models import BaseModel
+from models import BaseModel, networks
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 
 
-""" Self Attentive Multi-Spade """
-
-
 class SamsModel(BaseModel):
+    """ Self Attentive Multi-Spade """
+
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
-        parser.set_defaults(inputs=("agnostic", "cloth", "densepose", "flow"))
+        parser.set_defaults(person_inputs=("agnostic", "densepose"))
         parser.add_argument(
             "--gan_mode", default="hinge", choices=GANLoss.AVAILABLE_MODES
         )
         parser.add_argument(
             "--netD", default="multiscale", choices=("multiscale", "nlayer")
         )
+        parser.add_argument(
+            "--norm_D",
+            type=str,
+            default="spectralinstance",
+            help="instance normalization or batch normalization",
+        )
+        parser = networks.modify_commandline_options(parser, is_train)
         return parser
 
     def __init__(self, hparams):
         super().__init__(hparams)
+        self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
-        self.netD = None  # TODO
-        self.temporal_discriminator = None  # TODO
+        if self.isTrain:
+            self.netD = networks.define_D(hparams)
+            self.temporal_discriminator = None  # TODO
 
-        self.criterion_gan = GANLoss(hparams.gan_mode)
-        self.criterion_l1 = L1Loss()
-        self.criterion_vgg = VGGLoss()
-        self.crit_adv_multiscale = None  # TODO
-        self.crit_adv_temporal = None  # TODO
+            self.criterion_gan = GANLoss(hparams.gan_mode)
+            self.criterion_l1 = L1Loss()
+            self.criterion_vgg = VGGLoss()
+            self.crit_adv_multiscale = None  # TODO
+            self.crit_adv_temporal = None  # TODO
 
     def forward(self, *args, **kwargs):
         self.generator(*args, **kwargs)
 
     def configure_optimizers(self):
         # must do individual optimizers and schedulers per each network
-        pass
+        optimizer_g = Adam(self.generator.parameters(), self.hparams.lr)
+        optimizer_d = Adam(self.netD.parameters(), self.hparams.lr)
+        scheduler_g = self._make_step_scheduler(optimizer_g)
+        scheduler_d = self._make_step_scheduler(optimizer_d)
+        return [optimizer_g, optimizer_g], [scheduler_g, scheduler_d]
 
     def training_step(self, batch, batch_idx, optimizer_idx):
 
         if optimizer_idx == 0:
-            result = self._generator_step(batch, batch_idx)
+            result = self._generator_step(batch)
         else:
-            result = self._discriminator_step(batch, batch)
+            result = self._discriminator_step(batch)
             pass
             # discriminator, remember to update discriminator slower
             # disc_0_outputs = self.netD(batch)
@@ -61,24 +74,24 @@ class SamsModel(BaseModel):
 
         return result
 
-    def _generator_step(self, batch, batch_idx):
-        # List of: [ agnostic_frames, densepose_frames, flow_frames ].
-        #  each is of length "n_frames"
-        segmaps: Dict[str : List[Tensor]] = {
-            key: batch[key] for key in self.hparams.inputs
-        }
+    def _generator_step(self, batch):
+        # format: { agnostic: frames, densepose: frames, flow: frames, etc... }
+        segmaps: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
         # make a buffer of previous frames
-        frame_shape: Tuple = segmaps["image"][0].shape
+        ground_truth = batch["image"][-1]
+        frame_shape: Tuple = ground_truth.shape
         prev_frames: List[Tensor] = [
             torch.zeros(*frame_shape, device=self.device) for _ in range(self.n_frames)
         ]
         agnostic_shape: Tuple = segmaps["agnostic"][0].shape
         # generate previous frames before this one
         for frame_idx in range(self.n_frames):
-            # prepare data
-            this_frame_segmaps: Dict[str:Tensor] = {
+            # Prepare data...
+            # all the guidance for the current frame
+            this_frame_segmaps: Dict[str, Tensor] = {
                 key: segmap[frame_idx] for key, segmap in segmaps.items()
             }
+            # just the agnostic maps for the previous frames
             prev_frame_agnostics = [
                 batch["agnostic"][i] for i in range(0, frame_idx)
             ] + [
@@ -89,22 +102,33 @@ class SamsModel(BaseModel):
             synth_output: Tensor = self.generator.forward(
                 prev_frames, prev_frame_agnostics, this_frame_segmaps
             )
+            # add to buffer
             # comment: should we detach()? Ziwei says yes, easier to train
             prev_frames[frame_idx] = synth_output.detach()
 
+        input_semantics = torch.cat(tuple(this_frame_segmaps.values()), dim=1)
+        pred_fake, pred_real = self.discriminate(
+            input_semantics, synth_output, ground_truth
+        )
+
         # loss
-        ground_truth = batch["image"][-1]
-        loss_gan = self.criterion_gan()
+        loss_gan = self.criterionGAN(pred_fake, True, for_discriminator=False)
         loss_l1 = self.criterion_l1(synth_output, ground_truth)
         loss_vgg = self.criterion_vgg(synth_output, ground_truth)
-        # TODO: ADVERSARIAL LOSSES
 
         loss = loss_gan + loss_l1 + loss_vgg
 
-        result = {"loss": loss}
+        # Log
+        log = {
+            "loss": loss,
+            "loss_gan": loss_gan,
+            "loss_l1": loss_l1,
+            "loss_vgg": loss_vgg,
+        }
+        result = {"loss": loss, "log": log, "progress_bar": log}
         return result
 
-    def _discriminator_step(self, batch, batch_idx, optimizer_idx):
+    def _discriminator_step(self, batch):
         result = {"loss": 0}
         return result
 
@@ -127,6 +151,9 @@ class SamsModel(BaseModel):
         pred_fake, pred_real = divide_pred(discriminator_out)
 
         return pred_fake, pred_real
+
+    def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
+        pass
 
 
 def divide_pred(pred):

@@ -108,7 +108,7 @@ class AnySpadeResBlock(nn.Module):
         fin: int,
         fout: int,
         norm_G: str,
-        label_channels: Union[int, Dict[str:int]],
+        label_channels: Union[int, Dict[str,int]],
         spade_class: Type[SPADE] = SPADE,
     ):
         """

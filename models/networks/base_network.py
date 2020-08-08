@@ -14,6 +14,18 @@ class BaseNetwork(nn.Module, abc.ABC):
 
     @staticmethod
     def modify_commandline_options(parser, is_train):
+        parser.add_argument(
+            "--init_type",
+            type=str,
+            default="xavier",
+            help="network initialization [normal|xavier|kaiming|orthogonal]",
+        )
+        parser.add_argument(
+            "--init_variance",
+            type=float,
+            default=0.02,
+            help="variance of the initialization distribution",
+        )
         return parser
 
     def print_network(self):

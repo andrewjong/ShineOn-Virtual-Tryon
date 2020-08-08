@@ -12,31 +12,43 @@ from torch import nn
 
 from datasets.tryon_dataset import TryonDataset
 from models.networks import BaseNetwork
-from models.networks.sams import (
-    AnySpadeResBlock,
-    MultiSpade,
-    AttentiveMultiSpade,
-)
-from models.networks.sams.prev_frames_encoder import ImageEncoder
+from .spade import AnySpadeResBlock
+from .multispade import MultiSpade
+from .attentive_multispade import AttentiveMultiSpade
+from .image_encoder import ImageEncoder
 
 
 class SamsGenerator(BaseNetwork):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
+        parser = BaseNetwork.modify_commandline_options(parser, is_train)
         parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
         parser.add_argument(
             "--num_upsampling_layers",
             choices=("normal", "more", "most"),
             default="normal",
             help="If 'more', adds upsampling layer between the two middle resnet "
-                 "blocks. If 'most', also add one more upsampling + resnet layer at "
-                 "the end of the generator",
+            "blocks. If 'most', also add one more upsampling + resnet layer at "
+            "the end of the generator",
+        )
+        parser.add_argument(
+            "--encoder_power2_growth",
+            type=int,
+            default=1,
+            help="increase this number to decrease the number of encoding layers",
+        )
+        parser.add_argument(
+            "--encoder_num_same",
+            type=int,
+            default=3,
+            help="decrease this to decrease the number of encoding layers",
         )
         return parser
 
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
+        self.inputs = hparams.person_inputs + hparams.cloth_inputs
         num_feat = hparams.ngf
         self.out_channels = TryonDataset.RGB_CHANNELS
 
@@ -44,11 +56,13 @@ class SamsGenerator(BaseNetwork):
         # downsampled segmentation map instead of random z
 
         # parameters according to WC-Vid2Vid page 23
-        self.encoder = ImageEncoder(self.hparams, num_encode_up=5, num_same=3)
+        self.encoder = ImageEncoder(
+            self.hparams, hparams.encoder_power2_growth, hparams.encoder_num_same
+        )
 
         label_channels_list = sum(
             getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
-            for inp in sorted(hparams.inputs)
+            for inp in sorted(self.inputs)
         )
         multispade_class = AttentiveMultiSpade if hparams.self_attn else MultiSpade
         self.head_0 = AnySpadeResBlock(
@@ -122,7 +136,7 @@ class SamsGenerator(BaseNetwork):
         self,
         prev_synth_outputs: List[Tensor],
         prev_segmaps: List[Tensor],
-        current_segmaps_dict: Dict[str:Tensor],
+        current_segmaps_dict: Dict[str, Tensor],
     ):
         """
         Args:
