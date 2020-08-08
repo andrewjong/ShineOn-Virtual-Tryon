@@ -6,9 +6,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from models.base_model import BaseModel
-from models.networks.cpvton.warp import FeatureExtraction, FeatureL2Norm, \
-    FeatureCorrelation, FeatureRegression, TpsGridGen
+from datasets.tryon_dataset import TryonDataset
+from models.base_model import BaseModel, parse_in_channels
+from models.networks.cpvton.warp import (
+    FeatureExtraction,
+    FeatureL2Norm,
+    FeatureCorrelation,
+    FeatureRegression,
+    TpsGridGen,
+)
 from visualization import tensor_list_for_board, get_save_paths, save_images
 
 
@@ -24,19 +30,19 @@ class WarpModel(BaseModel):
         parser = super(WarpModel, cls).modify_commandline_options(parser, is_train)
         parser.add_argument("--ngf", type=int, default=64)
         parser.add_argument("--grid_size", type=int, default=5)
+        parser.set_defaults(inputs=("agnostic", "densepose"))
+        parser.add_argument("--inputs_B", default="cloth")
         return parser
 
     def __init__(self, hparams):
         super(WarpModel, self).__init__(hparams)
         # n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
         self.extractionA = FeatureExtraction(
-            hparams.person_in_channels,  # 1 + 3 + 18 + 3
-            ngf=hparams.ngf,
-            n_layers=3,
-            norm_layer=nn.BatchNorm2d,
+            self.in_channels, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d,
         )
+        B_channels = parse_in_channels(hparams.inputs_B)
         self.extractionB = FeatureExtraction(
-            3, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d
+            B_channels, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d
         )
         self.l2norm = FeatureL2Norm()
         self.correlation = FeatureCorrelation()

@@ -8,7 +8,7 @@ from torch.nn import functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel
-from models.networks.vgg import VGGLoss
+from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
@@ -20,6 +20,7 @@ class UnetMaskModel(BaseModel):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
+        parser.set_defaults(inputs=("agnostic", "densepose", "cloth",))
         return parser
 
     def __init__(self, hparams):
@@ -27,13 +28,11 @@ class UnetMaskModel(BaseModel):
         self.hparams = hparams
         n_frames = hparams.n_frames if hasattr(hparams, "n_frames") else 1
         self.unet = UnetGenerator(
-            input_nc=(hparams.person_in_channels + hparams.cloth_in_channels)
-            * n_frames,  # plus 3 b/c TOM input_nc is person_in_channels + 3
+            input_nc=self.in_channels * n_frames,
             output_nc=4 * n_frames,
             num_downs=6,
-            ngf=int(
-                64 * (math.log(n_frames) + 1)
-            ),  # scale up the generator features conservatively for the number of images
+            # scale up the generator features conservatively for the number of images
+            ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
         )

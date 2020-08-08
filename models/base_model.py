@@ -11,29 +11,24 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from datasets import find_dataset_using_name
+from datasets.tryon_dataset import TryonDataset
+
+
+def parse_in_channels(list_of_inputs):
+    """ Get number of in channels for each input"""
+    if isinstance(list_of_inputs, str):
+        list_of_inputs = [list_of_inputs]
+    channels = sum(
+        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
+    )
+    return channels
 
 
 class BaseModel(pl.LightningModule, abc.ABC):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         # network dimensions
-        parser.add_argument(
-            "--person_in_channels",
-            type=int,
-            default=1 + 3 + 18,  # silhouette + head + cocopose
-            help="number of base channels for person representation",
-        )
-        parser.add_argument(
-            "--cloth_in_channels",
-            type=int,
-            default=3,
-            help="number of channels for cloth representation",
-        )
-        parser.add_argument(
-            "--densepose",
-            action="store_true",
-            help="use me to add densepose (auto adds 3 to --person_in_channels)",
-        )
+        parser.add_argument("--inputs", nargs="+", required=True)
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
         parser.add_argument("--radius", type=int, default=5)
@@ -45,7 +40,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def __init__(self, hparams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hparams = hparams
-        self.save_hyperparameters(hparams)
+
+        self.in_channels = parse_in_channels(hparams.inputs)
+
         self.isTrain = self.hparams.isTrain
         if not self.isTrain:
             ckpt_name = osp.basename(hparams.checkpoint)

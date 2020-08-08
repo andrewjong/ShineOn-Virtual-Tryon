@@ -13,8 +13,21 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 
-class CpVtonDataset(BaseDataset, ABC):
+class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
+    RGB_CHANNELS = 3
+
+    COCOPOSE_CHANNELS = 18
+    SILHOUETTE_CHANNELS = 1
+    PERSON_HEAD_CHANNELS = RGB_CHANNELS
+
+    AGNOSTIC_CHANNELS = COCOPOSE_CHANNELS + SILHOUETTE_CHANNELS + PERSON_HEAD_CHANNELS
+
+    CLOTH_CHANNELS = RGB_CHANNELS
+    WARPED_CLOTH_CHANNELS = CLOTH_CHANNELS
+
+    DENSEPOSE_CHANNELS = 3
+    OPTICAL_FLOW_CHANNELS = 2
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
@@ -28,7 +41,7 @@ class CpVtonDataset(BaseDataset, ABC):
         return parser
 
     def __init__(self, opt):
-        super(CpVtonDataset, self).__init__(opt)
+        super(TryonDataset, self).__init__(opt)
         self.cloth_mask_threshold = opt.cloth_mask_threshold
         # base setting
         self.opt = opt

@@ -2,10 +2,10 @@
 import argparse
 import os.path as osp
 
-from datasets.cpvton_dataset import CpVtonDataset
+from datasets.tryon_dataset import TryonDataset
 
 
-class MPVDataset(CpVtonDataset):
+class MPVDataset(TryonDataset):
     """ CP-VTON dataset with the MPV folder structure. """
 
     @staticmethod
