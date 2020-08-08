@@ -29,12 +29,18 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         # network dimensions
         parser.add_argument(
-            "--inputs",
+            "--person_inputs",
             nargs="+",
             required=True,
-            help="List of what type of items are passed as input. Dynamically"
-                 "sets input tensors and number of channels. See TryonDataset for "
-                 "options.",
+            help="List of what type of items are passed as person input. Dynamically"
+            "sets input tensors and number of channels. See TryonDataset for "
+            "options.",
+        )
+        parser.add_argument(
+            "--cloth_inputs",
+            nargs="+",
+            required=True,
+            help="List of items to pass as the cloth inputs.",
         )
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
@@ -47,9 +53,10 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def __init__(self, hparams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hparams = hparams
-        self.n_frames = hparams["n_frames"]
+        self.n_frames = hparams.n_frames
 
-        self.in_channels = parse_channels(hparams.inputs)
+        self.person_channels = parse_channels(hparams.person_inputs)
+        self.cloth_channels = parse_channels(hparams.cloth_inputs)
 
         self.isTrain = self.hparams.isTrain
         if not self.isTrain:
@@ -57,6 +64,10 @@ class BaseModel(pl.LightningModule, abc.ABC):
             self.test_results_dir = osp.join(
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
+
+    def get_and_cat_inputs(self, batch, names):
+        inputs = torch.cat([batch[inp] for inp in names], dim=1)
+        return inputs
 
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with

@@ -12,7 +12,7 @@ class BaseOptions:
         self.initialized = False
 
     def initialize(self, parser):
-        parser.add_argument("--name", default="GMM")
+        parser.add_argument("--name", default="unnamed_experiment")
         # compute
         parser.add_argument(
             "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
@@ -184,5 +184,6 @@ class BaseOptions:
 
     @staticmethod
     def apply_sort_inputs(opt):
-        opt.inputs = sorted(opt.inputs)
+        opt.person_inputs = sorted(opt.person_inputs)
+        opt.cloth_inputs = sorted(opt.cloth_inputs)
         return opt
