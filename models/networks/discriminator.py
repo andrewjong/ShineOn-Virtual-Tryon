@@ -31,7 +31,7 @@ class MultiscaleDiscriminator(BaseNetwork):
 
         # define properties of each discriminator of the multiscale discriminator
         subnetD = util.find_class_in_module(
-            opt.netD_subarch + "discriminator", "models.networks.discriminator"
+            opt.netD_subarch + "discriminator", "models.networks.discriminators"
         )
         subnetD.modify_commandline_options(parser, is_train)
 
