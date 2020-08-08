@@ -8,7 +8,7 @@ import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from datasets.tryon_dataset import TryonDataset
-from models.base_model import BaseModel, parse_channels
+from models.base_model import BaseModel, parse_channels, get_and_cat_inputs
 from models.networks.cpvton.warp import (
     FeatureExtraction,
     FeatureL2Norm,
@@ -76,8 +76,8 @@ class WarpModel(BaseModel):
         c = batch["cloth"]
         im_c = batch["im_cloth"]
         im_g = batch["grid_vis"]
-        person_inputs = self.get_and_cat_inputs(batch, self.hparams.person_inputs)
-        cloth_inputs = self.get_and_cat_inputs(batch, self.hparams.cloth_inputs)
+        person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+        cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
         grid, theta = self.forward(person_inputs, cloth_inputs)
@@ -116,8 +116,8 @@ class WarpModel(BaseModel):
             c = batch["cloth"]
             cm = batch["cloth_mask"]
             im_g = batch["grid_vis"]
-            person_inputs = self.get_and_cat_inputs(batch, self.hparams.person_inputs)
-            cloth_inputs = self.get_and_cat_inputs(batch, self.hparams.cloth_inputs)
+            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
             # forward pass
             grid, theta = self.forward(person_inputs, cloth_inputs)

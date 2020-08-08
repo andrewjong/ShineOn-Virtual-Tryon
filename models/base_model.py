@@ -24,6 +24,11 @@ def parse_channels(list_of_inputs: Iterable[str]):
     return channels
 
 
+def get_and_cat_inputs(batch, names):
+    inputs = torch.cat([batch[inp] for inp in names], dim=1)
+    return inputs
+
+
 class BaseModel(pl.LightningModule, abc.ABC):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
@@ -64,10 +69,6 @@ class BaseModel(pl.LightningModule, abc.ABC):
             self.test_results_dir = osp.join(
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
-
-    def get_and_cat_inputs(self, batch, names):
-        inputs = torch.cat([batch[inp] for inp in names], dim=1)
-        return inputs
 
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with

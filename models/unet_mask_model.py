@@ -7,7 +7,7 @@ from torch import nn as nn
 from torch.nn import functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from models.base_model import BaseModel
+from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
 from visualization import tensor_list_for_board, save_images, get_save_paths
@@ -76,8 +76,8 @@ class UnetMaskModel(BaseModel):
         # unpack
         im = batch["image"]
         cm = batch["cloth_mask"]
-        person_inputs = self.get_and_cat_inputs(batch, self.hparams.person_inputs)
-        cloth_inputs = self.get_and_cat_inputs(batch, self.hparams.cloth_inputs)
+        person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+        cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
         p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
@@ -123,8 +123,8 @@ class UnetMaskModel(BaseModel):
         else:
             progress_bar = {"file": f"{im_names[0]}"}
 
-            person_inputs = self.get_and_cat_inputs(batch, self.hparams.person_inputs)
-            cloth_inputs = self.get_and_cat_inputs(batch, self.hparams.cloth_inputs)
+            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
             p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
 
