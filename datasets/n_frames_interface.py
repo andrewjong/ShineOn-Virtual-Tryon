@@ -37,6 +37,23 @@ class NFramesInterface(ABC):
             help="Total number of frames to load at once. This is useful for video "
             "training. Set to 1 for images.",
         )
+        if is_train:
+            parser.add_argument(
+                "--frame_start_idx",
+                type=int,
+                default=0,
+                help="Do progressive training. E.g. if --n_frames=5, start with "
+                "frame_start_idx=4 to start training with 1 frame, then gradually "
+                "decrease the start idx to add more frames. ",
+                # this is because the number of channels of the net is rigid
+            )
+            parser.add_argument(
+                "--add_frames_interval",
+                metavar="N",
+                type=int,
+                help="Automatically decrement the frame_start_idx every N steps, until "
+                     "it reaches the total number of frames",
+            )
         return parser
 
     def __init__(self, opt):

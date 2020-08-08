@@ -1,6 +1,6 @@
 import argparse
 from torch import Tensor
-from typing import List
+from typing import List, Dict
 
 import pytorch_lightning as pl
 import torch
@@ -69,22 +69,27 @@ class SamsModel(BaseModel):
     def _generator_step(self, batch, batch_idx):
         # List of: [ agnostic_frames, densepose_frames, flow_frames ].
         #  each is of length "n_frames"
-        segmaps: List[List[torch.Tensor]] = [
-            batch[inp] for inp in sorted(self.hparams.inputs)
-        ]
+        segmaps: Dict[str : List[Tensor]] = {
+            key: batch[key] for key in self.hparams.inputs
+        }
         # make a buffer of previous frames
         shape = segmaps["image"][0]
         prev_frames: List[Tensor] = [torch.zeros(*shape) for _ in range(self.n_frames)]
         # generate previous frames before this one
         for frame_idx in range(self.n_frames):
             # prepare data
-            this_frame_segmaps: List[Tensor] = [seg[frame_idx] for seg in segmaps]
+            this_frame_segmaps: Dict[str:Tensor] = {
+                key: segmap[frame_idx] for key, segmap in segmaps.items()
+            }
             # forward
-            synth_output: Tensor = self.generator(prev_frames, this_frame_segmaps)
-            prev_frames[frame_idx] = synth_output.detach()  # comment: should we detach()? Ziwei says yes
+            synth_output: Tensor = self.generator.forward(
+                prev_frames, TODO, this_frame_segmaps
+            )
+            # comment: should we detach()? Ziwei says yes
+            prev_frames[frame_idx] = synth_output.detach()
 
         # loss
-        ground_truth = segmaps["image"][-1]
+        ground_truth = batch["image"][-1]
         loss_gan = self.criterion_gan()
         loss_l1 = self.criterion_l1(synth_output, ground_truth)
         loss_vgg = self.criterion_vgg(synth_output, ground_truth)
