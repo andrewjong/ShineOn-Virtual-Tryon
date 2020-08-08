@@ -13,8 +13,22 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 
-class CpVtonDataset(BaseDataset, ABC):
+class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
+
+    RGB_CHANNELS = 3
+
+    COCOPOSE_CHANNELS = 18
+    IM_HEAD_CHANNELS = RGB_CHANNELS
+    SILHOUETTE_CHANNELS = 1
+
+    AGNOSTIC_CHANNELS = COCOPOSE_CHANNELS + IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
+
+    CLOTH_CHANNELS = RGB_CHANNELS
+    CLOTH_MASK_CHANNELS = 1
+
+    DENSEPOSE_CHANNELS = 3
+    OPTICAL_FLOW_CHANNELS = 2
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
@@ -28,7 +42,7 @@ class CpVtonDataset(BaseDataset, ABC):
         return parser
 
     def __init__(self, opt):
-        super(CpVtonDataset, self).__init__(opt)
+        super(TryonDataset, self).__init__(opt)
         self.cloth_mask_threshold = opt.cloth_mask_threshold
         # base setting
         self.opt = opt
@@ -141,14 +155,14 @@ class CpVtonDataset(BaseDataset, ABC):
         # load pose points
         _pose_map, im_cocopose = self.get_input_person_pose(index)
 
-        _agnostic_items = [silhouette, im_head, _pose_map]
-        if self.opt.densepose:
+        if "agnostic" in self.opt.person_inputs:
+            _agnostic_items = [silhouette, im_head, _pose_map]
+            agnostic = torch.cat(_agnostic_items, 0)
+            ret["agnostic"] = agnostic
+
+        if "densepose" in self.opt.person_inputs:
             densepose = self.get_person_densepose(index)
             ret["densepose"] = densepose
-            _agnostic_items.append(densepose)
-
-        # person-agnostic representation
-        agnostic = torch.cat(_agnostic_items, 0)
 
         ret.update(
             {
@@ -157,7 +171,6 @@ class CpVtonDataset(BaseDataset, ABC):
                 "im_head": im_head,
                 "im_cloth": im_cloth,
                 "im_cocopose": im_cocopose,
-                "agnostic": agnostic,
             }
         )
         return ret

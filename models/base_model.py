@@ -2,7 +2,7 @@ import abc
 import argparse
 import os.path as osp
 from pprint import pformat
-from typing import Union, List
+from typing import Union, List, Iterable
 
 import pytorch_lightning as pl
 import torch
@@ -11,6 +11,22 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 
 from datasets import find_dataset_using_name
+from datasets.tryon_dataset import TryonDataset
+
+
+def parse_channels(list_of_inputs: Iterable[str]):
+    """ Get number of in channels for each input"""
+    if isinstance(list_of_inputs, str):
+        list_of_inputs = [list_of_inputs]
+    channels = sum(
+        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
+    )
+    return channels
+
+
+def get_and_cat_inputs(batch, names):
+    inputs = torch.cat([batch[inp] for inp in names], dim=1)
+    return inputs
 
 
 class BaseModel(pl.LightningModule, abc.ABC):
@@ -18,21 +34,19 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         # network dimensions
         parser.add_argument(
-            "--person_in_channels",
-            type=int,
-            default=1 + 3 + 18,  # silhouette + head + cocopose
-            help="number of base channels for person representation",
+            "--person_inputs",
+            nargs="+",
+            required=True,
+            help="List of what type of items are passed as person input. Dynamically"
+            "sets input tensors and number of channels. See TryonDataset for "
+            "options.",
         )
         parser.add_argument(
-            "--cloth_in_channels",
-            type=int,
-            default=3,
-            help="number of channels for cloth representation",
-        )
-        parser.add_argument(
-            "--densepose",
-            action="store_true",
-            help="use me to add densepose (auto adds 3 to --person_in_channels)",
+            "--cloth_inputs",
+            nargs="+",
+            required=True,
+            default=("cloth",),
+            help="List of items to pass as the cloth inputs.",
         )
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
@@ -45,7 +59,11 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def __init__(self, hparams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hparams = hparams
-        self.save_hyperparameters(hparams)
+        self.n_frames = hparams.n_frames
+
+        self.person_channels = parse_channels(hparams.person_inputs)
+        self.cloth_channels = parse_channels(hparams.cloth_inputs)
+
         self.isTrain = self.hparams.isTrain
         if not self.isTrain:
             ckpt_name = osp.basename(hparams.checkpoint)

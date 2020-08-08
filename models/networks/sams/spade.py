@@ -4,7 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 import re
-from typing import Type
+from typing import Type, Tuple
 
 import torch
 import torch.nn as nn
@@ -32,25 +32,36 @@ class SPADE(nn.Module):
     |label_nc|: the #channels of the input semantic map, hence the input dim of SPADE
     """
 
-    def __init__(self, config_text, norm_nc, label_nc):
-        super().__init__()
+    @staticmethod
+    def parse_config_text(config_text: str) -> Tuple[Type[nn.Module], int]:
+        """
+        Args:
+            config_text: something like spadeinstance3x3
 
+        Returns: norm class, kernel size
+        """
         assert config_text.startswith("spade")
         parsed = re.search("spade(\D+)(\d)x\d", config_text)
         param_free_norm_type = str(parsed.group(1))
-        ks = int(parsed.group(2))
-
         if param_free_norm_type == "instance":
-            self.param_free_norm = nn.InstanceNorm2d(norm_nc, affine=False)
+            param_free_norm = nn.InstanceNorm2d
         elif param_free_norm_type == "syncbatch":
-            self.param_free_norm = SynchronizedBatchNorm2d(norm_nc, affine=False)
+            param_free_norm = SynchronizedBatchNorm2d
         elif param_free_norm_type == "batch":
-            self.param_free_norm = nn.BatchNorm2d(norm_nc, affine=False)
+            param_free_norm = nn.BatchNorm2d
         else:
             raise ValueError(
                 "%s is not a recognized param-free norm type in SPADE"
                 % param_free_norm_type
             )
+        ks = int(parsed.group(2))
+        return param_free_norm, ks
+
+    def __init__(self, config_text, norm_nc, label_nc):
+        super().__init__()
+
+        param_free_norm_cls, ks = SPADE.parse_config_text(config_text)
+        self.param_free_norm = param_free_norm_cls(norm_nc, affine=False)
 
         # The dimension of the intermediate embedding space. Yes, hardcoded.
         self.nhidden = nhidden = 128
@@ -97,7 +108,7 @@ class AnySpadeResBlock(nn.Module):
         fin: int,
         fout: int,
         norm_G: str,
-        segmap_nc: int,
+        label_channels_list: int,
         spade_class: Type[SPADE] = SPADE,
     ):
         """
@@ -128,18 +139,18 @@ class AnySpadeResBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = norm_G.replace("spectral", "")
-        self.norm_0 = spade_class(spade_config_str, fin, segmap_nc)
-        self.norm_1 = spade_class(spade_config_str, fmiddle, segmap_nc)
+        self.spade_0 = spade_class(spade_config_str, fin, label_channels_list)
+        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels_list)
         if self.learned_shortcut:
-            self.norm_s = spade_class(spade_config_str, fin, segmap_nc)
+            self.norm_s = spade_class(spade_config_str, fin, label_channels_list)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input
     def forward(self, x, seg):
         x_s = self.shortcut(x, seg)
 
-        dx = self.conv_0(self.actvn(self.norm_0(x, seg)))
-        dx = self.conv_1(self.actvn(self.norm_1(dx, seg)))
+        dx = self.conv_0(self.actvn(self.spade_0(x, seg)))
+        dx = self.conv_1(self.actvn(self.spade_1(dx, seg)))
 
         out = x_s + dx
 

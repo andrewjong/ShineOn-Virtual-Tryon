@@ -12,7 +12,7 @@ class BaseOptions:
         self.initialized = False
 
     def initialize(self, parser):
-        parser.add_argument("--name", default="GMM")
+        parser.add_argument("--name", default="unnamed_experiment")
         # compute
         parser.add_argument(
             "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
@@ -73,9 +73,7 @@ class BaseOptions:
         )
         # debug
         parser.add_argument(
-            "--fast_dev_run",
-            action="store_true",
-            help="quickly test out the pipeline",
+            "--fast_dev_run", action="store_true", help="quickly test out the pipeline",
         )
         self.initialized = True
         return parser
@@ -110,7 +108,6 @@ class BaseOptions:
         # save and return the parser
         self.parser = parser
         return parser.parse_args()
-
 
     def print_options(self, opt):
         """Print and save options
@@ -151,7 +148,7 @@ class BaseOptions:
 
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
-        opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
+        opt = BaseOptions.apply_sort_inputs(opt)
 
         self.print_options(opt)
 
@@ -173,12 +170,6 @@ class BaseOptions:
         return opt
 
     @staticmethod
-    def apply_densepose_to_person_in_channels(opt):
-        if opt.densepose:
-            opt.person_in_channels += 3
-        return opt
-
-    @staticmethod
     def apply_model_synonyms(opt):
         opt.model = opt.model.lower()
         before = opt.model
@@ -189,4 +180,10 @@ class BaseOptions:
 
         if before != opt.model:
             print(f"User passed --model {before}, assuming you meant {opt.model}")
+        return opt
+
+    @staticmethod
+    def apply_sort_inputs(opt):
+        opt.person_inputs = sorted(opt.person_inputs)
+        opt.cloth_inputs = sorted(opt.cloth_inputs)
         return opt

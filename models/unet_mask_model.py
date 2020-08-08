@@ -7,8 +7,8 @@ from torch import nn as nn
 from torch.nn import functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from models.base_model import BaseModel
-from models.networks.vgg import VGGLoss
+from models.base_model import BaseModel, get_and_cat_inputs
+from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
@@ -20,6 +20,7 @@ class UnetMaskModel(BaseModel):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
+        parser.set_defaults(person_inputs=("agnostic", "densepose"))
         return parser
 
     def __init__(self, hparams):
@@ -27,23 +28,21 @@ class UnetMaskModel(BaseModel):
         self.hparams = hparams
         n_frames = hparams.n_frames if hasattr(hparams, "n_frames") else 1
         self.unet = UnetGenerator(
-            input_nc=(hparams.person_in_channels + hparams.cloth_in_channels)
-            * n_frames,  # plus 3 b/c TOM input_nc is person_in_channels + 3
+            input_nc=(self.person_channels + self.cloth_channels) * n_frames,
             output_nc=4 * n_frames,
             num_downs=6,
-            ngf=int(
-                64 * (math.log(n_frames) + 1)
-            ),  # scale up the generator features conservatively for the number of images
+            # scale up the generator features conservatively for the number of images
+            ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
         )
         self.criterionVGG = VGGLoss()
 
-    def forward(self, agnostics, warped_cloths):
+    def forward(self, person_representation, warped_cloths):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
-        concat_tensor = torch.cat([agnostics, warped_cloths], 1)
+        concat_tensor = torch.cat([person_representation, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
 
         # teach the u-net to make the 1st part the rendered images, and
@@ -74,12 +73,12 @@ class UnetMaskModel(BaseModel):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         # unpack
         im = batch["image"]
-        agnostic = batch["agnostic"]
-        c = batch["cloth"]
         cm = batch["cloth_mask"]
+        person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+        cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
-        p_rendered, m_composite, p_tryon = self.forward(agnostic, c)
+        p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)
@@ -122,10 +121,10 @@ class UnetMaskModel(BaseModel):
         else:
             progress_bar = {"file": f"{im_names[0]}"}
 
-            agnostic = batch["agnostic"]
-            c = batch["cloth"]
+            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-            p_rendered, m_composite, p_tryon = self.forward(agnostic, c)
+            p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
 
             save_images(p_tryon, im_names, try_on_dirs)
 
