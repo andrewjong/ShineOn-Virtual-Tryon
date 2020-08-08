@@ -1,10 +1,10 @@
 import argparse
 import os.path as osp
 
-from datasets.cpvton_dataset import CpVtonDataset
+from datasets.tryon_dataset import TryonDataset
 
 
-class VitonDataset(CpVtonDataset):
+class VitonDataset(TryonDataset):
     """ CP-VTON dataset with the original Viton folder structure """
 
     @staticmethod

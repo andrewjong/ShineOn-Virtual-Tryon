@@ -73,9 +73,7 @@ class BaseOptions:
         )
         # debug
         parser.add_argument(
-            "--fast_dev_run",
-            action="store_true",
-            help="quickly test out the pipeline",
+            "--fast_dev_run", action="store_true", help="quickly test out the pipeline",
         )
         self.initialized = True
         return parser
@@ -110,7 +108,6 @@ class BaseOptions:
         # save and return the parser
         self.parser = parser
         return parser.parse_args()
-
 
     def print_options(self, opt):
         """Print and save options
@@ -151,7 +148,6 @@ class BaseOptions:
 
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
-        opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
 
         self.print_options(opt)
 
@@ -170,12 +166,6 @@ class BaseOptions:
         print(opt.gpu_ids)
         if len(opt.gpu_ids) > 0:
             torch.cuda.set_device(opt.gpu_ids[0])
-        return opt
-
-    @staticmethod
-    def apply_densepose_to_person_in_channels(opt):
-        if opt.densepose:
-            opt.person_in_channels += 3
         return opt
 
     @staticmethod
