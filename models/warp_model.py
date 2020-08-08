@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from datasets.tryon_dataset import TryonDataset
-from models.base_model import BaseModel, parse_in_channels
+from models.base_model import BaseModel, parse_channels
 from models.networks.cpvton.warp import (
     FeatureExtraction,
     FeatureL2Norm,
@@ -40,7 +40,7 @@ class WarpModel(BaseModel):
         self.extractionA = FeatureExtraction(
             self.in_channels, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d,
         )
-        B_channels = parse_in_channels(hparams.inputs_B)
+        B_channels = parse_channels(hparams.inputs_B)
         self.extractionB = FeatureExtraction(
             B_channels, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d
         )
