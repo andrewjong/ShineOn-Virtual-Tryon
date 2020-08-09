@@ -32,6 +32,12 @@ class SamsModel(BaseModel):
             default="spectralinstance",
             help="instance normalization or batch normalization",
         )
+        parser.add_argument(
+            "--encoder_input",
+            help="which of the --person_inputs to use as the ImageEncoder input "
+                 "(only 1 allowed). Defaults to the first alphabetically in "
+                 "--person_inputs",
+        )
         parser = networks.modify_commandline_options(parser, is_train)
         return parser
 
@@ -79,11 +85,11 @@ class SamsModel(BaseModel):
         segmaps: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
         # make a buffer of previous frames
         ground_truth = batch["image"][-1]
-        frame_shape: Tuple = ground_truth.shape
+        gt_shape: Tuple = ground_truth.shape
         prev_frames: List[Tensor] = [
-            torch.zeros(*frame_shape, device=self.device) for _ in range(self.n_frames)
+            torch.zeros(*gt_shape, device=self.device) for _ in range(self.n_frames)
         ]
-        agnostic_shape: Tuple = segmaps["agnostic"][0].shape
+        encoder_maps_shape: Tuple = segmaps[self.hparams.encoder_input][0].shape
         # generate previous frames before this one
         for frame_idx in range(self.n_frames):
             # Prepare data...
@@ -91,16 +97,16 @@ class SamsModel(BaseModel):
             this_frame_segmaps: Dict[str, Tensor] = {
                 key: segmap[frame_idx] for key, segmap in segmaps.items()
             }
-            # just the agnostic maps for the previous frames
-            prev_frame_agnostics = [
-                batch["agnostic"][i] for i in range(0, frame_idx)
+            # just the encoder maps for the previous frames
+            prev_frame_encoder_maps = [
+                batch[self.hparams.encoder_input][i] for i in range(0, frame_idx)
             ] + [
-                torch.zeros(*agnostic_shape, device=self.device)
+                torch.zeros(*encoder_maps_shape, device=self.device)
                 for _ in range(frame_idx, self.n_frames)
             ]
             # forward
             synth_output: Tensor = self.generator.forward(
-                prev_frames, prev_frame_agnostics, this_frame_segmaps
+                prev_frames, prev_frame_encoder_maps, this_frame_segmaps
             )
             # add to buffer
             # comment: should we detach()? Ziwei says yes, easier to train

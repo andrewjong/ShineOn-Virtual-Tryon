@@ -14,9 +14,10 @@ class ImageEncoder(nn.Module):
     def __init__(self, hparams, power2_growth=1, num_same=3):
         super().__init__()
         total_features = 16 * hparams.ngf
+        channels = getattr(TryonDataset, hparams.encoder_input.upper() + "_CHANNELS")
         kwargs = {
             "norm_G": hparams.norm_G,
-            "label_channels": TryonDataset.AGNOSTIC_CHANNELS * hparams.n_frames,
+            "label_channels": channels * hparams.n_frames,
             "spade_class": SPADE,
         }
         # comment: what goes in as the segmentation map for the prev outputs encoder?

@@ -25,10 +25,11 @@ class SamsGenerator(BaseNetwork):
         parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
         parser.add_argument(
             "--num_upsampling_layers",
-            choices=("normal", "more", "most"),
-            default="normal",
-            help="If 'more', adds upsampling layer between the two middle resnet "
-            "blocks. If 'most', also add one more upsampling + resnet layer at "
+            choices=("less", "normal", "more", "most"),
+            default="less",
+            help="If 'less', removes intermediate same layers. "
+            "If 'more', adds upsampling layer between the two middle resnet blocks. "
+            "If 'most', also add one more upsampling + resnet layer at "
             "the end of the generator",
         )
         parser.add_argument(
@@ -150,10 +151,12 @@ class SamsGenerator(BaseNetwork):
         prev_segmaps = torch.cat(prev_segmaps, dim=1)
         x = self.encoder(prev_synth_outputs, prev_segmaps)
 
-        x = self.head_0(x, current_segmaps_dict)
+        if not self.hparams.num_upsampling_layers == "less":
+            x = self.head_0(x, current_segmaps_dict)
 
         x = self.up(x)
-        x = self.G_middle_0(x, current_segmaps_dict)
+        if not self.hparams.num_upsampling_layers == "less":
+            x = self.G_middle_0(x, current_segmaps_dict)
 
         if (
             self.hparams.num_upsampling_layers == "more"
@@ -161,7 +164,8 @@ class SamsGenerator(BaseNetwork):
         ):
             x = self.up(x)
 
-        x = self.G_middle_1(x, current_segmaps_dict)
+        if not self.hparams.num_upsampling_layers == "less":
+            x = self.G_middle_1(x, current_segmaps_dict)
 
         x = self.up(x)
         x = self.up_0(x, current_segmaps_dict)

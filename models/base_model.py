@@ -45,14 +45,10 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument(
             "--cloth_inputs",
             nargs="+",
-            required=True,
             default=("cloth",),
             help="List of items to pass as the cloth inputs.",
         )
         parser.add_argument("--ngf", type=int, default=64)
-        parser.add_argument("--fine_width", type=int, default=192)
-        parser.add_argument("--fine_height", type=int, default=256)
-        parser.add_argument("--radius", type=int, default=5)
         parser.add_argument(
             "--self_attn", action="store_true", help="Add self-attention"
         )
