@@ -10,6 +10,7 @@ from torch.optim import Adam
 from models import BaseModel, networks
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
+from util import without_key
 
 
 class SamsModel(BaseModel):
@@ -69,10 +70,10 @@ class SamsModel(BaseModel):
 
     def training_step(self, batch, batch_idx, optimizer_idx):
 
-        if optimizer_idx == 0:
+        if True or optimizer_idx == 0:
             result = self._generator_step(batch)
         else:
-            result = self._discriminator_step(batch)
+            # result = self._discriminator_step(batch)
             pass
             # discriminator, remember to update discriminator slower
             # disc_0_outputs = self.netD(batch)
@@ -131,11 +132,11 @@ class SamsModel(BaseModel):
             "loss_l1": loss_l1,
             "loss_vgg": loss_vgg,
         }
-        result = {"loss": loss, "log": log, "progress_bar": log}
+        result = {"loss": loss, "log": log, "progress_bar": without_key(log, "loss")}
         return result
 
     def _discriminator_step(self, batch):
-        result = {"loss": 0}
+        result = {"loss": torch.zeros()}
         return result
 
     def discriminate(self, input_semantics, fake_image, real_image):

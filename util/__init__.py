@@ -25,3 +25,14 @@ def multiply(a, b):
 
 def divide(a, b):
     return a / b
+
+
+def without_key(d, *keys):
+    """ Return a dict without specified keys
+
+    Args:
+        d (Dictionary):
+    """
+    for k in keys:
+        d.pop(k)
+    return d
