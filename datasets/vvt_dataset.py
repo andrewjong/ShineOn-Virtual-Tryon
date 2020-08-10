@@ -4,7 +4,6 @@ import logging
 import os
 import os.path as osp
 from glob import glob
-
 from torch.utils.data import DataLoader
 
 from datasets.tryon_dataset import TryonDataset

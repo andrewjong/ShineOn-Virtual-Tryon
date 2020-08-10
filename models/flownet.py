@@ -1,24 +1,26 @@
 import numpy as np
 import torch
+from torch import nn
 import sys
 from torchvision import transforms
 import os
-from models.base_model import BaseModel
+#from models.base_model import BaseModel
 from PIL import Image
 import matplotlib.pyplot as plt
-from flownet2_pytorch.utils.flow_utils import visulize_flow_file
-class FlowNet(BaseModel):
+#from flownet2_pytorch.utils.flow_utils import visulize_flow_file
+class FlowNet(nn.Module):
 
     def __init__(self):
+        super(FlowNet, self).__init__()
         #BaseModel.initialize(self, opt)
 
         # flownet 2
-        from flownet2_pytorch import models as flownet2_models
-        from flownet2_pytorch.utils import tools as flownet2_tools
-        from flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
+        from .flownet2_pytorch import models as flownet2_models
+        from .flownet2_pytorch.utils import tools as flownet2_tools
+        from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 
         self.flowNet = flownet2_tools.module_to_dict(flownet2_models)['FlowNet2']().cuda()#self.gpu_ids[0])
-        checkpoint = torch.load('flownet2_pytorch/FlowNet2_checkpoint.pth.tar')
+        checkpoint = torch.load('models/flownet2_pytorch/FlowNet2_checkpoint.pth.tar')
         self.flowNet.load_state_dict(checkpoint['state_dict'])
         self.flowNet.eval()
         self.resample = Resample2d()
@@ -74,7 +76,7 @@ im1 = Image.open(im1)
 im2 = Image.open(im2)
 im1 = to_tensor_and_norm_rgb(im1).unsqueeze(0).cuda()
 im2 = to_tensor_and_norm_rgb(im2).unsqueeze(0).cuda()
-flow_, conf_ = f.forward(im1, im2)
+flow_, conf_ = f(im1, im2)
 print(flow_.size())
 print(conf_.size())
 #flow_ = flow_.view(256, 192, 2).cpu().numpy().astype(np.float32)

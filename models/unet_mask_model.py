@@ -8,9 +8,10 @@ from torch.nn import functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel, get_and_cat_inputs
+from models.networks import init_weights
 from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
-from models.flownet import FlowNet
+from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
 
@@ -30,18 +31,20 @@ class UnetMaskModel(BaseModel):
         n_frames = hparams.n_frames if hasattr(hparams, "n_frames") else 1
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
-            output_nc=4 * n_frames,
+            output_nc=5 * n_frames if self.opt.flow else 4 * n_frames,
             num_downs=6,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
         )
-        self.flownet = FlowNet() # should i add any args here, maybe
+        self.resample = Resample2d()
         self.criterionVGG = VGGLoss()
-        self.prev_frame = torch.zeros(3, hparams.fine_height, hparams.fine_width)
+        init_weights(self.unet, init_type="normal")
+        self.prev_frame = None
 
-    def forward(self, person_representation, warped_cloths):
+
+    def forward(self, person_representation, warped_cloths, flows=None):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
@@ -50,17 +53,31 @@ class UnetMaskModel(BaseModel):
 
         # teach the u-net to make the 1st part the rendered images, and
         # the 2nd part the masks
-        boundary = 4 * self.hparams.n_frames - self.hparams.n_frames
+        boundary = 3 * self.hparams.n_frames
+        weight_boundary = 4 * self.hparams.n_frames
         p_rendereds = outputs[:, 0:boundary, :, :]
-        m_composites = outputs[:, boundary:, :, :]
+        m_composites = outputs[:, boundary:weight_boundary, :, :]
+        weight_masks = outputs[:, weight_boundary:, :, :] if self.hparams.flow else None
 
         p_rendereds = F.tanh(p_rendereds)
         m_composites = F.sigmoid(m_composites)
-
+        weight_masks = F.sigmoid(weight_masks) if weight_masks else None
         # chunk for operation per individual frame
         warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames)
         p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames)
         m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames)
+        weight_masks = torch.chunk(weight_masks, self.hparams.n_frames) if weight_masks else None
+
+        #flow = person_representation[] # how do i get flow here
+
+        if flows and self.prev_frame:
+            flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames
+            p_rendereds_chunked = [
+                (1 - weight) * flow + weight * p_rendered
+                for weight, flow, p_rendered in zip(
+                    weight_masks, flows, p_rendereds_chunked
+                )
+            ]
 
         p_tryons = [
             wc * mask + p * (1 - mask)
@@ -77,12 +94,12 @@ class UnetMaskModel(BaseModel):
         # unpack
         im = batch["image"]
         cm = batch["cloth_mask"]
+        flow = batch["flow"] if self.hparams.flow else None
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
-
-        p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
+        p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs, flow)
 
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
@@ -109,6 +126,8 @@ class UnetMaskModel(BaseModel):
             "log": tensorboard_scalars,
             "progress_bar": progress_bar,
         }
+
+        self.prev_frame = im
         return result
 
     def test_step(self, batch, batch_idx):

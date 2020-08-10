@@ -21,6 +21,7 @@ def parse_channels(list_of_inputs: Iterable[str]):
     channels = sum(
         getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
     )
+    print("channels:", channels)
     return channels
 
 
@@ -54,8 +55,8 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument(
             "--self_attn", action="store_true", help="Add self-attention"
         )
-        parser.add_arguement(
-            "--optical_flow", action="store_true", help="add flag to enable optical flow"
+        parser.add_argument(
+            "--flow", action="store_true", help="Add flow"
         )
         return parser
 
