@@ -9,6 +9,7 @@ from torch.nn import functional as F
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks import init_weights
+
 from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
 from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
@@ -32,6 +33,7 @@ class UnetMaskModel(BaseModel):
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
             output_nc=5 * n_frames if self.hparams.flow else 4 * n_frames,
+
             num_downs=6,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
@@ -42,6 +44,7 @@ class UnetMaskModel(BaseModel):
         self.criterionVGG = VGGLoss()
         init_weights(self.unet, init_type="normal")
         self.prev_frame = None
+
 
 
     def forward(self, person_representation, warped_cloths, flows=None):
@@ -95,12 +98,12 @@ class UnetMaskModel(BaseModel):
         im = batch["image"]
         cm = batch["cloth_mask"]
         flow = batch["flow"] if self.hparams.flow else None
+
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
         p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs, flow)
-
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)

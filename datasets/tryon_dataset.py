@@ -4,6 +4,7 @@ from abc import abstractmethod, ABC
 from argparse import ArgumentParser
 import os
 
+
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -12,6 +13,7 @@ from PIL import ImageDraw
 
 from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
+
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
 
 
@@ -31,7 +33,9 @@ class TryonDataset(BaseDataset, ABC):
     CLOTH_MASK_CHANNELS = 1
 
     DENSEPOSE_CHANNELS = 3
+
     #FLOW_CHANNELS = 2
+
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
@@ -68,7 +72,9 @@ class TryonDataset(BaseDataset, ABC):
                 transforms.Normalize([0.5], [0.5]),
             ]
         )
+
         self.flow_norm = transforms.Normalize((0.5, 0.5), (0.5, 0.5))
+
         self.image_names = []
         # load data list
         self.load_file_paths()
@@ -169,7 +175,6 @@ class TryonDataset(BaseDataset, ABC):
             ret["densepose"] = densepose
 
 
-
         ret.update(
             {
                 "silhouette": silhouette,
@@ -193,6 +198,7 @@ class TryonDataset(BaseDataset, ABC):
         im = self.open_image_as_normed_tensor(image_path)
         return im
 
+
     def get_person_flow(self, index):
         """
         helper function to get the person image; not used as input to the network. used
@@ -213,6 +219,7 @@ class TryonDataset(BaseDataset, ABC):
         #image = Image.open(image_path)
         #im = self.to_tensor_and_norm_gray(image)
         return image
+
 
     def get_person_densepose(self, index):
         """
@@ -395,10 +402,12 @@ class TryonDataset(BaseDataset, ABC):
             "image_path": self.get_person_image_path(index),
             "grid_vis": grid_vis,
         }
+
         if self.opt.flow and self.opt.model == "unet_mask":
             #print("flow")
             flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
             result["flow"] = flow
+
         # cloth representation
         result.update(self.get_cloth_representation(index))
         # person representation

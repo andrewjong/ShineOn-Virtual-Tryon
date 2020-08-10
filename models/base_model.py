@@ -21,7 +21,7 @@ def parse_channels(list_of_inputs: Iterable[str]):
     channels = sum(
         getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
     )
-    print("channels:", channels)
+
     return channels
 
 
