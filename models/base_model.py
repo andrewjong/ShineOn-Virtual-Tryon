@@ -21,7 +21,6 @@ def parse_channels(list_of_inputs: Iterable[str]):
     channels = sum(
         getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
     )
-
     return channels
 
 
@@ -51,6 +50,12 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument("--ngf", type=int, default=64)
         parser.add_argument(
             "--self_attn", action="store_true", help="Add self-attention"
+        )
+        parser.add_argument(
+            "--no_self_attn",
+            action="store_false",
+            dest="self_attn",
+            help="No self-attention",
         )
         parser.add_argument(
             "--flow", action="store_true", help="Add flow"
@@ -103,8 +108,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             lr_lambda=lambda e: 1.0
-                                - max(0, e - self.hparams.keep_epochs)
-                                / float(self.hparams.decay_epochs + 1),
+            - max(0, e - self.hparams.keep_epochs)
+            / float(self.hparams.decay_epochs + 1),
         )
         return scheduler
-

@@ -44,6 +44,7 @@ class SamsGenerator(BaseNetwork):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = BaseNetwork.modify_commandline_options(parser, is_train)
+        parser.set_defaults(self_attn=True)
         parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
         parser.add_argument(
             "--ngf_base",
@@ -62,15 +63,16 @@ class SamsGenerator(BaseNetwork):
             "--ngf_power_end",
             type=int,
             default=10,
-            help="number of features in the middle of the network = ngf_base ** end; "
-            "decrease for less features",
+            help="INCLUSIVE! number of features in the middle of the network "
+            "= ngf_base ** end; decrease for less features",
         )
         parser.add_argument(
             "--ngf_power_step",
             type=int,
             default=1,
             help="increment the power this much between layers until >= ngf_power_end; "
-            "increase for less layers",
+            "increase for less layers. Total layers is: "
+            "(ngf_power_end - ngf_power_start + 1) // ngf_power_step",
         )
         parser.add_argument(
             "--num_middle",
@@ -95,35 +97,36 @@ class SamsGenerator(BaseNetwork):
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         in_channels = TryonDataset.RGB_CHANNELS * hparams.n_frames
         out_channels = TryonDataset.RGB_CHANNELS
-        # ENCODE
-        ngf = int(hparams.ngf_base ** hparams.ngf_power_start)
-        self.encode_layers = nn.ModuleList(
-            [
-                nn.Conv2d(
-                    in_channels=in_channels, out_channels=ngf, kernel_size=3, padding=1
-                )
-            ]
-        )
-        enc_label_channels = getattr(
-            TryonDataset, hparams.encoder_input.upper() + "_CHANNELS"
-        )
+
+        NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_power_start)
+        NGF_INNER = int(hparams.ngf_base ** hparams.ngf_power_end)
+
+        # ----- ENCODE --------
+        enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
+        kwargs = {
+            "norm_G": hparams.norm_G,
+            "label_channels": enc_lab_c * hparams.n_frames,
+            "spade_class": SPADE,
+        }
+        self.encode_layers = [
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=NGF_OUTER,
+                kernel_size=3,
+                padding=1,
+            )
+        ]
         for pow in range(
             hparams.ngf_power_start, hparams.ngf_power_end, hparams.ngf_power_step
         ):
             in_feat = int(hparams.ngf_base ** pow)
             out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_power_step))
-            self.encode_layers.append(
-                AnySpadeResBlock(
-                    in_feat,
-                    out_feat,
-                    hparams.norm_G,
-                    label_channels=enc_label_channels * hparams.n_frames,
-                    spade_class=SPADE,
-                )
-            )
-            # says "upsample", but we're actually shrinking resolution
-            self.encode_layers.append(nn.Upsample(scale_factor=0.5))
+            self.encode_layers.extend(make_encode_block(in_feat, out_feat, **kwargs))
+        # ensure we get to exactly ngf_base ** ngf_power_end
+        self.encode_layers.extend(make_encode_block(out_feat, NGF_INNER, **kwargs))
+        self.encode_layers = nn.ModuleList(self.encode_layers)
 
+        # ------ MIDDLE ------
         kwargs = {
             "norm_G": hparams.norm_G,
             "label_channels": {
@@ -132,23 +135,22 @@ class SamsGenerator(BaseNetwork):
             },
             "spade_class": AttentiveMultiSpade if hparams.self_attn else MultiSpade,
         }
-        # MIDDLE
         self.middle_layers = nn.ModuleList(
-            AnySpadeResBlock(out_feat, out_feat, **kwargs)
+            AnySpadeResBlock(NGF_INNER, NGF_INNER, **kwargs)
             for _ in range(hparams.num_middle)
         )
 
-        # DECODE
-        self.decoder_layers = nn.ModuleList()
+        # ----- DECODE --------
+        self.decode_layers = nn.ModuleList()
         for pow in range(
             hparams.ngf_power_end, hparams.ngf_power_start, -hparams.ngf_power_step
         ):
-            self.decoder_layers.append(nn.Upsample(scale_factor=2))
             in_feat = int(hparams.ngf_base ** pow)
             out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_power_step))
-            self.decoder_layers.append(AnySpadeResBlock(in_feat, out_feat, **kwargs))
-        self.decoder_layers.append(
-            nn.Conv2d(out_feat, out_channels, kernel_size=3, padding=1)
+            self.decode_layers.extend(make_decode_block(in_feat, out_feat, **kwargs))
+        self.decode_layers.extend(make_decode_block(out_feat, NGF_OUTER, **kwargs))
+        self.decode_layers.append(
+            nn.Conv2d(NGF_OUTER, out_channels, kernel_size=3, padding=1)
         )
 
     def forward(
@@ -179,8 +181,8 @@ class SamsGenerator(BaseNetwork):
         x = prev_synth_outputs
 
         # forward
-        for i, encoder in enumerate(self.encode_layers):
-            logger.debug(f"{x.shape=}")
+        logger.debug(f"{x.shape=}")
+        for encoder in self.encode_layers:
             if isinstance(encoder, AnySpadeResBlock):
                 x = encoder(x, prev_segmaps)
             else:
@@ -191,10 +193,27 @@ class SamsGenerator(BaseNetwork):
             x = middle(x, current_segmaps_dict)
             logger.debug(f"{x.shape=}")
 
-        for decoder in self.decoder_layers:
+        for decoder in self.decode_layers:
             if isinstance(decoder, AnySpadeResBlock):
                 x = decoder(x, current_segmaps_dict)
             else:
                 x = decoder(x)
             logger.debug(f"{x.shape=}")
         return x
+
+
+def make_encode_block(in_feat, out_feat, **spade_kwargs):
+    """ AnySpadeResBlock then downsample """
+    return [
+        AnySpadeResBlock(in_feat, out_feat, **spade_kwargs),
+        # says "upsample", but we're actually shrinking resolution
+        nn.Upsample(scale_factor=0.5),
+    ]
+
+
+def make_decode_block(in_feat, out_feat, **spade_kwargs):
+    """ Upsample then AnySpadeResBlock """
+    return [
+        nn.Upsample(scale_factor=2),
+        AnySpadeResBlock(in_feat, out_feat, **spade_kwargs),
+    ]
