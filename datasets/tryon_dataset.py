@@ -395,9 +395,9 @@ class TryonDataset(BaseDataset, ABC):
             "image_path": self.get_person_image_path(index),
             "grid_vis": grid_vis,
         }
-        if "flow" in self.opt.person_inputs and self.opt.model == "unet_mask":
+        if self.opt.flow and self.opt.model == "unet_mask":
+            #print("flow")
             flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
-
             result["flow"] = flow
         # cloth representation
         result.update(self.get_cloth_representation(index))

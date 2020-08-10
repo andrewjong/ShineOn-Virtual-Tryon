@@ -31,7 +31,7 @@ class UnetMaskModel(BaseModel):
         n_frames = hparams.n_frames if hasattr(hparams, "n_frames") else 1
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
-            output_nc=5 * n_frames if self.opt.flow else 4 * n_frames,
+            output_nc=5 * n_frames if self.hparams.flow else 4 * n_frames,
             num_downs=6,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
@@ -61,16 +61,16 @@ class UnetMaskModel(BaseModel):
 
         p_rendereds = F.tanh(p_rendereds)
         m_composites = F.sigmoid(m_composites)
-        weight_masks = F.sigmoid(weight_masks) if weight_masks else None
+        weight_masks = F.sigmoid(weight_masks) if weight_masks is not None else None
         # chunk for operation per individual frame
         warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames)
         p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames)
         m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames)
-        weight_masks = torch.chunk(weight_masks, self.hparams.n_frames) if weight_masks else None
+        weight_masks = torch.chunk(weight_masks, self.hparams.n_frames) if weight_masks is not None else None
 
         #flow = person_representation[] # how do i get flow here
 
-        if flows and self.prev_frame:
+        if flows is not None and self.prev_frame is not None:
             flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames
             p_rendereds_chunked = [
                 (1 - weight) * flow + weight * p_rendered
