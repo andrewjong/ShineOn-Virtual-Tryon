@@ -53,7 +53,7 @@ class MultiSpade(SPADE):
         Returns: transformed x
         """
         if isinstance(segmaps_dict, Tensor):
-            segmaps_dict = {MultiSpade.DEFAULT_KEY: segmaps_dict}
+            segmaps_dict = self.try_fix_segmaps_dict(segmaps_dict)
         assert len(segmaps_dict) == len(
             self.spade_layers
         ), f"{len(segmaps_dict)=} != {len(self.spade_layers)=}"
@@ -62,3 +62,15 @@ class MultiSpade(SPADE):
             layer = self.spade_layers[key]
             x = layer(x, segmap)
         return x
+
+    def try_fix_segmaps_dict(self, tensor: Tensor):
+        if len(self.spade_layers) == 1:
+            key = list(self.spade_layers.keys())[0]
+            segmaps_dict = {key: tensor}
+            return segmaps_dict
+        else:
+            raise ValueError(
+                "You passed a single Tensor, but I don't know which spade layer to "
+                "pass it through. My spade layers are:\n"
+                f"{self.spade_layers}."
+            )

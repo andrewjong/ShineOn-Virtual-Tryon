@@ -99,11 +99,6 @@ class SPADEGenerator(BaseNetwork):
         x = self.up(x)
         x = self.G_middle_0(x, seg)
 
-        if (
-            self.opt.num_upsampling_layers == "more"
-            or self.opt.num_upsampling_layers == "most"
-        ):
-            x = self.up(x)
 
         x = self.G_middle_1(x, seg)
 
@@ -116,9 +111,6 @@ class SPADEGenerator(BaseNetwork):
         x = self.up(x)
         x = self.up_3(x, seg)
 
-        if self.opt.num_upsampling_layers == "most":
-            x = self.up(x)
-            x = self.up_4(x, seg)
 
         x = self.conv_img(F.leaky_relu(x, 2e-1))
         x = F.tanh(x)

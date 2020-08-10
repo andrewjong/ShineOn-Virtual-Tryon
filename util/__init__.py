@@ -17,3 +17,11 @@ def find_class_in_module(target_cls_name, module):
         exit(0)
 
     return cls
+
+
+def multiply(a, b):
+    return a * b
+
+
+def divide(a, b):
+    return a / b

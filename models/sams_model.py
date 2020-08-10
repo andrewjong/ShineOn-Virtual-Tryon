@@ -34,7 +34,7 @@ class SamsModel(BaseModel):
         )
         parser.add_argument(
             "--encoder_input",
-            help="which of the --person_inputs to use as the ImageEncoder input "
+            help="which of the --person_inputs to use as the encoder segmap input "
                  "(only 1 allowed). Defaults to the first alphabetically in "
                  "--person_inputs",
         )
