@@ -1,6 +1,7 @@
 import argparse
 import logging
 from typing import List, Dict
+import sys
 
 import torch
 from torch import Tensor
@@ -36,46 +37,53 @@ class SamsGenerator(BaseNetwork):
         The Decoder is also made of SAMS blocks. Resolution increases while feature maps
         decrease.
 
-    See options below for controlling the size of the network.
-
-    The number of features reached in the middle is equivalent to:
-        --ngf_base ** --ngf_power_end
-    ```
+    See `SamsGenerator.modify_commandline_options()` for controlling the size of the
+    network.
     """
+
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = BaseNetwork.modify_commandline_options(parser, is_train)
         parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
-        parser.add_argument("--ngf_base", type=int, default=2, help="ngf ** power")
+        parser.add_argument(
+            "--ngf_base",
+            type=int,
+            default=2,
+            help="Control the size of the network. ngf_base ** pow",
+        )
         parser.add_argument(
             "--ngf_power_start",
             type=int,
             default=6,
-            help="ngf_base ** start; decrease for less features",
+            help="number of features at the outer ends = ngf_base ** start; "
+            "decrease for less features",
         )
         parser.add_argument(
             "--ngf_power_end",
             type=int,
             default=10,
-            help="ngf_base ** end; decrease for less features",
+            help="number of features in the middle of the network = ngf_base ** end; "
+            "decrease for less features",
         )
         parser.add_argument(
             "--ngf_power_step",
             type=int,
             default=1,
-            help="step for the power; increase for a smaller network",
+            help="increment the power this much between layers until >= ngf_power_end; "
+            "increase for less layers",
         )
         parser.add_argument(
             "--num_middle",
             type=int,
-            default=0,
+            default=3,
             help="Number of channel-preserving layers between the encoder and decoder",
         )
-        logger.warning(
-            "SamsGenerator does NOT use --ngf. "
-            "Use --ngf_base, --ngf_power_start, --ngf_power_end, --ngf_power_step, "
-            "and --num_middle to control "
-        )
+        if "--ngf" in sys.argv:
+            logger.warning(
+                "SamsGenerator does NOT use --ngf. "
+                "Use --ngf_base, --ngf_power_start, --ngf_power_end, --ngf_power_step, "
+                "and --num_middle to control the architecture."
+            )
         return parser
 
     def __init__(self, hparams):
@@ -99,11 +107,11 @@ class SamsGenerator(BaseNetwork):
         enc_label_channels = getattr(
             TryonDataset, hparams.encoder_input.upper() + "_CHANNELS"
         )
-        for p in range(
+        for pow in range(
             hparams.ngf_power_start, hparams.ngf_power_end, hparams.ngf_power_step
         ):
-            in_feat = int(hparams.ngf_base ** p)
-            out_feat = int(hparams.ngf_base ** (p + hparams.ngf_power_step))
+            in_feat = int(hparams.ngf_base ** pow)
+            out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_power_step))
             self.encode_layers.append(
                 AnySpadeResBlock(
                     in_feat,
@@ -132,12 +140,12 @@ class SamsGenerator(BaseNetwork):
 
         # DECODE
         self.decoder_layers = nn.ModuleList()
-        for p in range(
+        for pow in range(
             hparams.ngf_power_end, hparams.ngf_power_start, -hparams.ngf_power_step
         ):
             self.decoder_layers.append(nn.Upsample(scale_factor=2))
-            in_feat = int(hparams.ngf_base ** p)
-            out_feat = int(hparams.ngf_base ** (p - hparams.ngf_power_step))
+            in_feat = int(hparams.ngf_base ** pow)
+            out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_power_step))
             self.decoder_layers.append(AnySpadeResBlock(in_feat, out_feat, **kwargs))
         self.decoder_layers.append(
             nn.Conv2d(out_feat, out_channels, kernel_size=3, padding=1)
