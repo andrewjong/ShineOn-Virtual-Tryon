@@ -150,20 +150,21 @@ class SamsGenerator(BaseNetwork):
 
         # forward
         for i, encoder in enumerate(self.encode_layers):
+            logger.debug(f"{x.shape=}")
             if isinstance(encoder, AnySpadeResBlock):
                 x = encoder(x, prev_segmaps)
             else:
                 x = encoder(x)
-            logger.info(f"{x.shape=}")
+            logger.debug(f"{x.shape=}")
 
         for middle in self.middle_layers:
             x = middle(x, current_segmaps_dict)
-            logger.info(f"{x.shape=}")
+            logger.debug(f"{x.shape=}")
 
         for decoder in self.decoder_layers:
             if isinstance(decoder, AnySpadeResBlock):
                 x = decoder(x, current_segmaps_dict)
             else:
                 x = decoder(x)
-            logger.info(f"{x.shape=}")
+            logger.debug(f"{x.shape=}")
         return x

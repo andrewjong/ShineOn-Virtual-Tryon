@@ -118,7 +118,7 @@ class SamsModel(BaseModel):
         )
 
         # loss
-        loss_gan = self.criterionGAN(pred_fake, True, for_discriminator=False)
+        loss_gan = self.criterion_gan(pred_fake, True, for_discriminator=False)
         loss_l1 = self.criterion_l1(synth_output, ground_truth)
         loss_vgg = self.criterion_vgg(synth_output, ground_truth)
 
