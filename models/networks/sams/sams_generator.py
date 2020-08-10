@@ -20,6 +20,32 @@ logger = logging.getLogger("logger")
 
 
 class SamsGenerator(BaseNetwork):
+    """
+    The generator for Self-Attentive Multispade GAN model.
+    The network is Encoder-Decoder style, but with Self-Attentive Multispade layers.
+
+    Encoder:
+        The input passed into the base of the encoder is the past n-frames. Resolution
+        increases while feature maps decrease.
+
+        Unlike the Middle and Decoder parts, the Encoder is made with simple SPADE
+        layers, not multi-spade nor SAMS. Therefore the encoder only takes a single
+        annotation map to pass to SPADE.
+
+    Middle:
+        The Middle is made of SAMS blocks and therefore uses all the annotation maps.
+        It preserves the number of channels and resolution at that stage.
+
+    Decoder:
+        The Decoder is also made of SAMS blocks. Resolution increases while feature maps
+        decrease.
+
+    See options below for controlling the size of the network.
+
+    The number of features reached in the middle is equivalent to:
+        --ngf_base ** --ngf_power_end
+    ```
+    """
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = BaseNetwork.modify_commandline_options(parser, is_train)
