@@ -46,6 +46,16 @@ class TryonDataset(BaseDataset, ABC):
             help="threshold to remove white background for the cloth mask; "
             "everything above this value is removed [0-255].",
         )
+        parser.add_argument(
+            "--image_scale", type=float, default=1, help="first scale to this"
+        )
+        parser.add_argument(
+            "--fine_width", type=int, default=192, help="then crop to this"
+        )
+        parser.add_argument(
+            "--fine_height", type=int, default=256, help="then crop to this"
+        )
+        parser.add_argument("--radius", type=int, default=5)
         return parser
 
     def __init__(self, opt):

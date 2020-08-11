@@ -149,6 +149,7 @@ class BaseOptions:
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
         opt = BaseOptions.apply_sort_inputs(opt)
+        opt = BaseOptions.apply_set_encoder_input(opt)
 
         self.print_options(opt)
 
@@ -165,8 +166,6 @@ class BaseOptions:
             if id >= 0:
                 opt.gpu_ids.append(id)
         print(opt.gpu_ids)
-        if len(opt.gpu_ids) > 0:
-            torch.cuda.set_device(opt.gpu_ids[0])
         return opt
 
     @staticmethod
@@ -186,4 +185,10 @@ class BaseOptions:
     def apply_sort_inputs(opt):
         opt.person_inputs = sorted(opt.person_inputs)
         opt.cloth_inputs = sorted(opt.cloth_inputs)
+        return opt
+
+    @staticmethod
+    def apply_set_encoder_input(opt):
+        if opt.encoder_input is None:
+            opt.encoder_input = opt.person_inputs[0]
         return opt

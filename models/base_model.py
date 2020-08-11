@@ -21,7 +21,6 @@ def parse_channels(list_of_inputs: Iterable[str]):
     channels = sum(
         getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
     )
-
     return channels
 
 
@@ -45,15 +44,18 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument(
             "--cloth_inputs",
             nargs="+",
-            required=True,
             default=("cloth",),
             help="List of items to pass as the cloth inputs.",
         )
-        parser.add_argument("--fine_width", type=int, default=192)
-        parser.add_argument("--fine_height", type=int, default=256)
-        parser.add_argument("--radius", type=int, default=5)
+        parser.add_argument("--ngf", type=int, default=64)
         parser.add_argument(
             "--self_attn", action="store_true", help="Add self-attention"
+        )
+        parser.add_argument(
+            "--no_self_attn",
+            action="store_false",
+            dest="self_attn",
+            help="No self-attention",
         )
         parser.add_argument(
             "--flow", action="store_true", help="Add flow"
@@ -99,18 +101,14 @@ class BaseModel(pl.LightningModule, abc.ABC):
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), self.hparams.lr)
+        scheduler = self._make_step_scheduler(optimizer)
+        return [optimizer], [scheduler]
+
+    def _make_step_scheduler(self, optimizer):
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer,
             lr_lambda=lambda e: 1.0
             - max(0, e - self.hparams.keep_epochs)
             / float(self.hparams.decay_epochs + 1),
         )
-        return [optimizer], [scheduler]
-
-    @abc.abstractmethod
-    def training_step(self, *args, **kwargs):
-        pass
-
-    @abc.abstractmethod
-    def test_step(self, *args, **kwargs):
-        pass
+        return scheduler

@@ -4,8 +4,8 @@ import torch
 from torch import Tensor, nn
 
 from models.networks.attention import ATTENTION_TYPES
-from models.networks.sams import MultiSpade
-from models.networks.sams.spade import SPADE
+from .multispade import MultiSpade
+from .spade import SPADE
 
 
 class AttentiveMultiSpade(MultiSpade):
@@ -13,7 +13,7 @@ class AttentiveMultiSpade(MultiSpade):
         self,
         config_text: str,
         norm_nc: int,
-        label_channels_dict: Dict[str:int],
+        label_channels_dict: Dict[str, int],
         attn_type: str = "sagan",
     ):
         super().__init__(config_text, norm_nc, label_channels_dict)
@@ -31,9 +31,9 @@ class AttentiveMultiSpade(MultiSpade):
             nn.LeakyReLU(),
         )
 
-    def forward(self, x: Tensor, segmaps_dict: Dict[str:Tensor]):
+    def forward(self, x: Tensor, segmaps_dict: Dict[str, Tensor]):
         if isinstance(segmaps_dict, Tensor):
-            segmaps_dict = {MultiSpade.DEFAULT_KEY: segmaps_dict}
+            segmaps_dict = self.try_fix_segmaps_dict(segmaps_dict)
         # parallel spade on each segmap
         outputs = [
             self.spade_layers[key](x, segmap)

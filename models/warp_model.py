@@ -31,10 +31,8 @@ class WarpModel(BaseModel):
     def modify_commandline_options(cls, parser: ArgumentParser, is_train):
         parser = ArgumentParser(parents=[parser], add_help=False)
         parser = super(WarpModel, cls).modify_commandline_options(parser, is_train)
-        parser.add_argument("--ngf", type=int, default=64)
         parser.add_argument("--grid_size", type=int, default=5)
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
-        parser.add_argument("--inputs_B", default="cloth")
         return parser
 
     def __init__(self, hparams):
@@ -46,7 +44,6 @@ class WarpModel(BaseModel):
             n_layers=3,
             norm_layer=nn.BatchNorm2d,
         )
-        B_channels = parse_channels(hparams.inputs_B)
         self.extractionB = FeatureExtraction(
             self.cloth_channels, ngf=hparams.ngf, n_layers=3, norm_layer=nn.BatchNorm2d
         )

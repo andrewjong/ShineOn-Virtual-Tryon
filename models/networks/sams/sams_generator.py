@@ -1,149 +1,163 @@
-"""
-Copyright (C) 2019 NVIDIA Corporation.  All rights reserved.
-Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode).
-"""
+import argparse
+import logging
 from typing import List, Dict
+import sys
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch import nn
 
 from datasets.tryon_dataset import TryonDataset
-from models.networks.sams import (
-    AnySpadeResBlock,
-    SPADE,
-    MultiSpade,
-    AttentiveMultiSpade,
-)
+from models.networks import BaseNetwork
+from .attentive_multispade import AttentiveMultiSpade
+from .multispade import MultiSpade
+from .spade import AnySpadeResBlock, SPADE
+
+logger = logging.getLogger("logger")
 
 
-class SamsGenerator(nn.Module):
+class SamsGenerator(BaseNetwork):
+    """
+    The generator for Self-Attentive Multispade GAN model.
+    The network is Encoder-Decoder style, but with Self-Attentive Multispade layers.
+
+    Encoder:
+        The input passed into the base of the encoder is the past n-frames. Resolution
+        increases while feature maps decrease.
+
+        Unlike the Middle and Decoder parts, the Encoder is made with simple SPADE
+        layers, not multi-spade nor SAMS. Therefore the encoder only takes a single
+        annotation map to pass to SPADE.
+
+    Middle:
+        The Middle is made of SAMS blocks and therefore uses all the annotation maps.
+        It preserves the number of channels and resolution at that stage.
+
+    Decoder:
+        The Decoder is also made of SAMS blocks. Resolution increases while feature maps
+        decrease.
+
+    See `SamsGenerator.modify_commandline_options()` for controlling the size of the
+    network.
+    """
+
+    @classmethod
+    def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
+        parser = BaseNetwork.modify_commandline_options(parser, is_train)
+        parser.set_defaults(self_attn=True)
+        parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
+        parser.add_argument(
+            "--ngf_base",
+            type=int,
+            default=2,
+            help="Control the size of the network. ngf_base ** pow",
+        )
+        parser.add_argument(
+            "--ngf_power_start",
+            type=int,
+            default=6,
+            help="number of features at the outer ends = ngf_base ** start; "
+            "decrease for less features",
+        )
+        parser.add_argument(
+            "--ngf_power_end",
+            type=int,
+            default=10,
+            help="INCLUSIVE! number of features in the middle of the network "
+            "= ngf_base ** end; decrease for less features",
+        )
+        parser.add_argument(
+            "--ngf_power_step",
+            type=int,
+            default=1,
+            help="increment the power this much between layers until >= ngf_power_end; "
+            "increase for less layers. Total layers is: "
+            "(ngf_power_end - ngf_power_start + 1) // ngf_power_step",
+        )
+        parser.add_argument(
+            "--num_middle",
+            type=int,
+            default=3,
+            help="Number of channel-preserving layers between the encoder and decoder",
+        )
+        if "--ngf" in sys.argv:
+            logger.warning(
+                "SamsGenerator does NOT use --ngf. "
+                "Use --ngf_base, --ngf_power_start, --ngf_power_end, --ngf_power_step, "
+                "and --num_middle to control the architecture."
+            )
+        return parser
+
     def __init__(self, hparams):
         super().__init__()
+        assert hparams.ngf_base > 1, f"{hparams.ngf_base}"
+        assert hparams.ngf_power_end >= 1, f"{hparams.ngf_power_end=}"
+
         self.hparams = hparams
-        num_feat = hparams.ngf
-        self.out_channels = TryonDataset.RGB_CHANNELS
+        self.inputs = hparams.person_inputs + hparams.cloth_inputs
+        in_channels = TryonDataset.RGB_CHANNELS * hparams.n_frames
+        out_channels = TryonDataset.RGB_CHANNELS
 
-        # Otherwise, we make the network deterministic by starting with
-        # downsampled segmentation map instead of random z
+        NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_power_start)
+        NGF_INNER = int(hparams.ngf_base ** hparams.ngf_power_end)
 
-        # parameters according to WC-Vid2Vid page 23
-        self.encoder = self.define_encoder(num_encode_up=5, num_same=3)
-
-        label_channels_list = sum(
-            getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
-            for inp in sorted(hparams.inputs)
-        )
-        multispade_class = AttentiveMultiSpade if hparams.self_attn else MultiSpade
-        self.head_0 = AnySpadeResBlock(
-            16 * num_feat,
-            16 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-        self.G_middle_0 = AnySpadeResBlock(
-            16 * num_feat,
-            16 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-        self.G_middle_1 = AnySpadeResBlock(
-            16 * num_feat,
-            16 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-
-        self.up_0 = AnySpadeResBlock(
-            16 * num_feat,
-            8 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-        self.up_1 = AnySpadeResBlock(
-            8 * num_feat,
-            4 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-        self.up_2 = AnySpadeResBlock(
-            4 * num_feat,
-            2 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-        self.up_3 = AnySpadeResBlock(
-            2 * num_feat,
-            1 * num_feat,
-            hparams.norm_G,
-            label_channels_list,
-            multispade_class,
-        )
-
-        final_nc = num_feat
-
-        if hparams.num_upsampling_layers == "most":
-            self.up_4 = AnySpadeResBlock(
-                1 * num_feat,
-                num_feat // 2,
-                hparams.norm_G,
-                label_channels_list,
-                multispade_class,
-            )
-            final_nc = num_feat // 2
-
-        self.conv_img = nn.Conv2d(final_nc, 3, 3, padding=1)
-
-        self.up = nn.Upsample(scale_factor=2)
-
-    def define_encoder(self, num_encode_up, num_same):
-        """
-        Creates the encoder for the previous N frames
-        Args:
-            num_encode_up: number of layers to sample up to the total amount (16 * self.hparams.ngf)
-            num_same: number of layers to keep the channels the same
-
-        Returns: encoder layers
-        """
-        assert num_encode_up % 2 == 0, f"Pass a multiple of 2; got {num_encode_up=}"
-        total = 16 * self.hparams.ngf
-        start = total // num_encode_up
-        step = start
+        # ----- ENCODE --------
+        enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
         kwargs = {
-            "norm_G": self.hparams.norm_G,
-            "label_channels_dict": TryonDataset.RGB_CHANNELS,
+            "norm_G": hparams.norm_G,
+            "label_channels": enc_lab_c * hparams.n_frames,
             "spade_class": SPADE,
         }
-        # comment: what goes in as the segmentation map for the prev outputs encoder?
-        #   answer: Arun specifies ONLY the segmentation map, no guidance images
-        # TODO: Sequential won't work for segmaps, fix this
-        layers = (
-            [  # the first layer
-                AnySpadeResBlock(
-                    TryonDataset.RGB_CHANNELS * self.hparams.n_frames, start, **kwargs
-                )
-            ]  # up layers
-            + [
-                AnySpadeResBlock(channels, channels + step, **kwargs)
-                for channels in range(start, total, step=step)
-            ]  # same layers
-            + [AnySpadeResBlock(total, total, **kwargs) for _ in range(num_same)]
+        self.encode_layers = [
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=NGF_OUTER,
+                kernel_size=3,
+                padding=1,
+            )
+        ]
+        for pow in range(
+            hparams.ngf_power_start, hparams.ngf_power_end, hparams.ngf_power_step
+        ):
+            in_feat = int(hparams.ngf_base ** pow)
+            out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_power_step))
+            self.encode_layers.extend(make_encode_block(in_feat, out_feat, **kwargs))
+        # ensure we get to exactly ngf_base ** ngf_power_end
+        self.encode_layers.extend(make_encode_block(out_feat, NGF_INNER, **kwargs))
+        self.encode_layers = nn.ModuleList(self.encode_layers)
+
+        # ------ MIDDLE ------
+        kwargs = {
+            "norm_G": hparams.norm_G,
+            "label_channels": {
+                inp: getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
+                for inp in sorted(self.inputs)
+            },
+            "spade_class": AttentiveMultiSpade if hparams.self_attn else MultiSpade,
+        }
+        self.middle_layers = nn.ModuleList(
+            AnySpadeResBlock(NGF_INNER, NGF_INNER, **kwargs)
+            for _ in range(hparams.num_middle)
         )
-        encoder = nn.Sequential(*layers)
-        return encoder
+
+        # ----- DECODE --------
+        self.decode_layers = nn.ModuleList()
+        for pow in range(
+            hparams.ngf_power_end, hparams.ngf_power_start, -hparams.ngf_power_step
+        ):
+            in_feat = int(hparams.ngf_base ** pow)
+            out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_power_step))
+            self.decode_layers.extend(make_decode_block(in_feat, out_feat, **kwargs))
+        self.decode_layers.extend(make_decode_block(out_feat, NGF_OUTER, **kwargs))
+        self.decode_layers.append(
+            nn.Conv2d(NGF_OUTER, out_channels, kernel_size=3, padding=1)
+        )
 
     def forward(
         self,
         prev_synth_outputs: List[Tensor],
         prev_segmaps: List[Tensor],
-        current_segmaps_dict: Dict[str:Tensor],
+        current_segmaps_dict: Dict[str, Tensor],
     ):
         """
         Args:
@@ -153,38 +167,53 @@ class SamsGenerator(nn.Module):
 
         Returns: synthesized output for the current frame
         """
-        # TODO: what goes in as the segmentation map for the prev outputs encoder?
-        prev_synth_outputs = torch.cat(prev_synth_outputs, dim=1)
-        prev_segmaps = torch.cat(prev_segmaps, dim=1)
-        x = self.encoder(prev_synth_outputs, prev_segmaps)
+        # prepare
+        prev_synth_outputs = (
+            torch.cat(prev_synth_outputs, dim=1)
+            if not isinstance(prev_synth_outputs, Tensor)
+            else prev_synth_outputs
+        )
+        prev_segmaps = (
+            torch.cat(prev_segmaps, dim=1)
+            if not isinstance(prev_segmaps, Tensor)
+            else prev_segmaps
+        )
+        x = prev_synth_outputs
 
-        x = self.head_0(x, current_segmaps_dict)
+        # forward
+        logger.debug(f"{x.shape=}")
+        for encoder in self.encode_layers:
+            if isinstance(encoder, AnySpadeResBlock):
+                x = encoder(x, prev_segmaps)
+            else:
+                x = encoder(x)
+            logger.debug(f"{x.shape=}")
 
-        x = self.up(x)
-        x = self.G_middle_0(x, current_segmaps_dict)
+        for middle in self.middle_layers:
+            x = middle(x, current_segmaps_dict)
+            logger.debug(f"{x.shape=}")
 
-        if (
-            self.hparams.num_upsampling_layers == "more"
-            or self.hparams.num_upsampling_layers == "most"
-        ):
-            x = self.up(x)
-
-        x = self.G_middle_1(x, current_segmaps_dict)
-
-        x = self.up(x)
-        x = self.up_0(x, current_segmaps_dict)
-        x = self.up(x)
-        x = self.up_1(x, current_segmaps_dict)
-        x = self.up(x)
-        x = self.up_2(x, current_segmaps_dict)
-        x = self.up(x)
-        x = self.up_3(x, current_segmaps_dict)
-
-        if self.hparams.num_upsampling_layers == "most":
-            x = self.up(x)
-            x = self.up_4(x, current_segmaps_dict)
-
-        x = self.conv_img(F.leaky_relu(x, 2e-1))
-        x = F.tanh(x)
-
+        for decoder in self.decode_layers:
+            if isinstance(decoder, AnySpadeResBlock):
+                x = decoder(x, current_segmaps_dict)
+            else:
+                x = decoder(x)
+            logger.debug(f"{x.shape=}")
         return x
+
+
+def make_encode_block(in_feat, out_feat, **spade_kwargs):
+    """ AnySpadeResBlock then downsample """
+    return [
+        AnySpadeResBlock(in_feat, out_feat, **spade_kwargs),
+        # says "upsample", but we're actually shrinking resolution
+        nn.Upsample(scale_factor=0.5),
+    ]
+
+
+def make_decode_block(in_feat, out_feat, **spade_kwargs):
+    """ Upsample then AnySpadeResBlock """
+    return [
+        nn.Upsample(scale_factor=2),
+        AnySpadeResBlock(in_feat, out_feat, **spade_kwargs),
+    ]
