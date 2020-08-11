@@ -20,23 +20,10 @@ class SamsModel(BaseModel):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
-        parser.set_defaults(person_inputs=("agnostic", "densepose"), n_frames=12)
+        parser.set_defaults(person_inputs=("agnostic", "densepose"))
+        parser.set_defaults(n_frames_total=5)
         parser.add_argument(
-            "--n_frames_G",
-            type=int,
-            default=3,
-            help="Number of frames to pass into the generator's base at once. "
-            "Should be a factor of --n_frames_total.",
-        )
-        parser.add_argument(
-            "--n_frames_D",
-            type=int,
-            default=4,
-            help="Number of frames to pass to multi-scale temporal discriminators. "
-            "Should be a factor of --n_frames_total.",
-        )
-        parser.add_argument(
-            "--netD",
+            "--multiscale_discriminator",
             nargs="+",
             default=("multiscale", "temporal"),
             choices=("multiscale", "temporal", "nlayer"),
@@ -59,14 +46,16 @@ class SamsModel(BaseModel):
 
     def __init__(self, hparams):
         super().__init__(hparams)
-        self.n_frames_G = hparams.n_frames_G
+        self.n_frames = hparams.n_frames
         self.n_frames_D = hparams.n_frames_D
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
         if self.isTrain:
-            self.netD = networks.define_D("multiscale", hparams)
+            self.multiscale_discriminator = networks.define_D("multiscale", hparams)
             # self.temporal_discriminator = networks.define_D("temporal", hparams)
+            self.temporal_discriminator = networks.define_D("temporal", hparams)
+            # ideally we should do multiscale_discriminator on EVERY single one of the generated frames
 
             self.criterion_gan = GANLoss(hparams.gan_mode)
             self.criterion_l1 = L1Loss()
@@ -80,40 +69,53 @@ class SamsModel(BaseModel):
     def configure_optimizers(self):
         # must do individual optimizers and schedulers per each network
         optimizer_g = Adam(self.generator.parameters(), self.hparams.lr)
-        optimizer_d = Adam(self.netD.parameters(), self.hparams.lr)
+        optimizer_d_multi = Adam(
+            self.multiscale_discriminator.parameters(), self.hparams.lr_D
+        )
+        optimizer_d_temporal = Adam(
+            self.temporal_discriminator.parameters(), self.hparams.lr_D
+        )
         scheduler_g = self._make_step_scheduler(optimizer_g)
-        scheduler_d = self._make_step_scheduler(optimizer_d)
-        return [optimizer_g, optimizer_g], [scheduler_g, scheduler_d]
+        scheduler_d_multi = self._make_step_scheduler(optimizer_d_multi)
+        scheduler_d_temporal = self._make_step_scheduler(optimizer_d_temporal)
+        return (
+            [optimizer_g, optimizer_d_multi, optimizer_d_temporal],
+            [scheduler_g, scheduler_d_multi, scheduler_d_temporal],
+        )
 
     def training_step(self, batch, batch_idx, optimizer_idx):
 
         if True or optimizer_idx == 0:
-            result = self._generator_step(batch)
+            result = self.generator_step(batch)
+        elif optimizer_idx == 1:
+            result = self.multiscale_discriminator_step(batch)
         else:
-            result = self._discriminator_step(batch)
+            result = self.discriminator_temporal_step(batch)
 
         return result
 
-    def _generator_step(self, batch):
+    def generator_step(self, batch):
         ground_truth = batch["image"][-1]
-        synth_output, this_frame_labelmap, gen_frames = self._generate_n_frames(batch)
+        fake_frame, labelmaps_this_frame, all_gen_frames = self.generate_n_frames(batch)
+        self.all_gen_frames = all_gen_frames
 
-        input_semantics = torch.cat(tuple(this_frame_labelmap.values()), dim=1)
+        input_semantics = torch.cat(tuple(labelmaps_this_frame.values()), dim=1)
         pred_fake, pred_real = self.discriminate(
-            input_semantics, synth_output, ground_truth
+            input_semantics, fake_frame, ground_truth
         )
 
         # loss_G
-        loss_G_gan = self.criterion_gan(pred_fake, True, for_discriminator=False)
-        loss_G_l1 = self.criterion_l1(synth_output, ground_truth)
-        loss_G_vgg = self.criterion_vgg(synth_output, ground_truth)
+        loss_G_adv_multiscale = self.criterion_gan(pred_fake, True, for_discriminator=False)
+        loss_G_adv_temporal = None
+        loss_G_l1 = self.criterion_l1(fake_frame, ground_truth)
+        loss_G_vgg = self.criterion_vgg(fake_frame, ground_truth)
 
-        loss_G = loss_G_gan + loss_G_l1 + loss_G_vgg
+        loss_G = loss_G_adv_multiscale + loss_G_l1 + loss_G_vgg
 
         # Log
         log = {
             "loss_G": loss_G,
-            "loss_G_gan": loss_G_gan,
+            "loss_G_adv_multiscale": loss_G_adv_multiscale,
             "loss_G_l1": loss_G_l1,
             "loss_G_vgg": loss_G_vgg,
         }
@@ -124,7 +126,7 @@ class SamsModel(BaseModel):
         }
         return result
 
-    def _generate_n_frames(self, batch):
+    def generate_n_frames(self, batch):
         # format: { agnostic: frames, densepose: frames, flow: frames, etc... }
         labelmap: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
 
@@ -148,7 +150,7 @@ class SamsModel(BaseModel):
             fake_frame: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
-            # TODO: INDIVIDUAL DISCRIMINATOR SHOULD CALCULATE LOSS HERE, but we can't :C
+            # TODO: INDIVIDUAL DISCRIMINATOR SHOULD CALCULATE LOSS HERE, but we can't in lightning:C
             # add to buffer, but don't detach here; temporal discriminator needs it
             all_generated_frames[fIdx] = fake_frame
 
@@ -158,25 +160,26 @@ class SamsModel(BaseModel):
         """
         Get previous frames, but protected by zero
         Returns:
-            - prev_frames[end_idx - self.n_frames_G]... , prev_frames[end_idx]
+            - prev_frames[end_idx - self.n_frames]... , prev_frames[end_idx]
 
         """
         prev_n_frames_G = get_prev_data_zero_bounded(
-            all_generated_frames, fIdx, self.n_frames_G
+            all_generated_frames, fIdx, self.n_frames
         )
         prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
 
         # The encoder only takes ONE labelmap: "--encoder_input"
         enc_labl_maps = batch[self.hparams.encoder_input]
         prev_n_frames_labelmaps = get_prev_data_zero_bounded(
-            enc_labl_maps, fIdx, self.n_frames_G
+            enc_labl_maps, fIdx, self.n_frames
         )
         return prev_n_frames_G, prev_n_frames_labelmaps
 
-    def _discriminator_step(self, batch):
+    def multiscale_discriminator_step(self, batch):
         ground_truth = batch["image"][-1]
+        all_fake_frames = self.all_gen_frames
         with torch.no_grad():
-            synth_output, this_frame_labelmap, _ = self._generate_n_frames(batch)
+            synth_output, this_frame_labelmap, _ = self.generate_n_frames(batch)
             synth_output = synth_output.detach()
             synth_output.requires_grad_()
 
@@ -213,7 +216,7 @@ class SamsModel(BaseModel):
         # So both fake and real images are fed to D all at once.
         fake_and_real = torch.cat([fake_concat, real_concat], dim=0)
 
-        discriminator_out = self.netD(fake_and_real)
+        discriminator_out = self.multiscale_discriminator(fake_and_real)
 
         pred_fake, pred_real = split_predictions(discriminator_out)
 
