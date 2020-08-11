@@ -28,7 +28,8 @@ def divide(a, b):
 
 
 def without_key(d, *keys):
-    """ Return a dict without specified keys
+    """ Return a dict without specified keys.
+    WARNING: modifies the existing dict. Copying is expensive.
 
     Args:
         d (Dictionary):

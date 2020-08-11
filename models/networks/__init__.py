@@ -24,8 +24,9 @@ def modify_commandline_options(parser, is_train):
 
     parser = SamsGenerator.modify_commandline_options(parser, is_train)
     if is_train:
-        netD_cls = find_network_using_name(opt.netD, "discriminator")
-        parser = netD_cls.modify_commandline_options(parser, is_train)
+        for d in opt.netD:
+            netD_cls = find_network_using_name(d, "discriminator")
+            parser = netD_cls.modify_commandline_options(parser, is_train)
     # netE_cls = find_network_using_name("conv", "encoder")
     # parser = netE_cls.modify_commandline_options(parser, is_train)
 
@@ -42,8 +43,8 @@ def create_network(cls, opt):
     return net
 
 
-def define_D(opt):
-    netD_cls = find_network_using_name(opt.netD, "discriminator")
+def define_D(name, opt):
+    netD_cls = find_network_using_name(name, "discriminator")
     return create_network(netD_cls, opt)
 
 
