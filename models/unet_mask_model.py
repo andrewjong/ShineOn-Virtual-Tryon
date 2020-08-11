@@ -9,7 +9,7 @@ from torch.nn import functional as F
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks import init_weights
-
+from models.networks.cpvton import save_checkpoint
 from models.networks.loss import VGGLoss
 from models.networks.cpvton.unet import UnetGenerator
 from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
@@ -113,6 +113,10 @@ class UnetMaskModel(BaseModel):
         # logging
         if self.global_step % self.hparams.display_count == 0:
             self.visualize(batch, p_rendered, m_composite, p_tryon)
+
+        if self.global_step % self.hparams.save_count == 0:
+            root_dir = osp.join(self.hparams.experiments_dir, self.hparams.name, "checkpoints")
+            save_checkpoint(self.unet, osp.join(root_dir, f"model_epoch_{self.current_epoch:04d}_step_{self.global_step:06d}.pth"))
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,

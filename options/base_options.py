@@ -149,7 +149,7 @@ class BaseOptions:
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
         opt = BaseOptions.apply_sort_inputs(opt)
-        opt = BaseOptions.apply_set_encoder_input(opt)
+        #opt = BaseOptions.apply_set_encoder_input(opt)
 
         self.print_options(opt)
 

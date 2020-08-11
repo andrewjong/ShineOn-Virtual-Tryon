@@ -65,7 +65,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def __init__(self, hparams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hparams = hparams
-        self.n_frames = hparams.n_frames
+        self.n_frames = hparams.n_frames# if hasattr(hparams, "n_frames") else 1
 
         self.person_channels = parse_channels(hparams.person_inputs)
         self.cloth_channels = parse_channels(hparams.cloth_inputs)

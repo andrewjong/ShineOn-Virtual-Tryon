@@ -51,7 +51,7 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            self_attn=use_self_attn,
+            #self_attn=use_self_attn,
         )
         # Self_Attn(ngf * 2, 'relu')
         unet_block = UnetSkipConnectionBlock(

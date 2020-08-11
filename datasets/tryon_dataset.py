@@ -1,4 +1,4 @@
-# coding=utf-8
+ # coding=utf-8
 import json
 from abc import abstractmethod, ABC
 from argparse import ArgumentParser
@@ -415,7 +415,10 @@ class TryonDataset(BaseDataset, ABC):
 
         if self.opt.flow and self.opt.model == "unet_mask":
             #print("flow")
-            flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
+            try:
+                flow = self.get_person_flow(index)
+            except:
+                flow = torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
             result["flow"] = flow
 
         # cloth representation
