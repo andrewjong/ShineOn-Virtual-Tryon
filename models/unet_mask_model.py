@@ -29,7 +29,7 @@ class UnetMaskModel(BaseModel):
     def __init__(self, hparams):
         super().__init__(hparams)
         self.hparams = hparams
-        n_frames = hparams.n_frames if hasattr(hparams, "n_frames") else 1
+        n_frames = hparams.n_frames_total if hasattr(hparams, "n_frames_total") else 1
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
             output_nc=5 * n_frames if self.hparams.flow else 4 * n_frames,
@@ -74,7 +74,7 @@ class UnetMaskModel(BaseModel):
         #flow = person_representation[] # how do i get flow here
 
         if flows is not None and self.prev_frame is not None:
-            flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames
+            flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames_total
             p_rendereds_chunked = [
                 (1 - weight) * flow + weight * p_rendered
                 for weight, flow, p_rendered in zip(

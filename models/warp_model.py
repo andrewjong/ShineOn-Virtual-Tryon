@@ -37,7 +37,7 @@ class WarpModel(BaseModel):
 
     def __init__(self, hparams):
         super(WarpModel, self).__init__(hparams)
-        # n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
+        # n_frames_total = opt.n_frames_total if hasattr(opt, "n_frames_total") else 1
         self.extractionA = FeatureExtraction(
             self.person_channels,
             ngf=hparams.ngf,

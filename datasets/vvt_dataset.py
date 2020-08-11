@@ -167,15 +167,15 @@ class VVTDataset(TryonDataset, NFramesInterface):
 
     # @overrides(NFramesInterface)
     def collect_n_frames_indices(self, index):
-        """ Walks backwards from the current index to collect self.n_frames indices
+        """ Walks backwards from the current index to collect self.n_frames_total indices
         before it"""
         indices = []
         # walk backwards to gather frame indices
-        for i in range(index, index - self._n_frames, -1):
+        for i in range(index, index - self.n_frames_total, -1):
             assert i > -1, "index can't be negative, something's wrong!"
             # if we reach the video boundary, dupe this index for the remaining times
             if i in self._video_start_indices:
-                num_times = self._n_frames - len(indices)
+                num_times = self.n_frames_total - len(indices)
                 dupes = [i] * num_times
                 indices = dupes + indices  # prepend
                 break  # end
@@ -183,6 +183,13 @@ class VVTDataset(TryonDataset, NFramesInterface):
                 indices.insert(0, i)
         return indices
 
+    def __len__(self):
+        # TODO: make len =
+        #  len(self.image_frames) - len(self._video_start_indices) * self.n_frames_total
+        #  this will make sure the beginnings of videos are not repeated
+        return super().__len__()
+
     @NFramesInterface.return_n_frames
     def __getitem__(self, index):
+        # TODO: if index is at a start index, += it
         return super().__getitem__(index)

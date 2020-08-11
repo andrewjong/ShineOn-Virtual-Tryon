@@ -95,7 +95,7 @@ class SamsGenerator(BaseNetwork):
 
         self.hparams = hparams
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
-        in_channels = TryonDataset.RGB_CHANNELS * hparams.n_frames
+        in_channels = TryonDataset.RGB_CHANNELS * hparams.n_frames_total
         out_channels = TryonDataset.RGB_CHANNELS
 
         NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_power_start)
@@ -105,7 +105,7 @@ class SamsGenerator(BaseNetwork):
         enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
         kwargs = {
             "norm_G": hparams.norm_G,
-            "label_channels": enc_lab_c * hparams.n_frames,
+            "label_channels": enc_lab_c * hparams.n_frames_total,
             "spade_class": SPADE,
         }
         self.encode_layers = [
@@ -156,14 +156,14 @@ class SamsGenerator(BaseNetwork):
     def forward(
         self,
         prev_synth_outputs: List[Tensor],
-        prev_segmaps: List[Tensor],
-        current_segmaps_dict: Dict[str, Tensor],
+        prev_labelmap: List[Tensor],
+        current_labelmap_dict: Dict[str, Tensor],
     ):
         """
         Args:
             prev_synth_outputs: previous synthesized frames
-            prev_segmaps: segmaps for the previous frames
-            current_segmaps_dict: segmentation maps for the current frame
+            prev_labelmap: labelmap for the previous frames
+            current_labelmap_dict: segmentation maps for the current frame
 
         Returns: synthesized output for the current frame
         """
@@ -173,10 +173,10 @@ class SamsGenerator(BaseNetwork):
             if not isinstance(prev_synth_outputs, Tensor)
             else prev_synth_outputs
         )
-        prev_segmaps = (
-            torch.cat(prev_segmaps, dim=1)
-            if not isinstance(prev_segmaps, Tensor)
-            else prev_segmaps
+        prev_labelmap = (
+            torch.cat(prev_labelmap, dim=1)
+            if not isinstance(prev_labelmap, Tensor)
+            else prev_labelmap
         )
         x = prev_synth_outputs
 
@@ -184,18 +184,18 @@ class SamsGenerator(BaseNetwork):
         logger.debug(f"{x.shape=}")
         for encoder in self.encode_layers:
             if isinstance(encoder, AnySpadeResBlock):
-                x = encoder(x, prev_segmaps)
+                x = encoder(x, prev_labelmap)
             else:
                 x = encoder(x)
             logger.debug(f"{x.shape=}")
 
         for middle in self.middle_layers:
-            x = middle(x, current_segmaps_dict)
+            x = middle(x, current_labelmap_dict)
             logger.debug(f"{x.shape=}")
 
         for decoder in self.decode_layers:
             if isinstance(decoder, AnySpadeResBlock):
-                x = decoder(x, current_segmaps_dict)
+                x = decoder(x, current_labelmap_dict)
             else:
                 x = decoder(x)
             logger.debug(f"{x.shape=}")

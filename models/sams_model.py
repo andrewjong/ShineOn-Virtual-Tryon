@@ -2,7 +2,6 @@ import argparse
 from torch import Tensor
 from typing import List, Dict, Tuple
 
-import pytorch_lightning as pl
 import torch
 from torch.nn import L1Loss
 from torch.optim import Adam
@@ -11,7 +10,7 @@ from models import BaseModel, networks
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 from options import gan_options
-from util import without_key
+from util import get_prev_data_zero_bounded
 
 
 class SamsModel(BaseModel):
@@ -21,7 +20,21 @@ class SamsModel(BaseModel):
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
-        parser.set_defaults(person_inputs=("agnostic", "densepose"), n_frames=3)
+        parser.set_defaults(person_inputs=("agnostic", "densepose"), n_frames=12)
+        parser.add_argument(
+            "--n_frames_G",
+            type=int,
+            default=3,
+            help="Number of frames to pass into the generator's base at once. "
+            "Should be a factor of --n_frames_total.",
+        )
+        parser.add_argument(
+            "--n_frames_D",
+            type=int,
+            default=4,
+            help="Number of frames to pass to multi-scale temporal discriminators. "
+            "Should be a factor of --n_frames_total.",
+        )
         parser.add_argument(
             "--netD",
             nargs="+",
@@ -46,6 +59,8 @@ class SamsModel(BaseModel):
 
     def __init__(self, hparams):
         super().__init__(hparams)
+        self.n_frames_G = hparams.n_frames_G
+        self.n_frames_D = hparams.n_frames_D
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
@@ -81,9 +96,9 @@ class SamsModel(BaseModel):
 
     def _generator_step(self, batch):
         ground_truth = batch["image"][-1]
-        synth_output, this_frame_segmaps, gen_frames = self.generate_n_frames(batch)
+        synth_output, this_frame_labelmap, gen_frames = self._generate_n_frames(batch)
 
-        input_semantics = torch.cat(tuple(this_frame_segmaps.values()), dim=1)
+        input_semantics = torch.cat(tuple(this_frame_labelmap.values()), dim=1)
         pred_fake, pred_real = self.discriminate(
             input_semantics, synth_output, ground_truth
         )
@@ -109,48 +124,63 @@ class SamsModel(BaseModel):
         }
         return result
 
-    def generate_n_frames(self, batch):
+    def _generate_n_frames(self, batch):
         # format: { agnostic: frames, densepose: frames, flow: frames, etc... }
-        segmaps: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
+        labelmap: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
+
         # make a buffer of previous frames
-        ground_truth = batch["image"][-1]
-        gt_shape: Tuple = ground_truth.shape
-        generated_frames: List[Tensor] = [
-            torch.zeros(*gt_shape, device=self.device) for _ in range(self.n_frames)
+        gt_shp: Tuple = batch["image"][0].shape
+        all_generated_frames: List[Tensor] = [
+            torch.zeros(*gt_shp, device=self.device) for _ in range(self.n_frames_total)
         ]
-        encoder_maps_shape: Tuple = segmaps[self.hparams.encoder_input][0].shape
+
         # generate previous frames before this one
-        for frame_idx in range(self.n_frames):
+        for fIdx in range(self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
-            this_frame_segmaps: Dict[str, Tensor] = {
-                key: segmap[frame_idx] for key, segmap in segmaps.items()
+            labelmaps_this_frame: Dict[str, Tensor] = {
+                map_name: segmap[fIdx] for map_name, segmap in labelmap.items()
             }
-            # just the encoder maps for the previous frames
-            prev_frame_encoder_maps = [
-                batch[self.hparams.encoder_input][i] for i in range(0, frame_idx)
-            ] + [
-                torch.zeros(*encoder_maps_shape, device=self.device)
-                for _ in range(frame_idx, self.n_frames)
-            ]
-            # forward
-            synth_output: Tensor = self.generator.forward(
-                generated_frames, prev_frame_encoder_maps, this_frame_segmaps
+            prev_n_frames_G, prev_n_labelmaps = self.get_prev_frames_and_maps(
+                batch, fIdx, all_generated_frames
             )
-            # add to buffer
-            # comment: should we detach()? Ziwei says yes, easier to train
-            generated_frames[frame_idx] = synth_output  # .detach()
+            # forward
+            fake_frame: Tensor = self.generator.forward(
+                prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
+            )
+            # TODO: INDIVIDUAL DISCRIMINATOR SHOULD CALCULATE LOSS HERE, but we can't :C
+            # add to buffer, but don't detach here; temporal discriminator needs it
+            all_generated_frames[fIdx] = fake_frame
 
-        return synth_output, this_frame_segmaps, generated_frames
+        return fake_frame, labelmaps_this_frame, all_generated_frames
+
+    def get_prev_frames_and_maps(self, batch, fIdx, all_generated_frames):
+        """
+        Get previous frames, but protected by zero
+        Returns:
+            - prev_frames[end_idx - self.n_frames_G]... , prev_frames[end_idx]
+
+        """
+        prev_n_frames_G = get_prev_data_zero_bounded(
+            all_generated_frames, fIdx, self.n_frames_G
+        )
+        prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
+
+        # The encoder only takes ONE labelmap: "--encoder_input"
+        enc_labl_maps = batch[self.hparams.encoder_input]
+        prev_n_frames_labelmaps = get_prev_data_zero_bounded(
+            enc_labl_maps, fIdx, self.n_frames_G
+        )
+        return prev_n_frames_G, prev_n_frames_labelmaps
 
     def _discriminator_step(self, batch):
         ground_truth = batch["image"][-1]
         with torch.no_grad():
-            synth_output, this_frame_segmaps, _ = self.generate_n_frames(batch)
+            synth_output, this_frame_labelmap, _ = self._generate_n_frames(batch)
             synth_output = synth_output.detach()
             synth_output.requires_grad_()
 
-        input_semantics = torch.cat(tuple(this_frame_segmaps.values()), dim=1)
+        input_semantics = torch.cat(tuple(this_frame_labelmap.values()), dim=1)
 
         pred_fake, pred_real = self.discriminate(
             input_semantics, synth_output, ground_truth

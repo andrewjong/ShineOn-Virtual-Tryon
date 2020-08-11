@@ -14,21 +14,6 @@ from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset
 
 
-def parse_channels(list_of_inputs: Iterable[str]):
-    """ Get number of in channels for each input"""
-    if isinstance(list_of_inputs, str):
-        list_of_inputs = [list_of_inputs]
-    channels = sum(
-        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
-    )
-    return channels
-
-
-def get_and_cat_inputs(batch, names):
-    inputs = torch.cat([batch[inp] for inp in names], dim=1)
-    return inputs
-
-
 class BaseModel(pl.LightningModule, abc.ABC):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
@@ -57,15 +42,13 @@ class BaseModel(pl.LightningModule, abc.ABC):
             dest="self_attn",
             help="No self-attention",
         )
-        parser.add_argument(
-            "--flow", action="store_true", help="Add flow"
-        )
+        parser.add_argument("--flow", action="store_true", help="Add flow")
         return parser
 
     def __init__(self, hparams, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.hparams = hparams
-        self.n_frames = hparams.n_frames
+        self.n_frames_total = hparams.n_frames_total
 
         self.person_channels = parse_channels(hparams.person_inputs)
         self.cloth_channels = parse_channels(hparams.cloth_inputs)
@@ -112,3 +95,18 @@ class BaseModel(pl.LightningModule, abc.ABC):
             / float(self.hparams.decay_epochs + 1),
         )
         return scheduler
+
+
+def parse_channels(list_of_inputs: Iterable[str]):
+    """ Get number of in channels for each input"""
+    if isinstance(list_of_inputs, str):
+        list_of_inputs = [list_of_inputs]
+    channels = sum(
+        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
+    )
+    return channels
+
+
+def get_and_cat_inputs(batch, names):
+    inputs = torch.cat([batch[inp] for inp in names], dim=1)
+    return inputs

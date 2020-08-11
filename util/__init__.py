@@ -37,3 +37,12 @@ def without_key(d, *keys):
     for k in keys:
         d.pop(k)
     return d
+
+
+def get_prev_data_zero_bounded(data, end_idx, num_frames):
+    start_idx = end_idx - num_frames
+    prev_n_data = data[max(0, start_idx) : end_idx]
+    if start_idx < 0:
+        prepend_dupes = [data[0] for _ in range(abs(start_idx))]
+        prev_n_data = prepend_dupes + prev_n_data
+    return prev_n_data
