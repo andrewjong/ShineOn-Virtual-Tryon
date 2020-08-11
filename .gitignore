@@ -10,3 +10,4 @@ result/*/*
 *.pyc
 venv/*
 Untitled.ipynb
+experiments/*
