@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from datasets import find_dataset_using_name, VVTDataset
+from datasets import find_dataset_using_name, VVTDataset, CappedDataLoader
 from datasets.tryon_dataset import TryonDataset
 
 
@@ -73,21 +73,17 @@ class BaseModel(pl.LightningModule, abc.ABC):
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader
-        train_loader = DataLoader(
+        train_loader = CappedDataLoader(
             self.train_dataset,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.workers,
-            shuffle=not self.hparams.no_shuffle if self.isTrain else False,
+            self.hparams,
         )
         return train_loader
 
     def val_dataloader(self) -> DataLoader:
         # create dataloader
-        val_loader = DataLoader(
+        val_loader = CappedDataLoader(
             self.val_dataset,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.workers,
-            shuffle=False,  # don't shuffle validation
+            self.hparams,
         )
         return val_loader
 

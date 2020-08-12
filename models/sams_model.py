@@ -144,7 +144,7 @@ class SamsModel(BaseModel):
         result = {
             "loss": loss_G,
             "log": log,
-            "progress_bar": log,
+            "progress_bar": {"loss_G": loss_G},
         }
         return result
 
@@ -274,7 +274,7 @@ class SamsModel(BaseModel):
         result = {
             "loss": loss_D,
             "log": log,
-            "progress_bar": log,
+            "progress_bar": {"loss_D_multi": loss_D},
         }
         return result
 
@@ -291,7 +291,7 @@ class SamsModel(BaseModel):
         result = {
             "loss": loss_D,
             "log": log,
-            "progress_bar": log,
+            "progress_bar": {"loss_D_temporal": loss_D},
         }
         return result
 

@@ -26,7 +26,6 @@ def main(train=True):
     trainer = Trainer(
         gpus=opt.gpu_ids,
         default_root_dir=root_dir,
-        max_steps=opt.datacap,
         log_save_interval=opt.display_count,
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,

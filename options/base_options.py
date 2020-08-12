@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 
 import torch
 
@@ -33,7 +34,7 @@ class BaseOptions:
             "--datacap",
             type=float,
             default=float("inf"),
-            help="limits the dataset to this many batches",
+            help="limits the DataLoader to this many batches",
         )
         # logging
         parser.add_argument(
@@ -146,6 +147,7 @@ class BaseOptions:
         #     opt.name = opt.name + suffix
         #
 
+        opt = BaseOptions.apply_ask_unnamed_experiment(opt)
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
         opt = BaseOptions.apply_sort_inputs(opt)
@@ -191,4 +193,19 @@ class BaseOptions:
     def apply_set_encoder_input(opt):
         if hasattr(opt, "encoder_input") and opt.encoder_input is None:
             opt.encoder_input = opt.person_inputs[0]
+        return opt
+
+    @staticmethod
+    def apply_ask_unnamed_experiment(opt):
+        if "--name" not in sys.argv:
+            print(
+                "\n"
+                "You didn't set an experiment name. Do you want to set one? If not, "
+                f"leave it blank. This message can be avoided by passing --name NAME."
+            )
+            new_name = input(f"Experiment name (default: {opt.name}): ")
+            print()
+            if new_name:
+                opt.name = new_name
+                print(f"Experiment name set to {opt.name}")
         return opt
