@@ -27,7 +27,7 @@ class TryonDataset(BaseDataset, ABC):
     IM_HEAD_CHANNELS = RGB_CHANNELS
     SILHOUETTE_CHANNELS = 1
 
-    AGNOSTIC_CHANNELS = COCOPOSE_CHANNELS + IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
+    AGNOSTIC_CHANNELS = IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
 
     CLOTH_CHANNELS = RGB_CHANNELS
     CLOTH_MASK_CHANNELS = 1
@@ -157,10 +157,10 @@ class TryonDataset(BaseDataset, ABC):
         im_cloth = segment_cloths_from_image(image, _parse_array)
 
         # load pose points
-        _pose_map, im_cocopose = self.get_input_person_pose(index)
+        #_pose_map, im_cocopose = self.get_input_person_pose(index)
 
         if "agnostic" in self.opt.person_inputs:
-            _agnostic_items = [silhouette, im_head, _pose_map]
+            _agnostic_items = [silhouette, im_head]#, _pose_map]
             agnostic = torch.cat(_agnostic_items, 0)
             ret["agnostic"] = agnostic
 
@@ -175,7 +175,7 @@ class TryonDataset(BaseDataset, ABC):
                 "image": image,
                 "im_head": im_head,
                 "im_cloth": im_cloth,
-                "im_cocopose": im_cocopose,
+                #"im_cocopose": im_cocopose,
             }
         )
         return ret

@@ -47,7 +47,7 @@ class UnetMaskModel(BaseModel):
 
 
 
-    def forward(self, person_representation, warped_cloths, flows=None):
+    def forward(self, person_representation, warped_cloths, prev_frame, flows=None):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
@@ -73,8 +73,8 @@ class UnetMaskModel(BaseModel):
 
         #flow = person_representation[] # how do i get flow here
 
-        if flows is not None and self.prev_frame is not None:
-            flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames
+        if flows is not None and prev_frame is not None:
+            flows = self.resample(prev_frame, flows) # what is past_frame, also not sure flows has n_frames
             p_rendereds_chunked = [
                 (1 - weight) * flow + weight * p_rendered
                 for weight, flow, p_rendered in zip(

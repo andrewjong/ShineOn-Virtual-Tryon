@@ -64,7 +64,7 @@ def train_warp(opt, train_loader, model, board):
             im_c = batch["im_cloth"].to(device)
             im_g = batch["grid_vis"].to(device)
             im = batch["image"].to(device)
-            im_cocopose = batch["im_cocopose"].to(device)
+            #im_cocopose = batch["im_cocopose"].to(device)
             maybe_densepose = [batch["densepose"].to(device)] if "densepose" in batch else []
             c = batch["cloth"].to(device)
             im_h = batch["im_head"].to(device)
@@ -108,7 +108,7 @@ def train_warp(opt, train_loader, model, board):
             ################################################
             # visualize and logging
             visuals = [
-                [im_h, silhouette, im_cocopose] + maybe_densepose,
+                [im_h, silhouette, maybe_densepose] ,
                 [c, warped_cloth, im_c],
                 [warped_grid, (warped_cloth + im) * 0.5, im],
             ]
@@ -162,7 +162,7 @@ def train_unet(opt, train_loader, model, board):
             cm = batch["cloth_mask"].to(device)
             flow = batch["flow"].to(device) if opt.flow else None
             im = batch["image"].to(device)
-            im_cocopose = batch["im_cocopose"].to(device)
+            #im_cocopose = batch["im_cocopose"].to(device)
             maybe_densepose = [batch["densepose"].to(device)] if "densepose" in batch else []
             c = batch["cloth"].to(device)
             im_h = batch["im_head"].to(device)
@@ -172,7 +172,7 @@ def train_unet(opt, train_loader, model, board):
             cloth_inputs = get_and_cat_inputs(batch, opt.cloth_inputs).to(device)
 
             # forward
-            p_rendered, m_composite, p_tryon = model(person_inputs, cloth_inputs, flow)
+            p_rendered, m_composite, p_tryon = model(person_inputs, cloth_inputs, prev_frame, flow)
             # loss
             loss_l1 = F.l1_loss(p_tryon, im)
             loss_vgg = vgg_loss(p_tryon, im)
@@ -202,7 +202,7 @@ def train_unet(opt, train_loader, model, board):
             p_rendered, m_composite, p_tryon = model(agnostic, c)"""
             #########################################################
             visuals = [
-                [im_h, silhouette, im_cocopose] + maybe_densepose,
+                [im_h, silhouette, maybe_densepose],
                 [c, cm * 2 - 1, m_composite * 2 - 1],
                 [p_rendered, p_tryon, im],
             ]
