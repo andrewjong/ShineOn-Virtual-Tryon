@@ -14,7 +14,6 @@ from options.train_options import TrainOptions
 logger = log.setup_custom_logger("logger")
 
 
-
 def main(train=True):
     options_obj = TrainOptions() if train else TestOptions()
     opt = options_obj.parse()
@@ -35,9 +34,10 @@ def main(train=True):
         max_epochs=opt.keep_epochs + opt.decay_epochs,
     )
 
-    def save_on_interrupt(*args):
-        ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, "latest.ckpt")
-        logger.error(f"Interrupt detected, saving Trainer checkpoint to {ckpt_path}!")
+    def save_on_interrupt(*args, name=""):
+        name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
+        ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
+        logger.error(f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!")
         trainer.save_checkpoint(ckpt_path)
         exit()
 
@@ -47,12 +47,17 @@ def main(train=True):
         try:
             trainer.fit(model)
         except Exception as e:
+            print("Exception:", type(e))
             logger.error(traceback.format_exc())
-            save_on_interrupt()
+            save_on_interrupt(name=get_exception_class_as_str(e))
     else:
         trainer.test(model)
 
     logger.info(f"Finished {opt.model}, named {opt.name}!")
+
+
+def get_exception_class_as_str(e):
+    return str(type(e)).replace("<class '", "").replace("'>", "")
 
 
 if __name__ == "__main__":

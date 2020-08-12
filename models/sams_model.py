@@ -107,7 +107,6 @@ class SamsModel(BaseModel):
         )
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
-
         if optimizer_idx == 0:
             result = self.generator_step(batch)
         elif optimizer_idx == 1:
