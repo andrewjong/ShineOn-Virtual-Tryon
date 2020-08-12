@@ -25,7 +25,7 @@ class GANLoss(nn.Module):
         gan_mode,
         target_real_label=1.0,
         target_fake_label=0.0,
-        tensor=torch.FloatTensor,
+        tensor=torch.tensor,
         opt=None,
     ):
         super(GANLoss, self).__init__()
@@ -44,18 +44,18 @@ class GANLoss(nn.Module):
             if self.real_label_tensor is None:
                 self.real_label_tensor = self.Tensor(1).fill_(self.real_label)
                 self.real_label_tensor.requires_grad_(False)
-            return self.real_label_tensor.expand_as(input)
+            return self.real_label_tensor.expand_as(input).type_as(input)
         else:
             if self.fake_label_tensor is None:
                 self.fake_label_tensor = self.Tensor(1).fill_(self.fake_label)
                 self.fake_label_tensor.requires_grad_(False)
-            return self.fake_label_tensor.expand_as(input)
+            return self.fake_label_tensor.expand_as(input).type_as(input)
 
     def get_zero_tensor(self, input):
         if self.zero_tensor is None:
             self.zero_tensor = self.Tensor(1).fill_(0)
             self.zero_tensor.requires_grad_(False)
-        return self.zero_tensor.expand_as(input)
+        return self.zero_tensor.expand_as(input).type_as(input)
 
     def loss(self, input, target_is_real, for_discriminator=True):
         if self.gan_mode == "original":  # cross entropy loss
