@@ -4,22 +4,21 @@ import logging
 import os
 import os.path as osp
 from glob import glob
-
 from torch.utils.data import DataLoader
 
-from datasets.cpvton_dataset import CpVtonDataset
+from datasets.tryon_dataset import TryonDataset
 from datasets.n_frames_interface import NFramesInterface
 from options.train_options import TrainOptions
 
 logger = logging.getLogger("logger")
 
 
-class VVTDataset(CpVtonDataset, NFramesInterface):
+class VVTDataset(TryonDataset, NFramesInterface):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = CpVtonDataset.modify_commandline_options(parser, is_train)
+        parser = TryonDataset.modify_commandline_options(parser, is_train)
         parser = NFramesInterface.modify_commandline_options(parser, is_train)
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         parser.add_argument(
@@ -35,7 +34,7 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
 
     def __init__(self, opt):
         self._video_start_indices = set()
-        CpVtonDataset.__init__(self, opt)
+        TryonDataset.__init__(self, opt)
         NFramesInterface.__init__(self, opt)
 
     # @overrides(CpVtonDataset)
@@ -72,7 +71,7 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
         # it also removes the ending sub-id, which is the garment id
         folder_id, cloth_id = folder_id.upper().split("-")
 
-        if self.stage == "GMM":
+        if self.opt.model == "warp":
             path = osp.join(self.root, "clothes_person", "img")
             keyword = "cloth_front"
         else:
@@ -98,7 +97,9 @@ class VVTDataset(CpVtonDataset, NFramesInterface):
             cloth_path_matches = sorted(glob(search))
             logger.debug(f"{search=} found {cloth_path_matches=}")
 
-        assert len(cloth_path_matches) > 0, f"{search=} not found"
+        assert len(cloth_path_matches) > 0, (
+            f"{search=} not found. Try specifying --warp_cloth_dir"
+        )
 
         return cloth_path_matches[0]
 

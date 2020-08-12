@@ -12,28 +12,34 @@ from tqdm import tqdm
 import log
 from datasets import find_dataset_using_name
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from networks.cpvton import (
-    GMM,
+from models import find_model_using_name
+from models.networks.cpvton import load_checkpoint, save_checkpoint
+from models.base_model import get_and_cat_inputs
+from models.networks.loss import VGGLoss
+
+
+"""    (
+    unet_mask_model,
     VGGLoss,
     load_checkpoint,
     save_checkpoint,
     TOM,
-)
+)"""
 from options.train_options import TrainOptions
 from visualization import board_add_images
 
 logger = log.setup_custom_logger("logger")
 
 
-def train_gmm(opt, train_loader, model, board):
+def train_warp(opt, train_loader, model, board):
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
     model.train()
 
-    # criterion
-    criterionL1 = nn.L1Loss()
+
 
     # optimizer
+
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
@@ -47,13 +53,42 @@ def train_gmm(opt, train_loader, model, board):
     ):
 
         pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
-        for i, inputs in pbar:
+        for i, batch in pbar:
 
             # ensure epoch is over when steps is divisible by datacap
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
                 break
-            inputs = maybe_combine_frames_and_channels(opt, inputs)
+            batch = maybe_combine_frames_and_channels(opt, batch)
+            # unpack
+            im_c = batch["im_cloth"].to(device)
+            im_g = batch["grid_vis"].to(device)
+            im = batch["image"].to(device)
+            im_cocopose = batch["im_cocopose"].to(device)
+            maybe_densepose = [batch["densepose"].to(device)] if "densepose" in batch else []
+            c = batch["cloth"].to(device)
+            im_h = batch["im_head"].to(device)
+            silhouette = batch["silhouette"].to(device)
+            person_inputs = get_and_cat_inputs(batch, opt.person_inputs)
+            cloth_inputs = get_and_cat_inputs(batch, opt.cloth_inputs)
+
+            # forward
+            grid, theta = model(person_inputs, cloth_inputs)
+            warped_cloth = F.grid_sample(c, grid, padding_mode="border")
+            warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
+            # loss
+            loss = F.l1_loss(warped_cloth, im_c)
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            pbar.set_description(f"loss: {loss.item():4f}")
+
+
+
+            ######################################################
+
+            """inputs = maybe_combine_frames_and_channels(opt, inputs)
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
             maybe_densepose = (
@@ -69,20 +104,16 @@ def train_gmm(opt, train_loader, model, board):
             grid, theta = model(agnostic, c)
             warped_cloth = F.grid_sample(c, grid, padding_mode="border")
             # warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
-            warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
-
+            warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")"""
+            ################################################
+            # visualize and logging
             visuals = [
                 [im_h, silhouette, im_cocopose] + maybe_densepose,
                 [c, warped_cloth, im_c],
                 [warped_grid, (warped_cloth + im) * 0.5, im],
             ]
 
-            loss = criterionL1(warped_cloth, im_c)
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
 
-            pbar.set_description(f"loss: {loss.item():4f}")
             if board and steps % opt.display_count == 0:
                 board_add_images(board, "combine", visuals, steps)
                 board.add_scalar("epoch", epoch, steps)
@@ -99,16 +130,14 @@ def train_gmm(opt, train_loader, model, board):
         scheduler.step()
 
 
-def train_tom(opt, train_loader, model, board):
+def train_unet(opt, train_loader, model, board):
     device = torch.device("cuda", opt.gpu_ids[0])
     model.to(device)
     model.train()
 
-    # criterion
-    criterionL1 = nn.L1Loss()
-    criterionVGG = VGGLoss()
-    criterionMask = nn.L1Loss()
 
+    # criterion
+    vgg_loss = VGGLoss()
     # optimizer
     optimizer = torch.optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -118,15 +147,46 @@ def train_tom(opt, train_loader, model, board):
     )
 
     steps = 0
+    prev_frame = None
     for epoch in tqdm(
         range(opt.keep_epochs + opt.decay_epochs), desc="Epoch", unit="epoch"
     ):
         pbar = tqdm(enumerate(train_loader), unit="step", total=len(train_loader))
-        for i, inputs in pbar:
+        for i, batch in pbar:
             if i >= opt.datacap:
                 logger.info(f"Reached dataset cap {opt.datacap}")
                 break
-            inputs = maybe_combine_frames_and_channels(opt, inputs)
+
+            batch = maybe_combine_frames_and_channels(opt, batch)
+            # unpack
+            cm = batch["cloth_mask"].to(device)
+            flow = batch["flow"].to(device) if opt.flow else None
+            im = batch["image"].to(device)
+            im_cocopose = batch["im_cocopose"].to(device)
+            maybe_densepose = [batch["densepose"].to(device)] if "densepose" in batch else []
+            c = batch["cloth"].to(device)
+            im_h = batch["im_head"].to(device)
+            silhouette = batch["silhouette"].to(device)
+
+            person_inputs = get_and_cat_inputs(batch, opt.person_inputs).to(device)
+            cloth_inputs = get_and_cat_inputs(batch, opt.cloth_inputs).to(device)
+
+            # forward
+            p_rendered, m_composite, p_tryon = model(person_inputs, cloth_inputs, flow)
+            # loss
+            loss_l1 = F.l1_loss(p_tryon, im)
+            loss_vgg = vgg_loss(p_tryon, im)
+            loss_mask = F.l1_loss(m_composite, cm)
+            loss = loss_l1 + loss_vgg + loss_mask
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+
+            prev_frame = im
+            #return result
+            ############################################
+            """inputs = maybe_combine_frames_and_channels(opt, inputs)
             im = inputs["image"].to(device)
             im_cocopose = inputs["im_cocopose"].to(device)
             maybe_densepose = (
@@ -139,21 +199,13 @@ def train_tom(opt, train_loader, model, board):
             c = inputs["cloth"].to(device)
             cm = inputs["cloth_mask"].to(device)
 
-            p_rendered, m_composite, p_tryon = model(agnostic, c)          
-            
+            p_rendered, m_composite, p_tryon = model(agnostic, c)"""
+            #########################################################
             visuals = [
                 [im_h, silhouette, im_cocopose] + maybe_densepose,
                 [c, cm * 2 - 1, m_composite * 2 - 1],
                 [p_rendered, p_tryon, im],
             ]
-
-            loss_l1 = criterionL1(p_tryon, im)
-            loss_vgg = criterionVGG(p_tryon, im)
-            loss_mask = criterionMask(m_composite, cm)
-            loss = loss_l1 + loss_vgg + loss_mask
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
 
             pbar.set_description(
                 desc=f"loss: {loss.item():.4f}, l1: {loss_l1.item():.4f}, vgg: {loss_vgg.item():.4f}, mask: {loss_mask.item():.4f}",
@@ -179,7 +231,7 @@ def train_tom(opt, train_loader, model, board):
         scheduler.step()
 
 
-def main():
+def main(train=True):
     options_object = TrainOptions()
     opt = options_object.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
@@ -195,6 +247,12 @@ def main():
         num_workers=opt.workers,
         shuffle=not opt.no_shuffle,
     )
+    # create model
+    model_class = find_model_using_name(opt.model)
+    if opt.checkpoint or not train:
+        model = model_class.load_from_checkpoint(opt.checkpoint)
+    else:
+        model = model_class(opt)
 
     # visualization
     board = None
@@ -204,20 +262,20 @@ def main():
         board.add_text("options", options_object.options_formatted_str)
 
     # create model & train & save the final checkpoint
-    if opt.stage == "GMM":
-        model = GMM(opt)
-        train_fn = train_gmm
-        final_save = "gmm_final.pth"
-    elif opt.stage == "TOM":
-        model = TOM(opt)
-        train_fn = train_tom
-        final_save = "tom_final.pth"
+    if opt.model == "warp":
+        #model = GMM(opt)
+        train_fn = train_warp
+        final_save = "warp_final.pth"
+    elif opt.model == "unet_mask":
+        #model = TOM(opt)
+        train_fn = train_unet
+        final_save = "unet_final.pth"
     else:
-        raise NotImplementedError(f"Model [{opt.stage}] is not implemented")
+        raise NotImplementedError(f"Model [{opt.model}] is not implemented")
 
     if opt.checkpoint and os.path.exists(opt.checkpoint):
         load_checkpoint(model, opt.checkpoint)
-    if torch.cuda.device_count() > 1 and opt.dataparallel:
+    if torch.cuda.device_count() > 1 and len(opt.gpu_ids) > 1:
         model = nn.DataParallel(model)
     train_fn(opt, train_loader, model, board)
     save_checkpoint(model, os.path.join(opt.checkpoint_dir, opt.name, final_save))
@@ -226,4 +284,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(train=True)

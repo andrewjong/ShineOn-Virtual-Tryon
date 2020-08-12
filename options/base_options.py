@@ -24,35 +24,14 @@ class BaseOptions:
         )
         parser.add_argument("--datamode", default="train")
         parser.add_argument("--stage", default="GMM")
-        parser.add_argument(
-            "--dataparallel",
-            action="store_true",
-            help="pass flag to enable dataparallel model",
-        )
+
         parser.add_argument(
             "--datacap",
             type=float,
             default=float("inf"),
             help="limits the dataset to this many batches",
         )
-        # network dimensions
-        parser.add_argument(
-            "--person_in_channels",
-            type=int,
-            default=1 + 3 + 18,  # silhouette + head + cocopose
-            help="number of base channels for person representation",
-        )
-        parser.add_argument(
-            "--cloth_in_channels",
-            type=int,
-            default=3,
-            help="number of channels for cloth representation",
-        )
-        parser.add_argument(
-            "--densepose",
-            action="store_true",
-            help="use me to add densepose (auto adds 3 to --person_in_channels)",
-        )
+
         parser.add_argument("--fine_width", type=int, default=192)
         parser.add_argument("--fine_height", type=int, default=256)
         parser.add_argument("--radius", type=int, default=5)
@@ -90,6 +69,64 @@ class BaseOptions:
             choices=("debug", "info", "warning", "error", "critical"),
             default="info",
             help="choose a log level",
+        )
+
+        ###################
+
+        parser.add_argument(
+            "--model",
+            help="which model to use. choices: "
+                 "'warp' (aka 'gmm'), 'unet_mask' (aka 'tom'), 'sams'.",
+        )
+
+        # logging
+        parser.add_argument(
+            "--experiments_dir",
+            default="experiments",
+            help="where to store logs and checkpoints",
+        )
+
+
+        # debug
+        parser.add_argument(
+            "--fast_dev_run", action="store_true", help="quickly test out the pipeline",
+        )
+
+        parser.add_argument(
+            "--person_inputs",
+            nargs="+",
+            required=True,
+            help="List of what type of items are passed as person input. Dynamically"
+                 "sets input tensors and number of channels. See TryonDataset for "
+                 "options.",
+        )
+        parser.add_argument(
+            "--cloth_inputs",
+            nargs="+",
+            default=("cloth",),
+            help="List of items to pass as the cloth inputs.",
+        )
+        parser.add_argument("--ngf", type=int, default=64)
+
+        parser.add_argument(
+            "--no_self_attn",
+            action="store_false",
+            dest="self_attn",
+            help="No self-attention",
+        )
+        parser.add_argument(
+            "--flow", action="store_true", help="Add flow"
+        )
+
+        parser.add_argument(
+            "--cloth_mask_threshold",
+            type=int,
+            default=240,
+            help="threshold to remove white background for the cloth mask; "
+                 "everything above this value is removed [0-255].",
+        )
+        parser.add_argument(
+            "--image_scale", type=float, default=1, help="first scale to this"
         )
         self.initialized = True
         return parser
@@ -162,7 +199,7 @@ class BaseOptions:
         #
 
         opt = BaseOptions.apply_gpu_ids(opt)
-        opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
+        #opt = BaseOptions.apply_densepose_to_person_in_channels(opt)
 
         self.print_options(opt)
 
