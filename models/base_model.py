@@ -12,6 +12,9 @@ from torch.utils.data import DataLoader
 
 from datasets import find_dataset_using_name, VVTDataset, CappedDataLoader
 from datasets.tryon_dataset import TryonDataset
+import logging
+
+logger = logging.getLogger("logger")
 
 
 class BaseModel(pl.LightningModule, abc.ABC):
@@ -46,6 +49,8 @@ class BaseModel(pl.LightningModule, abc.ABC):
         return parser
 
     def __init__(self, hparams, *args, **kwargs):
+        if isinstance(hparams, dict):
+            hparams = argparse.Namespace(**hparams)
         super().__init__(*args, **kwargs)
         self.hparams = hparams
         self.n_frames_total = hparams.n_frames_total
@@ -69,7 +74,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
         # ----- actual data preparation ------
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
+        logger.info(f"Train dataset initialized: {len(self.train_dataset)} samples.")
         self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
+        logger.info(f"Val dataset initialized: {len(self.val_dataset)} samples.")
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader

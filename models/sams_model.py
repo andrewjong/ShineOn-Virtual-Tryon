@@ -1,8 +1,9 @@
 import argparse
-from torch import Tensor
-from typing import List, Dict, Tuple
+import logging
+from typing import Dict
 
 import torch
+from torch import Tensor
 from torch.nn import L1Loss
 from torch.optim import Adam
 
@@ -55,6 +56,9 @@ class SamsModel(BaseModel):
         return parser
 
     def __init__(self, hparams):
+        # Lightning bug, see https://github.com/PyTorchLightning/pytorch-lightning/issues/924#issuecomment-673137383
+        if isinstance(hparams, dict):
+            hparams = argparse.Namespace(**hparams)
         super().__init__(hparams)
         self.n_frames_total = hparams.n_frames_total
         self.inputs = hparams.person_inputs + hparams.cloth_inputs

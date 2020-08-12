@@ -28,6 +28,8 @@ class UnetMaskModel(BaseModel):
 
     def __init__(self, hparams):
         super().__init__(hparams)
+        if isinstance(hparams, dict):
+            hparams = argparse.Namespace(**hparams)
         self.hparams = hparams
         n_frames = hparams.n_frames_total if hasattr(hparams, "n_frames_total") else 1
         self.unet = UnetGenerator(

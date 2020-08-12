@@ -1,4 +1,5 @@
 """ Also known as GMM """
+import argparse
 import os.path as osp
 from argparse import ArgumentParser
 
@@ -37,6 +38,8 @@ class WarpModel(BaseModel):
 
     def __init__(self, hparams):
         super(WarpModel, self).__init__(hparams)
+        if isinstance(hparams, dict):
+            hparams = argparse.Namespace(**hparams)
         # n_frames_total = opt.n_frames_total if hasattr(opt, "n_frames_total") else 1
         self.extractionA = FeatureExtraction(
             self.person_channels,
