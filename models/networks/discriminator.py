@@ -13,9 +13,6 @@ from models.base_model import parse_channels
 from models.networks import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 
-class TemporalDiscriminator(BaseNetwork):
-    pass
-
 class MultiscaleDiscriminator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
@@ -146,3 +143,7 @@ class NLayerDiscriminator(BaseNetwork):
             return results[1:]
         else:
             return results[-1]
+
+class TemporalDiscriminator(MultiscaleDiscriminator):
+    pass
+

@@ -23,7 +23,7 @@ class SamsModel(BaseModel):
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
         parser.set_defaults(n_frames_total=5)
         parser.add_argument(
-            "--multiscale_discriminator",
+            "--discriminator",
             nargs="+",
             default=("multiscale", "temporal"),
             choices=("multiscale", "temporal", "nlayer"),
@@ -46,14 +46,12 @@ class SamsModel(BaseModel):
 
     def __init__(self, hparams):
         super().__init__(hparams)
-        self.n_frames = hparams.n_frames
-        self.n_frames_D = hparams.n_frames_D
+        self.n_frames_total = hparams.n_frames_total
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
         if self.isTrain:
             self.multiscale_discriminator = networks.define_D("multiscale", hparams)
-            # self.temporal_discriminator = networks.define_D("temporal", hparams)
             self.temporal_discriminator = networks.define_D("temporal", hparams)
             # ideally we should do multiscale_discriminator on EVERY single one of the generated frames
 
@@ -160,18 +158,18 @@ class SamsModel(BaseModel):
         """
         Get previous frames, but protected by zero
         Returns:
-            - prev_frames[end_idx - self.n_frames]... , prev_frames[end_idx]
+            - prev_frames[end_idx - self.n_frames_total]... , prev_frames[end_idx]
 
         """
         prev_n_frames_G = get_prev_data_zero_bounded(
-            all_generated_frames, fIdx, self.n_frames
+            all_generated_frames, fIdx, self.n_frames_total
         )
         prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
 
         # The encoder only takes ONE labelmap: "--encoder_input"
         enc_labl_maps = batch[self.hparams.encoder_input]
         prev_n_frames_labelmaps = get_prev_data_zero_bounded(
-            enc_labl_maps, fIdx, self.n_frames
+            enc_labl_maps, fIdx, self.n_frames_total
         )
         return prev_n_frames_G, prev_n_frames_labelmaps
 

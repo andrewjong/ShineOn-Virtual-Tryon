@@ -189,6 +189,6 @@ class BaseOptions:
 
     @staticmethod
     def apply_set_encoder_input(opt):
-        if opt.encoder_input is None:
+        if hasattr(opt, "encoder_input") and opt.encoder_input is None:
             opt.encoder_input = opt.person_inputs[0]
         return opt
