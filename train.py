@@ -69,8 +69,8 @@ def train_warp(opt, train_loader, model, board):
             c = batch["cloth"].to(device)
             im_h = batch["im_head"].to(device)
             silhouette = batch["silhouette"].to(device)
-            person_inputs = get_and_cat_inputs(batch, opt.person_inputs)
-            cloth_inputs = get_and_cat_inputs(batch, opt.cloth_inputs)
+            person_inputs = get_and_cat_inputs(batch, opt.person_inputs).to(device)
+            cloth_inputs = get_and_cat_inputs(batch, opt.cloth_inputs).to(device)
 
             # forward
             grid, theta = model(person_inputs, cloth_inputs)
