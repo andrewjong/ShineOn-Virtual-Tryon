@@ -10,7 +10,7 @@ from tensorboardX import SummaryWriter
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from datasets import find_dataset_using_name
+from datasets import find_dataset_using_name, VVTDataset
 from datasets.tryon_dataset import TryonDataset
 
 
@@ -66,20 +66,33 @@ class BaseModel(pl.LightningModule, abc.ABC):
         board: SummaryWriter = self.logger.experiment
         board.add_text("hparams", pformat(self.hparams, indent=4, width=1))
 
+        # ----- actual data preparation ------
+        dataset_cls = find_dataset_using_name(self.hparams.dataset)
+        self.train_dataset: TryonDataset = dataset_cls(self.hparams)
+        self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
+
     def train_dataloader(self) -> DataLoader:
-        # create dataset
-        dataset = find_dataset_using_name(self.hparams.dataset)(self.hparams)
         # create dataloader
         train_loader = DataLoader(
-            dataset,
+            self.train_dataset,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.workers,
             shuffle=not self.hparams.no_shuffle if self.isTrain else False,
         )
         return train_loader
 
-    def test_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
-        # same thing, except for shuffle
+    def val_dataloader(self) -> DataLoader:
+        # create dataloader
+        val_loader = DataLoader(
+            self.val_dataset,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.workers,
+            shuffle=False,  # don't shuffle validation
+        )
+        return val_loader
+
+    def test_dataloader(self) -> DataLoader:
+        # same loader type. test paths will be defined in hparams
         return self.train_dataloader()
 
     def configure_optimizers(self):

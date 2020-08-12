@@ -112,6 +112,13 @@ class SamsModel(BaseModel):
 
         return result
 
+    def validation_step(self, batch, idx) -> Dict[str, Tensor]:
+        result = self.generator_step(batch)
+        log = result["log"]
+        val_loss = log["loss_G_l1"] + log["loss_G_vgg"]
+        return {"val_loss": val_loss}
+
+
     def generator_step(self, batch):
         loss_G_adv_multiscale = self.multiscale_discriminator_loss(
             batch, for_discriminator=False

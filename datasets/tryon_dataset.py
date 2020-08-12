@@ -1,4 +1,5 @@
 # coding=utf-8
+from typing import Type, TypeVar
 import json
 from abc import abstractmethod, ABC
 from argparse import ArgumentParser
@@ -17,6 +18,7 @@ from datasets.util import segment_cloths_from_image
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
 
 
+TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
 class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
@@ -40,6 +42,14 @@ class TryonDataset(BaseDataset, ABC):
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
         parser.add_argument(
+            "--val_fraction",
+            type=float,
+            default=0.1,
+            help="fraction of data to reserve for validation"
+        )
+        if not is_train:  # on test dataset, use the whole thing
+            parser.set_defaults(val_fraction=0)
+        parser.add_argument(
             "--cloth_mask_threshold",
             type=int,
             default=240,
@@ -58,11 +68,12 @@ class TryonDataset(BaseDataset, ABC):
         parser.add_argument("--radius", type=int, default=5)
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, i_am_validation=False):
         super(TryonDataset, self).__init__(opt)
-        self.cloth_mask_threshold = opt.cloth_mask_threshold
         # base setting
         self.opt = opt
+        self.val_fraction = opt.val_fraction
+        self.cloth_mask_threshold = opt.cloth_mask_threshold
         self.datamode = opt.datamode  # train or test or self-defined
         self.fine_height = opt.fine_height
         self.fine_width = opt.fine_width
@@ -86,16 +97,27 @@ class TryonDataset(BaseDataset, ABC):
         self.flow_norm = transforms.Normalize((0.5, 0.5), (0.5, 0.5))
 
         self.image_names = []
+        self.i_am_validation = i_am_validation
         # load data list
-        self.load_file_paths()
+        self.load_file_paths(i_am_validation)
 
     @abstractmethod
-    def load_file_paths(self):
+    def load_file_paths(self, i_am_validation=False):
         """
-        Reads the datalist txt file for CP-VTON
-        sets self.image_names and self.cloth_names. they should correspond 1-to-1
+        Find the paths for the data.
+        Should set self.image_names and self.cloth_names. Lengths should correspond
+        1-to-1.
+
+        Args:
+            i_am_validation: whether this instance is for validation or not. Subclasses
+                should load file paths accordingly using self.val_fraction.
         """
         pass
+
+    @classmethod
+    def make_validation_dataset(cls, opt) -> TryonDatasetType:
+        val = cls(opt, i_am_validation=True)
+        return val
 
     def __len__(self):
         return len(self.image_names)

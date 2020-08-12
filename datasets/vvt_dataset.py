@@ -32,20 +32,32 @@ class VVTDataset(TryonDataset, NFramesInterface):
     def extract_folder_id(image_path):
         return image_path.split(os.sep)[-2]
 
-    def __init__(self, opt):
+    def __init__(self, opt, i_am_validation=False):
+        """
+
+        Args:
+            opt: Namespace
+        """
         self._video_start_indices = set()
-        TryonDataset.__init__(self, opt)
+        TryonDataset.__init__(self, opt, i_am_validation)
         NFramesInterface.__init__(self, opt)
 
     # @overrides(CpVtonDataset)
-    def load_file_paths(self):
-        """ Reads the datalist txt file for CP-VTON"""
+    def load_file_paths(self, i_am_validation=False):
+        """ Reads the Videos from the fw_gan_vvt dataset. """
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
         videos_search = f"{self.root}/{folder}/*/"
         video_folders = sorted(glob(videos_search))
+        num_videos = len(video_folders)
+        validation_index = int((1 - self.val_fraction) * num_videos)
 
-        for video_folder in video_folders:
+        if i_am_validation:
+            start, end = validation_index, num_videos
+        else:
+            start, end = 0, validation_index
+
+        for video_folder in video_folders[start:end]:
             self._record_video_start_index()  # starts with 0
             self._add_video_frames_to_image_names(video_folder)
 
@@ -97,9 +109,9 @@ class VVTDataset(TryonDataset, NFramesInterface):
             cloth_path_matches = sorted(glob(search))
             logger.debug(f"{search=} found {cloth_path_matches=}")
 
-        assert len(cloth_path_matches) > 0, (
-            f"{search=} not found. Try specifying --warp_cloth_dir"
-        )
+        assert (
+            len(cloth_path_matches) > 0
+        ), f"{search=} not found. Try specifying --warp_cloth_dir"
 
         return cloth_path_matches[0]
 
@@ -174,7 +186,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         for i in range(index, index - self.n_frames_total, -1):
             assert i > -1, "index can't be negative, something's wrong!"
             # if we reach the video boundary, dupe this index for the remaining times
-            if i in self._video_start_indices:
+            if i in self._video_start_indices or i == 0:
                 num_times = self.n_frames_total - len(indices)
                 dupes = [i] * num_times
                 indices = dupes + indices  # prepend
