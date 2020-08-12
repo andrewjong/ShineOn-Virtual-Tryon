@@ -67,17 +67,17 @@ class SamsModel(BaseModel):
             self.multiscale_discriminator.init_weights(*init)
 
             enc_ch = parse_num_channels(hparams.encoder_input)
-            temporal_in_channels = (
-                self.n_frames_total * (enc_ch + TryonDataset.RGB_CHANNELS)
+            temporal_in_channels = self.n_frames_total * (
+                enc_ch + TryonDataset.RGB_CHANNELS
             )
             self.temporal_discriminator = NLayerDiscriminator(
                 hparams, in_channels=temporal_in_channels
             )
             self.temporal_discriminator.init_weights(*init)
 
-            self.criterion_gan = GANLoss(hparams.gan_mode)
+            self.criterion_GAN = GANLoss(hparams.gan_mode)
             self.criterion_l1 = L1Loss()
-            self.criterion_vgg = VGGLoss()
+            self.criterion_VGG = VGGLoss()
             self.crit_adv_multiscale = None  # TODO
             self.crit_adv_temporal = None  # TODO
 
@@ -113,30 +113,24 @@ class SamsModel(BaseModel):
         return result
 
     def generator_step(self, batch):
-        # Forward
-        fake_frame, labelmaps_this_frame, all_gen_frames = self.generate_n_frames(batch)
-        # LOSSES
-        # Multiscale adversarial
-        input_semantics = torch.cat(tuple(labelmaps_this_frame.values()), dim=1)
-        ground_truth = batch["image"][:, -1, :, :, :]
-        pred_fake, pred_real = self.discriminate(
-            input_semantics, fake_frame, ground_truth
-        )
-        loss_G_adv_multiscale = self.criterion_gan(
-            pred_fake, True, for_discriminator=False
+        loss_G_adv_multiscale = self.multiscale_discriminator_loss(
+            batch, for_discriminator=False
         )
         loss_G_adv_temporal = self.temporal_discriminator_loss(
-            batch, all_gen_frames, for_discriminator=False
+            batch, for_discriminator=False
         )
+        ground_truth = batch["image"][:, -1, :, :, :]
+        fake_frame = self.all_gen_frames[:, -1, :, :, :]
         loss_G_l1 = self.criterion_l1(fake_frame, ground_truth)
-        loss_G_vgg = self.criterion_vgg(fake_frame, ground_truth)
+        loss_G_vgg = self.criterion_VGG(fake_frame, ground_truth)
 
-        loss_G = loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale # + loss_G_adv_temporal
+        loss_G = loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale + loss_G_adv_temporal
 
         # Log
         log = {
             "loss_G": loss_G,
             "loss_G_adv_multiscale": loss_G_adv_multiscale,
+            "loss_G_adv_temporal": loss_G_adv_temporal,
             "loss_G_l1": loss_G_l1,
             "loss_G_vgg": loss_G_vgg,
         }
@@ -152,8 +146,7 @@ class SamsModel(BaseModel):
         labelmap: Dict[str, Tensor] = {key: batch[key] for key in self.inputs}
 
         # make a buffer of previous frames, also (b x N x c x h x w)
-        ground_truth = batch["image"]
-        all_generated_frames: Tensor = torch.zeros_like(ground_truth)
+        all_generated_frames: Tensor = torch.zeros_like(batch["image"])
 
         # generate previous frames before this one
         for fIdx in range(self.n_frames_total):
@@ -181,12 +174,12 @@ class SamsModel(BaseModel):
             - prev_frames[end_idx - self.n_frames_total]... , prev_frames[end_idx]
 
         """
-        enc_labl_maps: Tensor = batch[self.hparams.encoder_input]
+        enc_lblmaps: Tensor = batch[self.hparams.encoder_input]
         n = self.hparams.n_frames_total
         if n == 1:
             # (b x 1 x c x h x w)
             prev_n_frames_G = torch.zeros_like(all_G_frames)
-            prev_n_label_maps = torch.zeros_like(enc_labl_maps)
+            prev_n_label_maps = torch.zeros_like(enc_lblmaps)
         else:
             # (b x N-1 x c x h x w)
             indices = torch.tensor(
@@ -194,30 +187,77 @@ class SamsModel(BaseModel):
                 device=all_G_frames.device,
             )
             prev_n_frames_G = torch.index_select(all_G_frames, 1, indices).detach()
-            prev_n_label_maps = torch.index_select(enc_labl_maps, 1, indices).detach()
+            prev_n_label_maps = torch.index_select(enc_lblmaps, 1, indices).detach()
 
         return prev_n_frames_G, prev_n_label_maps
 
-    def multiscale_discriminator_step(self, batch):
-        ground_truth = batch["image"][:, -1, :, :, :]
-        with torch.no_grad():
-            # generate fresh, so that discriminator works on latest generator
+    def multiscale_discriminator_loss(self, batch, for_discriminator):
+        # Forward
+        if not for_discriminator:  # generator
             fake_frame, labelmaps_this_frame, all_gen_frames = self.generate_n_frames(
                 batch
             )
-            fake_frame = fake_frame.detach().requires_grad_()
-            # save this for the temporal discriminator step
-            self.all_gen_frames_detached = all_gen_frames.detach().requires_grad_()
-        # unpack from dictionary
+            self.all_gen_frames = all_gen_frames  # save for temporal discriminator loss
+        else:  # discriminator, we detach from the generator
+            with torch.no_grad():
+                # generate fresh, so that discriminator works on latest generator
+                (
+                    fake_frame,
+                    labelmaps_this_frame,
+                    all_gen_frames,
+                ) = self.generate_n_frames(batch)
+                fake_frame = fake_frame.detach().requires_grad_()
+                # save this for temporal discriminator
+                self.all_gen_frames = all_gen_frames.detach().requires_grad_()
+        # LOSSES
+        # Multiscale adversarial
         input_semantics = torch.cat(tuple(labelmaps_this_frame.values()), dim=1)
-
+        ground_truth = batch["image"][:, -1, :, :, :]
         pred_fake, pred_real = self.discriminate(
-            input_semantics, fake_frame, ground_truth
+            self.multiscale_discriminator, input_semantics, fake_frame, ground_truth
+        )
+        loss_real = self.criterion_GAN(
+            pred_real, True, for_discriminator=for_discriminator
+        )
+        if not for_discriminator:
+            return loss_real
+        else:
+            loss_fake = self.criterion_GAN(
+                pred_fake, False, for_discriminator=for_discriminator
+            )
+            loss = (loss_fake + loss_real) / 2
+            return loss, loss_real, loss_fake
+
+    def temporal_discriminator_loss(self, batch, for_discriminator):
+        ground_truth = batch["image"]  # this time it's all of them
+        b, n, c, h, w = ground_truth.shape
+        reals = ground_truth.view(b, n * c, h, w)
+        # already prepared by multiscale_discriminator_loss(). that one needs to be
+        # called first!
+        fakes = self.all_gen_frames.view(b, n * c, h, w)
+
+        enc_labl_maps: Tensor = batch[self.hparams.encoder_input]
+        input_semantics = enc_labl_maps.view(b, -1, h, w)
+        pred_fake, pred_real = self.discriminate(
+            self.temporal_discriminator, input_semantics, fakes, reals
         )
 
-        loss_D_fake = self.criterionGAN(pred_fake, False, for_discriminator=True)
-        loss_D_real = self.criterionGAN(pred_real, True, for_discriminator=True)
-        loss_D = (loss_D_fake + loss_D_real) / 2
+        loss_real = self.criterion_GAN(
+            pred_real, True, for_discriminator=for_discriminator
+        )
+        if not for_discriminator:
+            return loss_real
+        else:
+            loss_fake = self.criterion_GAN(
+                pred_fake, False, for_discriminator=for_discriminator
+            )
+            loss = (loss_fake + loss_real) / 2
+            return loss, loss_real, loss_fake
+
+    def multiscale_discriminator_step(self, batch):
+        loss_D, loss_D_real, loss_D_fake = self.multiscale_discriminator_loss(
+            batch, for_discriminator=True
+        )
 
         log = {
             "loss_D_multi": loss_D,
@@ -232,8 +272,8 @@ class SamsModel(BaseModel):
         return result
 
     def temporal_discriminator_step(self, batch):
-        loss_D, loss_D_fake, loss_D_real = self.temporal_discriminator_loss(
-            batch, self.all_gen_frames_detached, for_discriminator=True
+        loss_D, loss_D_real, loss_D_fake = self.temporal_discriminator_loss(
+            batch, for_discriminator=True
         )
 
         log = {
@@ -248,26 +288,7 @@ class SamsModel(BaseModel):
         }
         return result
 
-    def temporal_discriminator_loss(self, batch, all_gen_frames, for_discriminator):
-        ground_truth = batch["image"]  # this time it's all of them
-        b, n, c, h, w = ground_truth.shape
-        reals = ground_truth.view(b, n * c, h, w)
-        fakes = all_gen_frames.view(b, n * c, h, w)
-
-        enc_labl_maps: Tensor = batch[self.hparams.encoder_input]
-        input_semantics = enc_labl_maps.view(b, -1, h, w)
-        pred_fake, pred_real = self.discriminate(input_semantics, fakes, reals)
-
-        loss_D_fake = self.criterionGAN(
-            pred_fake, False, for_discriminator=for_discriminator
-        )
-        loss_D_real = self.criterionGAN(
-            pred_real, True, for_discriminator=for_discriminator
-        )
-        loss_D = (loss_D_fake + loss_D_real) / 2
-        return loss_D, loss_D_fake, loss_D_real
-
-    def discriminate(self, input_semantics, fake_image, real_image):
+    def discriminate(self, discriminator, input_semantics, fake_image, real_image):
         """
         Given fake and real image, return the prediction of discriminator
         for each fake and real image.
@@ -281,7 +302,7 @@ class SamsModel(BaseModel):
         # So both fake and real images are fed to D all at once.
         fake_and_real = torch.cat([fake_concat, real_concat], dim=0)
 
-        discriminator_out = self.multiscale_discriminator(fake_and_real)
+        discriminator_out = discriminator(fake_and_real)
 
         pred_fake, pred_real = split_predictions(discriminator_out)
 

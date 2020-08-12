@@ -157,15 +157,15 @@ class SamsGenerator(BaseNetwork):
 
     def forward(
         self,
-        prev_frames_G: Union[Tensor, None],
-        prev_labelmap: Union[Tensor, None],
+        prev_n_frames_G: Union[Tensor, None],
+        prev_n_labelmaps: Union[Tensor, None],
         current_labelmap_dict: Dict[str, Tensor],
     ):
         """
         Args:
-            prev_frames_G (Tensor shape b x n x c x h x w): previous synthesized
+            prev_n_frames_G (Tensor shape b x n x c x h x w): previous synthesized
              frames. If None, then n_frames_total must == 1.
-            prev_labelmap (Tensor shape b x n x c x h x w): labelmap for the previous
+            prev_n_labelmaps (Tensor shape b x n x c x h x w): labelmap for the previous
              frames. If None, then n_frames_total must == 1.
             current_labelmap_dict: segmentation maps for the current frame
 
@@ -173,26 +173,26 @@ class SamsGenerator(BaseNetwork):
         """
         # prepare data, combine frames onto the channels dim
         if self.hparams.n_frames_total > 1:
-            b, n, c, h, w = prev_frames_G.shape
-            prev_frames_G = prev_frames_G.view(b, -1, h, w)
-            b, n, c, h, w = prev_labelmap.shape
-            prev_labelmap = prev_labelmap.view(b, -1, h, w)
+            b, n, c, h, w = prev_n_frames_G.shape
+            prev_n_frames_G = prev_n_frames_G.view(b, -1, h, w)
+            b, n, c, h, w = prev_n_labelmaps.shape
+            prev_n_labelmaps = prev_n_labelmaps.view(b, -1, h, w)
         else:
             # set to Zeros
             reference = list(current_labelmap_dict.values())[0]
             b, _, h, w = reference.shape  # only 4D because dataset not adding Nframes
-            prev_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(
+            prev_n_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(
                 reference
             )
-            prev_labelmap = torch.zeros(b, self.in_channels, h, w).type_as(reference)
+            prev_n_labelmaps = torch.zeros(b, self.in_channels, h, w).type_as(reference)
 
-        x = prev_frames_G
+        x = prev_n_frames_G
 
         # forward
         logger.debug(f"{x.shape=}")
         for encoder in self.encode_layers:
             if isinstance(encoder, AnySpadeResBlock):
-                x = encoder(x, prev_labelmap)
+                x = encoder(x, prev_n_labelmaps)
             else:
                 x = encoder(x)
             logger.debug(f"{x.shape=}")
