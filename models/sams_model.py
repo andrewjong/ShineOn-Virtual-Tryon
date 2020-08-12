@@ -172,7 +172,7 @@ class SamsModel(BaseModel):
         else:
             # (b x N-1 x c x h x w)
             indices = torch.tensor(
-                [(i + 1) % n for i in range(n - 1)], device=all_G_frames.device
+                [(i + 1) % n for i in range(fIdx, fIdx + n - 1)], device=all_G_frames.device
             )
             prev_n_frames_G = torch.index_select(all_G_frames, 1, indices).detach()
             prev_n_label_maps = torch.index_select(enc_labl_maps, 1, indices).detach()
