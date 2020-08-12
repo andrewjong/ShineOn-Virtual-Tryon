@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 
 from datasets.tryon_dataset import TryonDataset
-from models.base_model import BaseModel, parse_channels, get_and_cat_inputs
+from models.base_model import BaseModel, parse_num_channels, get_and_cat_inputs
 from models.networks.cpvton.warp import (
 
     FeatureExtraction,

@@ -34,7 +34,7 @@ class TryonDataset(BaseDataset, ABC):
 
     DENSEPOSE_CHANNELS = 3
 
-    #FLOW_CHANNELS = 2
+    FLOW_CHANNELS = 2
 
 
     @staticmethod
@@ -413,7 +413,7 @@ class TryonDataset(BaseDataset, ABC):
             "grid_vis": grid_vis,
         }
 
-        if self.opt.flow and self.opt.model == "unet_mask":
+        if self.opt.flow or "flow" in self.opt.person_inputs:
             #print("flow")
             flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
             result["flow"] = flow

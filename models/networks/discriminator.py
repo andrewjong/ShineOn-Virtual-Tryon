@@ -9,7 +9,7 @@ import torch.nn.functional as F
 
 import util
 from datasets.tryon_dataset import TryonDataset
-from models.base_model import parse_channels
+from models.base_model import parse_num_channels
 from models.networks import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 
@@ -86,14 +86,14 @@ class NLayerDiscriminator(BaseNetwork):
         )
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, in_channels=None):
         super().__init__()
         self.opt = opt
 
         kw = 4
         padw = int(np.ceil((kw - 1.0) / 2))
         nf = opt.ndf
-        input_nc = self.compute_D_input_nc(opt)
+        input_nc = in_channels if in_channels else self.compute_D_input_nc(opt)
 
         norm_layer = get_nonspade_norm_layer(opt, opt.norm_D)
         sequence = [
@@ -126,9 +126,9 @@ class NLayerDiscriminator(BaseNetwork):
 
     def compute_D_input_nc(self, opt):
         input_nc = (
-            parse_channels(opt.person_inputs)
-            + parse_channels(opt.cloth_inputs)
-            + TryonDataset.RGB_CHANNELS
+                parse_num_channels(opt.person_inputs)
+                + parse_num_channels(opt.cloth_inputs)
+                + TryonDataset.RGB_CHANNELS
         )
         return input_nc
 
@@ -143,7 +143,4 @@ class NLayerDiscriminator(BaseNetwork):
             return results[1:]
         else:
             return results[-1]
-
-class TemporalDiscriminator(MultiscaleDiscriminator):
-    pass
 

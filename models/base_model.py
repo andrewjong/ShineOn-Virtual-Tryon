@@ -50,8 +50,8 @@ class BaseModel(pl.LightningModule, abc.ABC):
         self.hparams = hparams
         self.n_frames_total = hparams.n_frames_total
 
-        self.person_channels = parse_channels(hparams.person_inputs)
-        self.cloth_channels = parse_channels(hparams.cloth_inputs)
+        self.person_channels = parse_num_channels(hparams.person_inputs)
+        self.cloth_channels = parse_num_channels(hparams.cloth_inputs)
 
         self.isTrain = self.hparams.isTrain
         if not self.isTrain:
@@ -97,7 +97,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         return scheduler
 
 
-def parse_channels(list_of_inputs: Iterable[str]):
+def parse_num_channels(list_of_inputs: Iterable[str]):
     """ Get number of in channels for each input"""
     if isinstance(list_of_inputs, str):
         list_of_inputs = [list_of_inputs]
