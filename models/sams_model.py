@@ -21,6 +21,7 @@ class SamsModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
+        # num previous frames fed as input = n_frames_total - 1
         parser.set_defaults(n_frames_total=5)
         parser.add_argument(
             "--discriminator",
@@ -77,11 +78,11 @@ class SamsModel(BaseModel):
         scheduler_d_multi = self._make_step_scheduler(optimizer_d_multi)
         scheduler_d_temporal = self._make_step_scheduler(optimizer_d_temporal)
         return (
-            [optimizer_g, optimizer_d_multi, optimizer_d_temporal],
-            [scheduler_g, scheduler_d_multi, scheduler_d_temporal],
+            [optimizer_g], # , optimizer_d_multi, optimizer_d_temporal],
+            [scheduler_g]# , scheduler_d_multi, scheduler_d_temporal],
         )
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx, optimizer_idx=0):
 
         if True or optimizer_idx == 0:
             result = self.generator_step(batch)
@@ -103,7 +104,9 @@ class SamsModel(BaseModel):
         )
 
         # loss_G
-        loss_G_adv_multiscale = self.criterion_gan(pred_fake, True, for_discriminator=False)
+        loss_G_adv_multiscale = self.criterion_gan(
+            pred_fake, True, for_discriminator=False
+        )
         loss_G_adv_temporal = None
         loss_G_l1 = self.criterion_l1(fake_frame, ground_truth)
         loss_G_vgg = self.criterion_vgg(fake_frame, ground_truth)
@@ -129,9 +132,9 @@ class SamsModel(BaseModel):
         labelmap: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
 
         # make a buffer of previous frames
-        gt_shp: Tuple = batch["image"][0].shape
+        ground_truth = batch["image"][0]
         all_generated_frames: List[Tensor] = [
-            torch.zeros(*gt_shp, device=self.device) for _ in range(self.n_frames_total)
+            torch.zeros_like(ground_truth) for _ in range(self.n_frames_total)
         ]
 
         # generate previous frames before this one
@@ -161,16 +164,20 @@ class SamsModel(BaseModel):
             - prev_frames[end_idx - self.n_frames_total]... , prev_frames[end_idx]
 
         """
-        prev_n_frames_G = get_prev_data_zero_bounded(
-            all_generated_frames, fIdx, self.n_frames_total
-        )
-        prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
-
-        # The encoder only takes ONE labelmap: "--encoder_input"
         enc_labl_maps = batch[self.hparams.encoder_input]
-        prev_n_frames_labelmaps = get_prev_data_zero_bounded(
-            enc_labl_maps, fIdx, self.n_frames_total
-        )
+        if self.hparams.n_frames_total == 1:
+            prev_n_frames_G = [torch.zeros_like(all_generated_frames[0])]
+            prev_n_frames_labelmaps = [torch.zeros_like(enc_labl_maps[0])]
+        else:
+            prev_n_frames_G = get_prev_data_zero_bounded(
+                all_generated_frames, fIdx, self.n_frames_total
+            )
+            prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
+
+            # The encoder only takes ONE labelmap: "--encoder_input"
+            prev_n_frames_labelmaps = get_prev_data_zero_bounded(
+                enc_labl_maps, fIdx, self.n_frames_total
+            )
         return prev_n_frames_G, prev_n_frames_labelmaps
 
     def multiscale_discriminator_step(self, batch):
