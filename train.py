@@ -1,5 +1,8 @@
 import logging
 import os.path as osp
+import signal
+import sys
+import traceback
 
 from pytorch_lightning import Trainer
 
@@ -9,6 +12,7 @@ from options.test_options import TestOptions
 from options.train_options import TrainOptions
 
 logger = log.setup_custom_logger("logger")
+
 
 
 def main(train=True):
@@ -30,8 +34,21 @@ def main(train=True):
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,
     )
+
+    def save_on_interrupt(*args):
+        ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, "latest.ckpt")
+        logger.error(f"Interrupt detected, saving Trainer checkpoint to {ckpt_path}!")
+        trainer.save_checkpoint(ckpt_path)
+        exit()
+
+    signal.signal(signal.SIGINT, save_on_interrupt)
+
     if train:
-        trainer.fit(model)
+        try:
+            trainer.fit(model)
+        except Exception as e:
+            logger.error(traceback.format_exc())
+            save_on_interrupt()
     else:
         trainer.test(model)
 
