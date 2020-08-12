@@ -23,7 +23,8 @@ class SamsModel(BaseModel):
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
         # num previous frames fed as input = n_frames_total - 1
         parser.set_defaults(n_frames_total=5)
-        parser.set_defaults(batch=4)  # batch size effectively becomes n_frames_total * batch
+        # batch size effectively becomes n_frames_total * batch
+        parser.set_defaults(batch=4)
         parser.add_argument(
             "--discriminator",
             nargs="+",
@@ -150,7 +151,6 @@ class SamsModel(BaseModel):
             fake_frame: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
-            # TODO: INDIVIDUAL DISCRIMINATOR SHOULD CALCULATE LOSS HERE, but we can't in lightning:C
             # add to buffer, but don't detach here; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame
 
@@ -172,7 +172,8 @@ class SamsModel(BaseModel):
         else:
             # (b x N-1 x c x h x w)
             indices = torch.tensor(
-                [(i + 1) % n for i in range(fIdx, fIdx + n - 1)], device=all_G_frames.device
+                [(i + 1) % n for i in range(fIdx, fIdx + n - 1)],
+                device=all_G_frames.device,
             )
             prev_n_frames_G = torch.index_select(all_G_frames, 1, indices).detach()
             prev_n_label_maps = torch.index_select(enc_labl_maps, 1, indices).detach()
