@@ -97,8 +97,8 @@ class SamsModel(BaseModel):
         scheduler_d_multi = self._make_step_scheduler(optimizer_d_multi)
         scheduler_d_temporal = self._make_step_scheduler(optimizer_d_temporal)
         return (
-            [optimizer_g , optimizer_d_multi, ],#optimizer_d_temporal],
-            [scheduler_g , scheduler_d_multi, ]#scheduler_d_temporal],
+            [optimizer_g, optimizer_d_multi, optimizer_d_temporal],
+            [scheduler_g, scheduler_d_multi, scheduler_d_temporal],
         )
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
