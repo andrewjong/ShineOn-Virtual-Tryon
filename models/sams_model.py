@@ -16,7 +16,8 @@ from models.networks import (
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 from options import gan_options
-from util import get_prev_data_zero_bounded
+
+logger = logging.getLogger("logger")
 
 
 class SamsModel(BaseModel):
@@ -114,10 +115,14 @@ class SamsModel(BaseModel):
 
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
         result = self.generator_step(batch)
-        log = result["log"]
-        val_loss = log["loss_G_l1"] + log["loss_G_vgg"]
-        return {"val_loss": val_loss}
-
+        train_log = result["log"]
+        val_loss = train_log["loss_G_l1"] + train_log["loss_G_vgg"]
+        val_log = {
+            "val_loss": val_loss,
+            "val_G_l1": train_log["loss_G_l1"],
+            "val_G_vgg": train_log["loss_G_vgg"],
+        }
+        return {"val_loss": val_loss, "log": val_log}
 
     def generator_step(self, batch):
         loss_G_adv_multiscale = self.multiscale_discriminator_loss(
