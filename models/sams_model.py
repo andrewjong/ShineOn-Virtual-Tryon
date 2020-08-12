@@ -181,8 +181,7 @@ class SamsModel(BaseModel):
         return prev_n_frames_G, prev_n_label_maps
 
     def multiscale_discriminator_step(self, batch):
-        ground_truth = batch["image"][-1]
-        all_fake_frames = self.all_gen_frames
+        ground_truth = batch["image"][:, -1, :, :, :]
         with torch.no_grad():
             fake_frame, labelmaps_this_frame, _ = self.generate_n_frames(batch)
             fake_frame = fake_frame.detach()
@@ -197,15 +196,21 @@ class SamsModel(BaseModel):
 
         loss_D_fake = self.criterionGAN(pred_fake, False, for_discriminator=True)
         loss_D_real = self.criterionGAN(pred_real, True, for_discriminator=True)
-        loss_D = loss_D_fake + loss_D_real
+        loss_D = (loss_D_fake + loss_D_real) / 2
 
-        log = {"loss_D": loss_D, "loss_D_fake": loss_D_fake, "loss_D_real": loss_D_real}
+        log = {
+            "loss_D_multi": loss_D,
+            "loss_D_multi_fake": loss_D_fake,
+            "loss_D_multi_real": loss_D_real,
+        }
         result = {
             "loss": loss_D,
             "log": log,
             "progress_bar": log,
         }
         return result
+
+    def temporal_discriminator_step(self, batch):
 
     def discriminate(self, input_semantics, fake_image, real_image):
         """
