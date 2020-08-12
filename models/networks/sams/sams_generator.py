@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import List, Dict
+from typing import List, Dict, Union
 import sys
 
 import torch
@@ -95,7 +95,9 @@ class SamsGenerator(BaseNetwork):
 
         self.hparams = hparams
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
-        in_channels = TryonDataset.RGB_CHANNELS * hparams.n_frames_total
+        # if n_frames_total is 1, then we pass in a 0 for the prev frame anyway
+        num_prev_frames = max(hparams.n_frames_total - 1, 1)
+        self.in_channels = in_channels = TryonDataset.RGB_CHANNELS * num_prev_frames
         out_channels = TryonDataset.RGB_CHANNELS
 
         NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_power_start)
@@ -104,8 +106,8 @@ class SamsGenerator(BaseNetwork):
         # ----- ENCODE --------
         enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
         kwargs = {
-            "norm_G": hparams.norm_G,
-            "label_channels": enc_lab_c * hparams.n_frames_total,
+            "norm_G": hparams.norm_G,  # prev frames is n_frames_total - 1
+            "label_channels": enc_lab_c * num_prev_frames,
             "spade_class": SPADE,
         }
         self.encode_layers = [
@@ -155,30 +157,36 @@ class SamsGenerator(BaseNetwork):
 
     def forward(
         self,
-        prev_synth_outputs: List[Tensor],
-        prev_labelmap: List[Tensor],
+        prev_frames_G: Union[Tensor, None],
+        prev_labelmap: Union[Tensor, None],
         current_labelmap_dict: Dict[str, Tensor],
     ):
         """
         Args:
-            prev_synth_outputs: previous synthesized frames
-            prev_labelmap: labelmap for the previous frames
+            prev_frames_G (Tensor shape b x n x c x h x w): previous synthesized
+             frames. If None, then n_frames_total must == 1.
+            prev_labelmap (Tensor shape b x n x c x h x w): labelmap for the previous
+             frames. If None, then n_frames_total must == 1.
             current_labelmap_dict: segmentation maps for the current frame
 
         Returns: synthesized output for the current frame
         """
-        # prepare
-        prev_synth_outputs = (
-            torch.cat(prev_synth_outputs, dim=1)
-            if not isinstance(prev_synth_outputs, Tensor)
-            else prev_synth_outputs
-        )
-        prev_labelmap = (
-            torch.cat(prev_labelmap, dim=1)
-            if not isinstance(prev_labelmap, Tensor)
-            else prev_labelmap
-        )
-        x = prev_synth_outputs
+        # prepare data, combine frames onto the channels dim
+        if self.hparams.n_frames_total > 1:
+            b, n, c, h, w = prev_frames_G.shape
+            prev_frames_G = prev_frames_G.view(b, -1, h, w)
+            b, n, c, h, w = prev_labelmap.shape
+            prev_labelmap = prev_labelmap.view(b, -1, h, w)
+        else:
+            # set to Zeros
+            reference = list(current_labelmap_dict.values())[0]
+            b, _, h, w = reference.shape  # only 4D because dataset not adding Nframes
+            prev_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(
+                reference
+            )
+            prev_labelmap = torch.zeros(b, self.in_channels, h, w).type_as(reference)
+
+        x = prev_frames_G
 
         # forward
         logger.debug(f"{x.shape=}")

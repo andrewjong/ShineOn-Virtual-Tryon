@@ -100,9 +100,11 @@ def maybe_combine_frames_and_channels(opt, inputs):
     if hasattr(opt, "n_frames_total"):
 
         def maybe_combine(t):
+            # Tensor like items
             if isinstance(t, torch.Tensor):
                 bs, n_frames, c, h, w = t.shape
                 t = t.view(bs, n_frames * c, h, w)
+            # Non-tensor like items, such as lists of strings or numbers
             elif isinstance(t, collections.abc.Sequence) and not isinstance(t, str):
                 # unpack
                 if opt.n_frames_total == 1:

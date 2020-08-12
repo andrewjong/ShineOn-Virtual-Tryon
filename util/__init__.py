@@ -1,5 +1,6 @@
 import importlib
 from collections import Iterable
+from typing import List, Tuple, Union
 
 
 def find_class_in_module(target_cls_name, module):
@@ -40,7 +41,7 @@ def without_key(d, *keys):
     return d
 
 
-def get_prev_data_zero_bounded(data, end_idx, num_frames):
+def get_prev_data_zero_bounded(data: Union[List, Tuple], end_idx, num_frames):
     start_idx = end_idx - num_frames + 1
     prev_n_data = data[max(0, start_idx) : end_idx]
     if not isinstance(prev_n_data, list) and not isinstance(prev_n_data, tuple):

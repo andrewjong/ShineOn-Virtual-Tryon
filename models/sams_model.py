@@ -23,6 +23,7 @@ class SamsModel(BaseModel):
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
         # num previous frames fed as input = n_frames_total - 1
         parser.set_defaults(n_frames_total=5)
+        parser.set_defaults(batch=4)  # batch size effectively becomes n_frames_total * batch
         parser.add_argument(
             "--discriminator",
             nargs="+",
@@ -78,8 +79,8 @@ class SamsModel(BaseModel):
         scheduler_d_multi = self._make_step_scheduler(optimizer_d_multi)
         scheduler_d_temporal = self._make_step_scheduler(optimizer_d_temporal)
         return (
-            [optimizer_g], # , optimizer_d_multi, optimizer_d_temporal],
-            [scheduler_g]# , scheduler_d_multi, scheduler_d_temporal],
+            [optimizer_g],  # , optimizer_d_multi, optimizer_d_temporal],
+            [scheduler_g],  # , scheduler_d_multi, scheduler_d_temporal],
         )
 
     def training_step(self, batch, batch_idx, optimizer_idx=0):
@@ -94,11 +95,11 @@ class SamsModel(BaseModel):
         return result
 
     def generator_step(self, batch):
-        ground_truth = batch["image"][-1]
         fake_frame, labelmaps_this_frame, all_gen_frames = self.generate_n_frames(batch)
         self.all_gen_frames = all_gen_frames
 
         input_semantics = torch.cat(tuple(labelmaps_this_frame.values()), dim=1)
+        ground_truth = batch["image"][:, -1, :, :, :]
         pred_fake, pred_real = self.discriminate(
             input_semantics, fake_frame, ground_truth
         )
@@ -128,21 +129,19 @@ class SamsModel(BaseModel):
         return result
 
     def generate_n_frames(self, batch):
-        # format: { agnostic: frames, densepose: frames, flow: frames, etc... }
-        labelmap: Dict[str, List[Tensor]] = {key: batch[key] for key in self.inputs}
+        # each Tensor is (b x N-Frames x c x h x w)
+        labelmap: Dict[str, Tensor] = {key: batch[key] for key in self.inputs}
 
-        # make a buffer of previous frames
-        ground_truth = batch["image"][0]
-        all_generated_frames: List[Tensor] = [
-            torch.zeros_like(ground_truth) for _ in range(self.n_frames_total)
-        ]
+        # make a buffer of previous frames, also (b x N x c x h x w)
+        ground_truth = batch["image"]
+        all_generated_frames: Tensor = torch.zeros_like(ground_truth)
 
         # generate previous frames before this one
         for fIdx in range(self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
             labelmaps_this_frame: Dict[str, Tensor] = {
-                map_name: segmap[fIdx] for map_name, segmap in labelmap.items()
+                name: lblmap[:, fIdx, :, :, :] for name, lblmap in labelmap.items()
             }
             prev_n_frames_G, prev_n_labelmaps = self.get_prev_frames_and_maps(
                 batch, fIdx, all_generated_frames
@@ -152,46 +151,46 @@ class SamsModel(BaseModel):
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
             # TODO: INDIVIDUAL DISCRIMINATOR SHOULD CALCULATE LOSS HERE, but we can't in lightning:C
-            # add to buffer, but don't detach here; temporal discriminator needs it
-            all_generated_frames[fIdx] = fake_frame
+            # add to buffer, but don't detach here; must go through temporal discriminator
+            all_generated_frames[:, fIdx, :, :, :] = fake_frame
 
         return fake_frame, labelmaps_this_frame, all_generated_frames
 
-    def get_prev_frames_and_maps(self, batch, fIdx, all_generated_frames):
+    def get_prev_frames_and_maps(self, batch, fIdx, all_G_frames):
         """
         Get previous frames, but protected by zero
         Returns:
             - prev_frames[end_idx - self.n_frames_total]... , prev_frames[end_idx]
 
         """
-        enc_labl_maps = batch[self.hparams.encoder_input]
-        if self.hparams.n_frames_total == 1:
-            prev_n_frames_G = [torch.zeros_like(all_generated_frames[0])]
-            prev_n_frames_labelmaps = [torch.zeros_like(enc_labl_maps[0])]
+        enc_labl_maps: Tensor = batch[self.hparams.encoder_input]
+        n = self.hparams.n_frames_total
+        if n == 1:
+            # (b x 1 x c x h x w)
+            prev_n_frames_G = torch.zeros_like(all_G_frames)
+            prev_n_label_maps = torch.zeros_like(enc_labl_maps)
         else:
-            prev_n_frames_G = get_prev_data_zero_bounded(
-                all_generated_frames, fIdx, self.n_frames_total
+            # (b x N-1 x c x h x w)
+            indices = torch.tensor(
+                [(i + 1) % n for i in range(n - 1)], device=all_G_frames.device
             )
-            prev_n_frames_G = [t.detach() for t in prev_n_frames_G]  # detach, easier train
+            prev_n_frames_G = torch.index_select(all_G_frames, 1, indices).detach()
+            prev_n_label_maps = torch.index_select(enc_labl_maps, 1, indices).detach()
 
-            # The encoder only takes ONE labelmap: "--encoder_input"
-            prev_n_frames_labelmaps = get_prev_data_zero_bounded(
-                enc_labl_maps, fIdx, self.n_frames_total
-            )
-        return prev_n_frames_G, prev_n_frames_labelmaps
+        return prev_n_frames_G, prev_n_label_maps
 
     def multiscale_discriminator_step(self, batch):
         ground_truth = batch["image"][-1]
         all_fake_frames = self.all_gen_frames
         with torch.no_grad():
-            synth_output, this_frame_labelmap, _ = self.generate_n_frames(batch)
-            synth_output = synth_output.detach()
-            synth_output.requires_grad_()
+            fake_frame, labelmaps_this_frame, _ = self.generate_n_frames(batch)
+            fake_frame = fake_frame.detach()
+            fake_frame.requires_grad_()
 
-        input_semantics = torch.cat(tuple(this_frame_labelmap.values()), dim=1)
+        input_semantics = torch.cat(tuple(labelmaps_this_frame.values()), dim=1)
 
         pred_fake, pred_real = self.discriminate(
-            input_semantics, synth_output, ground_truth
+            input_semantics, fake_frame, ground_truth
         )
         # TODO: TEMPORAL DISCRIMINATOR
 
