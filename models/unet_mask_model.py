@@ -56,8 +56,8 @@ class UnetMaskModel(BaseModel):
 
         # teach the u-net to make the 1st part the rendered images, and
         # the 2nd part the masks
-        boundary = 3 * self.hparams.n_frames
-        weight_boundary = 4 * self.hparams.n_frames
+        boundary = 3 * self.hparams.n_frames_total
+        weight_boundary = 4 * self.hparams.n_frames_total
         p_rendereds = outputs[:, 0:boundary, :, :]
         m_composites = outputs[:, boundary:weight_boundary, :, :]
         weight_masks = outputs[:, weight_boundary:, :, :] if self.hparams.flow else None
