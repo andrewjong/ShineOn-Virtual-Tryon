@@ -166,6 +166,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         return person_visuals
 
 
+
 def parse_num_channels(list_of_inputs: Iterable[str]):
     """ Get number of in channels for each input"""
     if isinstance(list_of_inputs, str):

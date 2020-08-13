@@ -24,7 +24,7 @@ def modify_commandline_options(parser, is_train):
 
     parser = SamsGenerator.modify_commandline_options(parser, is_train)
     if is_train:
-        for d in opt.discriminator:
+        for d in ["multiscale"]:
             netD_cls = find_network_using_name(d, "discriminator")
             parser = netD_cls.modify_commandline_options(parser, is_train)
     # netE_cls = find_network_using_name("conv", "encoder")
