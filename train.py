@@ -5,6 +5,7 @@ import sys
 import traceback
 
 from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 import log
 from models import find_model_using_name
@@ -27,6 +28,7 @@ def main(train=True):
 
     root_dir = osp.join(opt.experiments_dir, opt.name)
     trainer = Trainer(
+        checkpoint_callback=ModelCheckpoint(save_top_k=5),
         gpus=opt.gpu_ids,
         default_root_dir=root_dir,
         log_save_interval=opt.display_count,

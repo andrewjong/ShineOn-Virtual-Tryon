@@ -2,15 +2,13 @@
 import argparse
 import os.path as osp
 from argparse import ArgumentParser
+from typing import List
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-
-from datasets.tryon_dataset import TryonDataset
-from models.base_model import BaseModel, parse_num_channels, get_and_cat_inputs
+from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks.cpvton.warp import (
 
     FeatureExtraction,
@@ -132,20 +130,22 @@ class WarpModel(BaseModel):
         result = {"progress_bar": progress_bar}
         return result
 
-    def visualize(self, batch, warped_cloth, warped_grid):
-        # unpack
-        im = batch["image"]
-        im_cocopose = batch["im_cocopose"]
-        maybe_densepose = [batch["densepose"]] if "densepose" in batch else []
-        c = batch["cloth"]
-        im_h = batch["im_head"]
-        silhouette = batch["silhouette"]
-        im_c = batch["im_cloth"]
+    def visualize(self, b, warped_cloth, warped_grid):
+
+        person_visuals: List[str] = self.hparams.person_inputs
+
+        if "cocopose" in person_visuals:
+            i = person_visuals.index("cocopose")
+            person_visuals.pop(i)
+            person_visuals.insert(i, "im_cocopose")
+
+        person_visuals = [b[p_vis] for p_vis in person_visuals]
+
         # layout
         visuals = [
-            [im_h, silhouette, im_cocopose] + maybe_densepose,
-            [c, warped_cloth, im_c],
-            [warped_grid, (warped_cloth + im) * 0.5, im],
+            person_visuals,
+            [b["cloth"], warped_cloth, b["im_cloth"]],
+            [warped_grid, (warped_cloth + b["image"]) * 0.5, b["image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment

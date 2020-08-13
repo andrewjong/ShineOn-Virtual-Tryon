@@ -1,6 +1,7 @@
 import argparse
 import math
 import os.path as osp
+from typing import List
 
 import torch
 from torch import nn as nn
@@ -161,11 +162,18 @@ class UnetMaskModel(BaseModel):
         return result
 
     def visualize(self, b, p_rendered, m_composite, p_tryon):
-        # unpack
-        maybe_densepose = [b["densepose"]] if "densepose" in b else []
         # layout
+        person_visuals: List[str] = self.hparams.person_inputs
+
+        if "cocopose" in person_visuals:
+            i = person_visuals.index("cocopose")
+            person_visuals.pop(i)
+            person_visuals.insert(i, "im_cocopose")
+
+        person_visuals = [b[p_vis] for p_vis in person_visuals]
+
         visuals = [
-            [b["im_head"], b["silhouette"], b["im_cocopose"]] + maybe_densepose,
+            person_visuals,
             [b["cloth"], b["cloth_mask"] * 2 - 1, m_composite * 2 - 1],
             [p_rendered, p_tryon, b["image"]],
         ]
