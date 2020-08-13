@@ -55,7 +55,10 @@ class CappedDataLoader:
 
     def __len__(self):
         """Return the number of data in the dataset"""
-        return min(len(self.dataset), self.opt.datacap)
+        datacap = self.opt.datacap
+        if datacap != float("inf"):
+            datacap = int(datacap)
+        return min(len(self.dataset), datacap)
 
     def __iter__(self):
         """Return a batch of data"""

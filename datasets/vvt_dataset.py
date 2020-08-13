@@ -177,6 +177,13 @@ class VVTDataset(TryonDataset, NFramesInterface):
         densepose_path = osp.join(self.root, folder, id, iuv_fname)
         return densepose_path
 
+    def get_person_flow_path(self, index):
+        image_path = self.get_person_image_path(index)
+        image_path = image_path.replace(".png", ".flo")
+        image_path = image_path.replace(f"{self.opt.datamode}_frames", "optical_flow")
+        return image_path
+
+
     # @overrides(NFramesInterface)
     def collect_n_frames_indices(self, index):
         """ Walks backwards from the current index to collect self.n_frames_total indices

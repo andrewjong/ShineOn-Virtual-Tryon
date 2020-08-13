@@ -40,19 +40,23 @@ def main(train=True):
         name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
         try:
             ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
-            logger.error(f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!")
+            logger.error(
+                f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!"
+            )
             trainer.save_checkpoint(ckpt_path)
         except:
-            logger.error("Training didn't start, no checkpoint to save.")
+            logger.warning(
+                "No checkpoint to save. Either training didn't start, or I'm a "
+                "child process."
+            )
         exit()
 
-    signal.signal(signal.SIGINT, save_on_interrupt)
-
     if train:
+        signal.signal(signal.SIGINT, save_on_interrupt)
         try:
             trainer.fit(model)
         except Exception as e:
-            print("Exception:", type(e))
+            logger.warning(f"Caught a {type(e)}!")
             logger.error(traceback.format_exc())
             save_on_interrupt(name=get_exception_class_as_str(e))
     else:

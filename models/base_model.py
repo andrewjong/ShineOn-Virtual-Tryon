@@ -123,37 +123,46 @@ class BaseModel(pl.LightningModule, abc.ABC):
             batch:
             sort_fn: function to sort in desired order; function should return List[str]
         """
-        person_vis_names = self.replace_actual_with_representations()
+        person_vis_names = self.replace_actual_with_visual()
         if sort_fn:
             person_vis_names = sort_fn(person_vis_names)
         person_visual_tensors = []
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
             channels = tensor.shape[-3]
-            if channels != VVTDataset.RGB_CHANNELS:
-                person_visual_tensors.append(batch)
+            if channels <= VVTDataset.RGB_CHANNELS:
+                person_visual_tensors.append(tensor)
             else:
                 logger.warning(
-                    "Tried to visualize a tensor != 3 channels:"
-                    f"{name} tensor has {channels} channels. Skipping it."
+                    f"Tried to visualize a tensor > {VVTDataset.RGB_CHANNELS} channels:"
+                    f" '{name}' tensor has {channels=}, {tensor.shape=}. Skipping it."
                 )
+        if len(person_visual_tensors) == 0:
+            raise ValueError("Didn't find any tensors to visualize!")
         return person_visual_tensors
 
-    def replace_actual_with_representations(self) -> List[str]:
+    def replace_actual_with_visual(self) -> List[str]:
         """
-        Replaces big-channel tensors (channels > 3) with their visualizations.
+        Replaces non-RGB names with the names of their visualizations.
         """
-        person_visuals: List[str] = self.hparams.person_inputs
-        if "cocopose" in person_visuals:
-            i = person_visuals.index("cocopose")
-            person_visuals.pop(i)
-            person_visuals.insert(i, "im_cocopose")
-
+        person_visuals: List[str] = self.hparams.person_inputs.copy()
         if "agnostic" in person_visuals:
             i = person_visuals.index("agnostic")
             person_visuals.pop(i)
             person_visuals.insert(i, "im_head")
             person_visuals.insert(i, "silhouette")
+
+        if "cocopose" in person_visuals:
+            i = person_visuals.index("cocopose")
+            person_visuals.pop(i)
+            person_visuals.insert(i, "im_cocopose")
+
+        if "flow" in person_visuals:
+            i = person_visuals.index("flow")
+            person_visuals.pop(i)
+            if self.hparams.visualize_flow:
+                person_visuals.insert(i, "flow_image")
+
         return person_visuals
 
 

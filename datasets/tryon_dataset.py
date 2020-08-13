@@ -66,6 +66,12 @@ class TryonDataset(BaseDataset, ABC):
             "--fine_height", type=int, default=256, help="then crop to this"
         )
         parser.add_argument("--radius", type=int, default=5)
+        parser.add_argument(
+            "--visualize_flow",
+            action="store_true",
+            help="Visualize flow for debugging. Default is off because the "
+            "visualization is heavy.",
+        )
         return parser
 
     def __init__(self, opt, i_am_validation=False):
@@ -79,12 +85,9 @@ class TryonDataset(BaseDataset, ABC):
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.center_crop = transforms.CenterCrop((self.fine_height, self.fine_width))
+        self.rgb_norm = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         self.to_tensor_and_norm_rgb = transforms.Compose(
-            [
-                self.center_crop,
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ]
+            [self.center_crop, transforms.ToTensor(), self.rgb_norm,]
         )
         self.to_tensor_and_norm_gray = transforms.Compose(
             [
@@ -239,18 +242,25 @@ class TryonDataset(BaseDataset, ABC):
         :return:
         """
         # person image
-        image_path = self.get_person_image_path(index)
-        image_path = image_path.replace(".png", ".flo")
-        image_path = image_path.replace(f"{self.opt.datamode}_frames", "optical_flow")
-        image = readFlow(image_path)
-        # image = flow2img(image)
-        image = torch.from_numpy(image).permute(2, 0, 1)
-        # image = self.center_crop(image)
-        # print("flow", image.shape)
-        image = self.flow_norm(image)
-        # image = Image.open(image_path)
-        # im = self.to_tensor_and_norm_gray(image)
-        return image
+        image_path = self.get_person_flow_path(index)
+        try:
+            flow_np = readFlow(image_path)
+            if self.opt.visualize_flow:
+                flow_PIL = Image.fromarray(flow2img(flow_np))
+                flow_vis = self.to_tensor_and_norm_rgb(flow_PIL)
+            else:
+                flow_vis = "visualize_flow is false"
+            flow_tensor = torch.from_numpy(flow_np).permute(2, 0, 1)
+            flow_tensor = self.flow_norm(flow_tensor)
+        except FileNotFoundError:
+            flow_tensor = torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
+            flow_vis = (
+                torch.zeros(3, self.opt.fine_height, self.opt.fine_width)
+                if self.opt.visualize_flow
+                else "visualize_flow is false"
+            )
+
+        return flow_tensor, flow_vis
 
     def get_person_densepose(self, index):
         """
@@ -414,6 +424,10 @@ class TryonDataset(BaseDataset, ABC):
     def get_person_densepose_path(self, index):
         pass
 
+    @abstractmethod
+    def get_person_flow_path(self, index):
+        pass
+
     ########################
     # getitem
     ########################
@@ -435,11 +449,8 @@ class TryonDataset(BaseDataset, ABC):
         }
 
         if self.opt.flow or "flow" in self.opt.person_inputs:
-            # print("flow")
-            flow = self.get_person_flow(
-                index
-            )  # torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
-            result["flow"] = flow
+            flow, flow_image = self.get_person_flow(index)
+            result["flow"], result["flow_image"] = flow, flow_image
 
         # cloth representation
         result.update(self.get_cloth_representation(index))
