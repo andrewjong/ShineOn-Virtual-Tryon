@@ -24,7 +24,6 @@ class BaseModel(pl.LightningModule, abc.ABC):
         parser.add_argument(
             "--person_inputs",
             nargs="+",
-            required=True,
             help="List of what type of items are passed as person input. Dynamically"
             "sets input tensors and number of channels. See TryonDataset for "
             "options.",
@@ -74,25 +73,29 @@ class BaseModel(pl.LightningModule, abc.ABC):
         # ----- actual data preparation ------
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
-        logger.info(f"Train dataset initialized: {len(self.train_dataset)} samples.")
+        logger.info(
+            f"Train {self.hparams.dataset} dataset initialized: "
+            f"{len(self.train_dataset)} samples."
+        )
         self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
-        logger.info(f"Val dataset initialized: {len(self.val_dataset)} samples.")
+        logger.info(
+            f"Val {self.hparams.dataset} dataset initialized: "
+            f"{len(self.val_dataset)} samples."
+        )
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader
-        train_loader = CappedDataLoader(
-            self.train_dataset,
-            self.hparams,
-        )
+        train_loader = CappedDataLoader(self.train_dataset, self.hparams,)
         return train_loader
 
     def val_dataloader(self) -> DataLoader:
         # create dataloader
-        val_loader = CappedDataLoader(
-            self.val_dataset,
-            self.hparams,
-        )
+        val_loader = CappedDataLoader(self.val_dataset, self.hparams,)
         return val_loader
+
+    def validation_step(self, batch, idx):
+        result = self.training_step(batch, idx)
+        return {"val_loss": result["loss"]}
 
     def test_dataloader(self) -> DataLoader:
         # same loader type. test paths will be defined in hparams
@@ -111,6 +114,48 @@ class BaseModel(pl.LightningModule, abc.ABC):
             / float(self.hparams.decay_epochs + 1),
         )
         return scheduler
+
+    def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
+        """
+        Gets the correct tensors for --person_inputs. Can sort it with sort_fn if
+        desired.
+        Args:
+            batch:
+            sort_fn: function to sort in desired order; function should return List[str]
+        """
+        person_vis_names = self.replace_actual_with_representations()
+        if sort_fn:
+            person_vis_names = sort_fn(person_vis_names)
+        person_visual_tensors = []
+        for name in person_vis_names:
+            tensor: torch.Tensor = batch[name]
+            channels = tensor.shape[-3]
+            if channels != VVTDataset.RGB_CHANNELS:
+                person_visual_tensors.append(batch)
+            else:
+                logger.warning(
+                    "Tried to visualize a tensor != 3 channels:"
+                    f"{name} tensor has {channels} channels. Skipping it."
+                )
+        return person_visual_tensors
+
+    def replace_actual_with_representations(self) -> List[str]:
+        """
+        Replaces big-channel tensors (channels > 3) with their visualizations.
+        """
+        person_visuals: List[str] = self.hparams.person_inputs
+        if "cocopose" in person_visuals:
+            i = person_visuals.index("cocopose")
+            person_visuals.pop(i)
+            person_visuals.insert(i, "im_cocopose")
+
+        if "agnostic" in person_visuals:
+            i = person_visuals.index("agnostic")
+            person_visuals.pop(i)
+            person_visuals.insert(i, "im_head")
+            person_visuals.insert(i, "silhouette")
+        return person_visuals
+
 
 
 def parse_num_channels(list_of_inputs: Iterable[str]):

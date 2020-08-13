@@ -38,9 +38,12 @@ def main(train=True):
 
     def save_on_interrupt(*args, name=""):
         name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
-        ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
-        logger.error(f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!")
-        trainer.save_checkpoint(ckpt_path)
+        try:
+            ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
+            logger.error(f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!")
+            trainer.save_checkpoint(ckpt_path)
+        except:
+            logger.error("Training didn't start, no checkpoint to save.")
         exit()
 
     signal.signal(signal.SIGINT, save_on_interrupt)
@@ -59,7 +62,8 @@ def main(train=True):
 
 
 def get_exception_class_as_str(e):
-    return str(type(e)).replace("<class '", "").replace("'>", "")
+    name = str(type(e)).replace("<class '", "").replace("'>", "")
+    return name
 
 
 if __name__ == "__main__":

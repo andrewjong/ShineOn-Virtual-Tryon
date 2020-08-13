@@ -20,6 +20,7 @@ from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
+
 class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
 
@@ -38,14 +39,13 @@ class TryonDataset(BaseDataset, ABC):
 
     FLOW_CHANNELS = 2
 
-
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
         parser.add_argument(
             "--val_fraction",
             type=float,
             default=0.1,
-            help="fraction of data to reserve for validation"
+            help="fraction of data to reserve for validation",
         )
         if not is_train:  # on test dataset, use the whole thing
             parser.set_defaults(val_fraction=0)
@@ -209,7 +209,6 @@ class TryonDataset(BaseDataset, ABC):
             densepose = self.get_person_densepose(index)
             ret["densepose"] = densepose
 
-
         ret.update(
             {
                 "silhouette": silhouette,
@@ -232,7 +231,6 @@ class TryonDataset(BaseDataset, ABC):
         im = self.open_image_as_normed_tensor(image_path)
         return im
 
-
     def get_person_flow(self, index):
         """
         helper function to get the person image; not used as input to the network. used
@@ -245,15 +243,14 @@ class TryonDataset(BaseDataset, ABC):
         image_path = image_path.replace(".png", ".flo")
         image_path = image_path.replace(f"{self.opt.datamode}_frames", "optical_flow")
         image = readFlow(image_path)
-        #image = flow2img(image)
+        # image = flow2img(image)
         image = torch.from_numpy(image).permute(2, 0, 1)
-        #image = self.center_crop(image)
-        #print("flow", image.shape)
+        # image = self.center_crop(image)
+        # print("flow", image.shape)
         image = self.flow_norm(image)
-        #image = Image.open(image_path)
-        #im = self.to_tensor_and_norm_gray(image)
+        # image = Image.open(image_path)
+        # im = self.to_tensor_and_norm_gray(image)
         return image
-
 
     def get_person_densepose(self, index):
         """
@@ -438,8 +435,10 @@ class TryonDataset(BaseDataset, ABC):
         }
 
         if self.opt.flow or "flow" in self.opt.person_inputs:
-            #print("flow")
-            flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
+            # print("flow")
+            flow = self.get_person_flow(
+                index
+            )  # torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
             result["flow"] = flow
 
         # cloth representation

@@ -36,7 +36,6 @@ class UnetMaskModel(BaseModel):
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
             output_nc=5 * n_frames if self.hparams.flow else 4 * n_frames,
-
             num_downs=6,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
@@ -47,8 +46,6 @@ class UnetMaskModel(BaseModel):
         self.criterionVGG = VGGLoss()
         init_weights(self.unet, init_type="normal")
         self.prev_frame = None
-
-
 
     def forward(self, person_representation, warped_cloths, flows=None):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
@@ -72,12 +69,18 @@ class UnetMaskModel(BaseModel):
         warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames)
         p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames)
         m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames)
-        weight_masks = torch.chunk(weight_masks, self.hparams.n_frames) if weight_masks is not None else None
+        weight_masks = (
+            torch.chunk(weight_masks, self.hparams.n_frames)
+            if weight_masks is not None
+            else None
+        )
 
-        #flow = person_representation[] # how do i get flow here
+        # flow = person_representation[] # how do i get flow here
 
         if flows is not None and self.prev_frame is not None:
-            flows = self.resample(self.prev_frame, flows) # what is past_frame, also not sure flows has n_frames_total
+            flows = self.resample(
+                self.prev_frame, flows
+            )  # what is past_frame, also not sure flows has n_frames_total
             p_rendereds_chunked = [
                 (1 - weight) * flow + weight * p_rendered
                 for weight, flow, p_rendered in zip(
@@ -106,7 +109,9 @@ class UnetMaskModel(BaseModel):
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
-        p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs, flow)
+        p_rendered, m_composite, p_tryon = self.forward(
+            person_inputs, cloth_inputs, flow
+        )
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)
@@ -137,6 +142,7 @@ class UnetMaskModel(BaseModel):
         return result
 
     def test_step(self, batch, batch_idx):
+        batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
         # use subfolders for each subdataset
         try_on_dirs = [
@@ -162,15 +168,7 @@ class UnetMaskModel(BaseModel):
         return result
 
     def visualize(self, b, p_rendered, m_composite, p_tryon):
-        # layout
-        person_visuals: List[str] = self.hparams.person_inputs
-
-        if "cocopose" in person_visuals:
-            i = person_visuals.index("cocopose")
-            person_visuals.pop(i)
-            person_visuals.insert(i, "im_cocopose")
-
-        person_visuals = [b[p_vis] for p_vis in person_visuals]
+        person_visuals = self.fetch_person_visuals(b)
 
         visuals = [
             person_visuals,

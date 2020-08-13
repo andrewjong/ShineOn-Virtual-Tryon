@@ -93,6 +93,7 @@ class WarpModel(BaseModel):
         return {"loss": loss, "log": tensorboard_scalars}
 
     def test_step(self, batch, batch_idx):
+        batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
         # produce subfolders for each subdataset
         warp_cloth_dirs = [
@@ -131,17 +132,8 @@ class WarpModel(BaseModel):
         return result
 
     def visualize(self, b, warped_cloth, warped_grid):
+        person_visuals = self.fetch_person_visuals(b)
 
-        person_visuals: List[str] = self.hparams.person_inputs
-
-        if "cocopose" in person_visuals:
-            i = person_visuals.index("cocopose")
-            person_visuals.pop(i)
-            person_visuals.insert(i, "im_cocopose")
-
-        person_visuals = [b[p_vis] for p_vis in person_visuals]
-
-        # layout
         visuals = [
             person_visuals,
             [b["cloth"], warped_cloth, b["im_cloth"]],
