@@ -13,6 +13,7 @@ from models.base_model import parse_num_channels
 from models.networks import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 
+
 class MultiscaleDiscriminator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
@@ -126,9 +127,9 @@ class NLayerDiscriminator(BaseNetwork):
 
     def compute_D_input_nc(self, opt):
         input_nc = (
-                parse_num_channels(opt.person_inputs)
-                + parse_num_channels(opt.cloth_inputs)
-                + TryonDataset.RGB_CHANNELS
+            parse_num_channels(opt.person_inputs)
+            + parse_num_channels(opt.cloth_inputs)
+            + TryonDataset.RGB_CHANNELS
         )
         return input_nc
 
@@ -143,4 +144,3 @@ class NLayerDiscriminator(BaseNetwork):
             return results[1:]
         else:
             return results[-1]
-

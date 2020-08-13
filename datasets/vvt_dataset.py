@@ -147,9 +147,8 @@ class VVTDataset(TryonDataset, NFramesInterface):
         id = VVTDataset.extract_folder_id(image_path)
         parsed_fname = os.path.split(image_path)[-1].replace(".png", "_label.png")
         parsed_path = osp.join(self.root, folder, id, parsed_fname)
-        if not os.path.exists(
-            parsed_path
-        ):  # hacky, if it doesn't exist as _label, then try getting rid of it. did this to fix my specific bug in a time crunch
+        # hacky, if it doesn't exist as _label, then try getting rid of it
+        if not os.path.exists(parsed_path):
             parsed_path = parsed_path.replace("_label", "")
         return parsed_path
 
@@ -182,7 +181,6 @@ class VVTDataset(TryonDataset, NFramesInterface):
         image_path = image_path.replace(".png", ".flo")
         image_path = image_path.replace(f"{self.opt.datamode}_frames", "optical_flow")
         return image_path
-
 
     # @overrides(NFramesInterface)
     def collect_n_frames_indices(self, index):

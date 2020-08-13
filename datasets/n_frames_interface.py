@@ -52,7 +52,7 @@ class NFramesInterface(ABC):
                 metavar="N",
                 type=int,
                 help="Automatically decrement the frame_start_idx every N steps, until "
-                     "it reaches the total number of frames",
+                "it reaches the total number of frames",
             )
         return parser
 
