@@ -191,9 +191,9 @@ class TryonDataset(BaseDataset, ABC):
         # load parsing image
         _parse_array = self.get_person_parsed(index)
         # body silhouette
-        silhouette = self.get_input_person_body_silhouette(_parse_array)
+        silhouette = self.get_person_body_silhouette(_parse_array)
         # isolated head
-        im_head = self.get_input_person_head(image, _parse_array)
+        im_head = self.get_person_head(image, _parse_array)
         # isolated cloth
         im_cloth = segment_cloths_from_image(image, _parse_array)
 
@@ -204,7 +204,7 @@ class TryonDataset(BaseDataset, ABC):
 
         if "cocopose" in self.opt.person_inputs:
             # load pose points
-            _pose_map, im_cocopose = self.get_input_person_pose(index)
+            _pose_map, im_cocopose = self.get_person_cocopose(index)
             ret["cocopose"] = _pose_map
             ret["im_cocopose"] = im_cocopose
 
@@ -285,7 +285,7 @@ class TryonDataset(BaseDataset, ABC):
         parse_array = np.array(im_parse)
         return parse_array
 
-    def get_input_person_head(self, im, _parse_array):
+    def get_person_head(self, im, _parse_array):
         """ from cp-vton, get the floating head alone"""
         # ISOLATE HEAD. head parts, probably face, hair, sunglasses. combines into a 1d binary mask
         _parse_head = (
@@ -298,7 +298,7 @@ class TryonDataset(BaseDataset, ABC):
         im_h = im * _phead - (1 - _phead)  # [-1,1], fill 0 for other parts
         return im_h
 
-    def get_input_person_body_silhouette(self, _parse_array):
+    def get_person_body_silhouette(self, _parse_array):
         """ from cp-vton, the body silhouette """
         # ISOLATE BODY SHAPE
         # removes the background
@@ -321,7 +321,7 @@ class TryonDataset(BaseDataset, ABC):
 
         return silhouette
 
-    def get_input_person_pose(self, index):
+    def get_person_cocopose(self, index):
         """from cp-vton, loads the pose as white squares
         returns pose map, image of pose map
         """
@@ -342,7 +342,8 @@ class TryonDataset(BaseDataset, ABC):
 
     def convert_pose_data_to_pose_map_and_vis(self, pose_data):
         """
-        Reads a pose data array and makes a 1-hot tensor and visualization
+        Reads a pose data array and makes a 1-hot tensor and visualization.
+        Note, this operation is very expensive and significantly slows down training.
 
         Args:
             pose_data: an NUM_KEYPOINTS x 3 array of pose points (first 2 are x, y; last is confidence)
