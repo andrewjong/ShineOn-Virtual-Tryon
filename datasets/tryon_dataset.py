@@ -15,10 +15,35 @@ from PIL import ImageDraw
 from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
+from enum import Enum
+
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
 
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
+
+
+class LIP(Enum):
+    BACKGROUND = 0
+    HAT = 1
+    HAIR = 2
+    GLOVE = 3
+    SUNGLASSES = 4
+    UPPER_CLOTHES = 5
+    DRESS = 6
+    COAT = 7
+    SOCKS = 8
+    PANTS = 9
+    JUMPSUITS = 10
+    SCARF = 11
+    SKIRT = 12
+    FACE = 13
+    LEFT_ARM = 14
+    RIGHT_ARM = 15
+    LEFT_LEG = 16
+    RIGHT_LEG = 17
+    LEFT_SHOE = 18
+    RIGHT_SHOE = 19
 
 
 class TryonDataset(BaseDataset, ABC):
@@ -288,11 +313,21 @@ class TryonDataset(BaseDataset, ABC):
     def get_person_head(self, im, _parse_array):
         """ from cp-vton, get the floating head alone"""
         # ISOLATE HEAD. head parts, probably face, hair, sunglasses. combines into a 1d binary mask
-        _parse_head = (
-            (_parse_array == 1).astype(np.float32)
-            + (_parse_array == 2).astype(np.float32)
-            + (_parse_array == 4).astype(np.float32)
-            + (_parse_array == 13).astype(np.float32)
+        _parse_head = (  # previously head only: hat, hair, sunglasses, face
+            (_parse_array == LIP.HAT).astype(np.float32)
+            + (_parse_array == LIP.HAIR).astype(np.float32)
+            + (_parse_array == LIP.SUNGLASSES).astype(np.float32)
+            + (_parse_array == LIP.FACE).astype(np.float32)
+            + (_parse_array == LIP.SOCKS).astype(np.float32)
+            + (_parse_array == LIP.PANTS).astype(np.float32)
+            + (_parse_array == LIP.SCARF).astype(np.float32)
+            + (_parse_array == LIP.SKIRT).astype(np.float32)
+            + (_parse_array == LIP.LEFT_ARM).astype(np.float32)
+            + (_parse_array == LIP.RIGHT_ARM).astype(np.float32)
+            + (_parse_array == LIP.LEFT_LEG).astype(np.float32)
+            + (_parse_array == LIP.RIGHT_LEG).astype(np.float32)
+            + (_parse_array == LIP.LEFT_SHOE).astype(np.float32)
+            + (_parse_array == LIP.RIGHT_SHOE).astype(np.float32)
         )
         _phead = torch.from_numpy(_parse_head)  # [0,1]
         im_h = im * _phead - (1 - _phead)  # [-1,1], fill 0 for other parts
