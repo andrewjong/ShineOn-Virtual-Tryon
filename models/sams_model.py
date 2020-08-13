@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import Dict
+from typing import Dict, List
 
 import torch
 from torch import Tensor
@@ -17,6 +17,7 @@ from models.networks import (
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 from options import gan_options
+from visualization import tensor_list_for_board
 
 logger = logging.getLogger("logger")
 
@@ -33,12 +34,12 @@ class SamsModel(BaseModel):
         parser.set_defaults(n_frames_total=5)
         # batch size effectively becomes n_frames_total * batch
         parser.set_defaults(batch_size=4)
-        parser.add_argument(
-            "--discriminator",
-            nargs="+",
-            default=("multiscale", "temporal"),
-            choices=("multiscale", "temporal", "nlayer"),
-        )
+        # parser.add_argument(  # just hard code choices for now
+        #     "--discriminator",
+        #     nargs="+",
+        #     default=("multiscale", "temporal"),
+        #     choices=("multiscale", "temporal", "nlayer"),
+        # )
         parser.add_argument(
             "--norm_D",
             type=str,
@@ -49,7 +50,7 @@ class SamsModel(BaseModel):
             "--encoder_input",
             default="flow",
             help="which of the --person_inputs to use as the encoder segmap input "
-            "(only 1 allowed).",
+                 "(only 1 allowed).",
         )
         parser = networks.modify_commandline_options(parser, is_train)
         parser = gan_options.modify_commandline_options(parser, is_train)
@@ -73,7 +74,7 @@ class SamsModel(BaseModel):
 
             enc_ch = parse_num_channels(hparams.encoder_input)
             temporal_in_channels = self.n_frames_total * (
-                enc_ch + TryonDataset.RGB_CHANNELS
+                    enc_ch + TryonDataset.RGB_CHANNELS
             )
             self.temporal_discriminator = NLayerDiscriminator(
                 hparams, in_channels=temporal_in_channels
@@ -113,6 +114,8 @@ class SamsModel(BaseModel):
             result = self.multiscale_discriminator_step(batch)
         else:
             result = self.temporal_discriminator_step(batch)
+            if self.global_step % self.hparams.display_count == 0:
+                self.visualize(batch)
 
         return result
 
@@ -126,6 +129,9 @@ class SamsModel(BaseModel):
             "val_G_vgg": train_log["loss_G_vgg"],
         }
         return {"val_loss": val_loss, "log": val_log}
+
+    def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
+        pass
 
     def generator_step(self, batch):
         loss_G_adv_multiscale = self.multiscale_discriminator_loss(
@@ -323,8 +329,28 @@ class SamsModel(BaseModel):
 
         return pred_fake, pred_real
 
-    def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
-        pass
+    def visualize(self, batch):
+        rows = []  # one type per row
+        # add inputs
+        person_vis_names = self.replace_actual_with_visual()
+        for name in person_vis_names:
+            # [0] for only the first index in the batch
+            frames_list: List[Tensor] = torch.unbind(batch[name], dim=1)
+            rows.append(frames_list)
+        # add cloths
+        cloths_list = torch.unbind(batch["cloth"], dim=1)
+        rows.append(cloths_list)
+        # add fakes
+        fakes_list = torch.unbind(self.all_gen_frames, dim=1)
+        rows.append(fakes_list)
+        # add reals
+        reals_list = torch.unbind(batch["image"], dim=1)
+        rows.append(reals_list)
+        tensor = tensor_list_for_board(rows)
+        # add to experiment
+        for i, img in enumerate(tensor):
+            self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+
 
 
 def split_predictions(pred):
