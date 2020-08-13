@@ -31,13 +31,13 @@ class AttentiveMultiSpade(MultiSpade):
             nn.LeakyReLU(),
         )
 
-    def forward(self, x: Tensor, segmaps_dict: Dict[str, Tensor]):
-        if isinstance(segmaps_dict, Tensor):
-            segmaps_dict = self.try_fix_segmaps_dict(segmaps_dict)
-        # parallel spade on each segmap
+    def forward(self, x: Tensor, labelmap_dict: Dict[str, Tensor]):
+        if isinstance(labelmap_dict, Tensor):
+            labelmap_dict = self.try_fix_labelmap_dict(labelmap_dict)
+        # parallel spade on each labelmap
         outputs = [
             self.spade_layers[key](x, segmap)
-            for key, segmap in self.sort_fn(segmaps_dict.items())
+            for key, segmap in self.sort_fn(labelmap_dict.items())
             # ^ ordering matters for the below concatenation
         ]
         # stack maps on channels

@@ -1,4 +1,5 @@
 # coding=utf-8
+from typing import Type, TypeVar
 import json
 from abc import abstractmethod, ABC
 from argparse import ArgumentParser
@@ -17,6 +18,8 @@ from datasets.util import segment_cloths_from_image
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
 
 
+TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
+
 
 class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
@@ -27,18 +30,25 @@ class TryonDataset(BaseDataset, ABC):
     IM_HEAD_CHANNELS = RGB_CHANNELS
     SILHOUETTE_CHANNELS = 1
 
-    AGNOSTIC_CHANNELS = COCOPOSE_CHANNELS + IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
+    AGNOSTIC_CHANNELS = IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
 
     CLOTH_CHANNELS = RGB_CHANNELS
     CLOTH_MASK_CHANNELS = 1
 
     DENSEPOSE_CHANNELS = 3
 
-    #FLOW_CHANNELS = 2
-
+    FLOW_CHANNELS = 2
 
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
+        parser.add_argument(
+            "--val_fraction",
+            type=float,
+            default=0.1,
+            help="fraction of data to reserve for validation",
+        )
+        if not is_train:  # on test dataset, use the whole thing
+            parser.set_defaults(val_fraction=0)
         parser.add_argument(
             "--cloth_mask_threshold",
             type=int,
@@ -56,24 +66,28 @@ class TryonDataset(BaseDataset, ABC):
             "--fine_height", type=int, default=256, help="then crop to this"
         )
         parser.add_argument("--radius", type=int, default=5)
+        parser.add_argument(
+            "--visualize_flow",
+            action="store_true",
+            help="Visualize flow for debugging. Default is off because the "
+            "visualization is heavy.",
+        )
         return parser
 
-    def __init__(self, opt):
+    def __init__(self, opt, i_am_validation=False):
         super(TryonDataset, self).__init__(opt)
-        self.cloth_mask_threshold = opt.cloth_mask_threshold
         # base setting
         self.opt = opt
+        self.val_fraction = opt.val_fraction
+        self.cloth_mask_threshold = opt.cloth_mask_threshold
         self.datamode = opt.datamode  # train or test or self-defined
         self.fine_height = opt.fine_height
         self.fine_width = opt.fine_width
         self.radius = opt.radius
         self.center_crop = transforms.CenterCrop((self.fine_height, self.fine_width))
+        self.rgb_norm = transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
         self.to_tensor_and_norm_rgb = transforms.Compose(
-            [
-                self.center_crop,
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ]
+            [self.center_crop, transforms.ToTensor(), self.rgb_norm,]
         )
         self.to_tensor_and_norm_gray = transforms.Compose(
             [
@@ -86,16 +100,27 @@ class TryonDataset(BaseDataset, ABC):
         self.flow_norm = transforms.Normalize((0.5, 0.5), (0.5, 0.5))
 
         self.image_names = []
+        self.i_am_validation = i_am_validation
         # load data list
-        self.load_file_paths()
+        self.load_file_paths(i_am_validation)
 
     @abstractmethod
-    def load_file_paths(self):
+    def load_file_paths(self, i_am_validation=False):
         """
-        Reads the datalist txt file for CP-VTON
-        sets self.image_names and self.cloth_names. they should correspond 1-to-1
+        Find the paths for the data.
+        Should set self.image_names and self.cloth_names. Lengths should correspond
+        1-to-1.
+
+        Args:
+            i_am_validation: whether this instance is for validation or not. Subclasses
+                should load file paths accordingly using self.val_fraction.
         """
         pass
+
+    @classmethod
+    def make_validation_dataset(cls, opt) -> TryonDatasetType:
+        val = cls(opt, i_am_validation=True)
+        return val
 
     def __len__(self):
         return len(self.image_names)
@@ -172,18 +197,20 @@ class TryonDataset(BaseDataset, ABC):
         # isolated cloth
         im_cloth = segment_cloths_from_image(image, _parse_array)
 
-        # load pose points
-        _pose_map, im_cocopose = self.get_input_person_pose(index)
-
         if "agnostic" in self.opt.person_inputs:
-            _agnostic_items = [silhouette, im_head, _pose_map]
+            _agnostic_items = [silhouette, im_head]
             agnostic = torch.cat(_agnostic_items, 0)
             ret["agnostic"] = agnostic
+
+        if "cocopose" in self.opt.person_inputs:
+            # load pose points
+            _pose_map, im_cocopose = self.get_input_person_pose(index)
+            ret["cocopose"] = _pose_map
+            ret["im_cocopose"] = im_cocopose
 
         if "densepose" in self.opt.person_inputs:
             densepose = self.get_person_densepose(index)
             ret["densepose"] = densepose
-
 
         ret.update(
             {
@@ -191,7 +218,6 @@ class TryonDataset(BaseDataset, ABC):
                 "image": image,
                 "im_head": im_head,
                 "im_cloth": im_cloth,
-                "im_cocopose": im_cocopose,
             }
         )
         return ret
@@ -208,7 +234,6 @@ class TryonDataset(BaseDataset, ABC):
         im = self.open_image_as_normed_tensor(image_path)
         return im
 
-
     def get_person_flow(self, index):
         """
         helper function to get the person image; not used as input to the network. used
@@ -217,19 +242,25 @@ class TryonDataset(BaseDataset, ABC):
         :return:
         """
         # person image
-        image_path = self.get_person_image_path(index)
-        image_path = image_path.replace(".png", ".flo")
-        image_path = image_path.replace(f"{self.opt.datamode}_frames", "optical_flow")
-        image = readFlow(image_path)
-        #image = flow2img(image)
-        image = torch.from_numpy(image).permute(2, 0, 1)
-        #image = self.center_crop(image)
-        #print("flow", image.shape)
-        image = self.flow_norm(image)
-        #image = Image.open(image_path)
-        #im = self.to_tensor_and_norm_gray(image)
-        return image
+        image_path = self.get_person_flow_path(index)
+        try:
+            flow_np = readFlow(image_path)
+            if self.opt.visualize_flow:
+                flow_PIL = Image.fromarray(flow2img(flow_np))
+                flow_vis = self.to_tensor_and_norm_rgb(flow_PIL)
+            else:
+                flow_vis = "visualize_flow is false"
+            flow_tensor = torch.from_numpy(flow_np).permute(2, 0, 1)
+            flow_tensor = self.flow_norm(flow_tensor)
+        except FileNotFoundError:
+            flow_tensor = torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
+            flow_vis = (
+                torch.zeros(3, self.opt.fine_height, self.opt.fine_width)
+                if self.opt.visualize_flow
+                else "visualize_flow is false"
+            )
 
+        return flow_tensor, flow_vis
 
     def get_person_densepose(self, index):
         """
@@ -393,6 +424,10 @@ class TryonDataset(BaseDataset, ABC):
     def get_person_densepose_path(self, index):
         pass
 
+    @abstractmethod
+    def get_person_flow_path(self, index):
+        pass
+
     ########################
     # getitem
     ########################
@@ -413,10 +448,9 @@ class TryonDataset(BaseDataset, ABC):
             "grid_vis": grid_vis,
         }
 
-        if self.opt.flow and self.opt.model == "unet_mask":
-            #print("flow")
-            flow = self.get_person_flow(index) #torch.zeros(2, self.opt.fine_height, self.opt.fine_width)
-            result["flow"] = flow
+        if self.opt.flow or "flow" in self.opt.person_inputs:
+            flow, flow_image = self.get_person_flow(index)
+            result["flow"], result["flow_image"] = flow, flow_image
 
         # cloth representation
         result.update(self.get_cloth_representation(index))

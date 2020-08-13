@@ -10,7 +10,9 @@ class MPVDataset(TryonDataset):
 
     @staticmethod
     def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(MPVDataset, MPVDataset).modify_commandline_options(parser, is_train)
+        parser = super(MPVDataset, MPVDataset).modify_commandline_options(
+            parser, is_train
+        )
         parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
         return parser
 
@@ -75,4 +77,3 @@ class MPVDataset(TryonDataset):
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
         pose_path = pose_path.replace(".jpg", "_keypoints.json")
         return pose_path
-

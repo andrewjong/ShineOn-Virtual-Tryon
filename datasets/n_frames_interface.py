@@ -10,7 +10,7 @@ from torch.utils.data.dataloader import default_collate
 class NFramesInterface(ABC):
     """
     Given an index, collect N frames
-    Adds the --n_frames to commandline args.
+    Adds the --n_frames_total to commandline args.
 
     Usage:
     ```
@@ -31,7 +31,7 @@ class NFramesInterface(ABC):
     @staticmethod
     def modify_commandline_options(parser: ArgumentParser, is_train):
         parser.add_argument(
-            "--n_frames",
+            "--n_frames_total",
             type=int,
             default=1,
             help="Total number of frames to load at once. This is useful for video "
@@ -42,7 +42,7 @@ class NFramesInterface(ABC):
                 "--frame_start_idx",
                 type=int,
                 default=0,
-                help="Do progressive training. E.g. if --n_frames=5, start with "
+                help="Do progressive training. E.g. if --n_frames_total=5, start with "
                 "frame_start_idx=4 to start training with 1 frame, then gradually "
                 "decrease the start idx to add more frames. ",
                 # this is because the number of channels of the net is rigid
@@ -52,14 +52,14 @@ class NFramesInterface(ABC):
                 metavar="N",
                 type=int,
                 help="Automatically decrement the frame_start_idx every N steps, until "
-                     "it reaches the total number of frames",
+                "it reaches the total number of frames",
             )
         return parser
 
     def __init__(self, opt):
-        """ sets n_frames """
-        self._n_frames = opt.n_frames
-        assert self._n_frames >= 1, "--n_frames Must be a positive integer"
+        """ sets n_frames_total """
+        self.n_frames_total = opt.n_frames_total
+        assert self.n_frames_total >= 1, "--n_frames_total Must be a positive integer"
 
     @abstractmethod
     def collect_n_frames_indices(self, index):
@@ -82,8 +82,8 @@ class NFramesInterface(ABC):
                 )
             # use the subclass's implementation
             prev_indices = self.collect_n_frames_indices(index)
-            assert len(prev_indices) == self._n_frames, (
-                f"{len(prev_indices) = } doesn't match {self._n_frames = }, "
+            assert len(prev_indices) == self.n_frames_total, (
+                f"{len(prev_indices) = } doesn't match {self.n_frames_total = }, "
                 f"something's wrong!"
             )
 
@@ -96,16 +96,18 @@ class NFramesInterface(ABC):
 
 
 def maybe_combine_frames_and_channels(opt, inputs):
-    """ if n_frames is true, combines frames and channels dim for all the tensors"""
-    if hasattr(opt, "n_frames"):
+    """ if n_frames_total is true, combines frames and channels dim for all the tensors"""
+    if hasattr(opt, "n_frames_total"):
 
         def maybe_combine(t):
+            # Tensor like items
             if isinstance(t, torch.Tensor):
                 bs, n_frames, c, h, w = t.shape
                 t = t.view(bs, n_frames * c, h, w)
+            # Non-tensor like items, such as lists of strings or numbers
             elif isinstance(t, collections.abc.Sequence) and not isinstance(t, str):
                 # unpack
-                if opt.n_frames == 1:
+                if opt.n_frames_total == 1:
                     t = t[0]
 
             return t

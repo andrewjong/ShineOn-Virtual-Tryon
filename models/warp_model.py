@@ -1,15 +1,14 @@
 """ Also known as GMM """
+import argparse
 import os.path as osp
 from argparse import ArgumentParser
+from typing import List
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-
-from datasets.tryon_dataset import TryonDataset
-from models.base_model import BaseModel, parse_channels, get_and_cat_inputs
+from models.base_model import BaseModel, get_and_cat_inputs
 from models.networks.cpvton.warp import (
 
     FeatureExtraction,
@@ -37,7 +36,9 @@ class WarpModel(BaseModel):
 
     def __init__(self, hparams):
         super(WarpModel, self).__init__(hparams)
-        # n_frames = opt.n_frames if hasattr(opt, "n_frames") else 1
+        if isinstance(hparams, dict):
+            hparams = argparse.Namespace(**hparams)
+        # n_frames_total = opt.n_frames_total if hasattr(opt, "n_frames_total") else 1
         self.extractionA = FeatureExtraction(
             self.person_channels,
             ngf=hparams.ngf,
@@ -92,6 +93,7 @@ class WarpModel(BaseModel):
         return {"loss": loss, "log": tensorboard_scalars}
 
     def test_step(self, batch, batch_idx):
+        batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
         # produce subfolders for each subdataset
         warp_cloth_dirs = [
@@ -129,20 +131,13 @@ class WarpModel(BaseModel):
         result = {"progress_bar": progress_bar}
         return result
 
-    def visualize(self, batch, warped_cloth, warped_grid):
-        # unpack
-        im = batch["image"]
-        im_cocopose = batch["im_cocopose"]
-        maybe_densepose = [batch["densepose"]] if "densepose" in batch else []
-        c = batch["cloth"]
-        im_h = batch["im_head"]
-        silhouette = batch["silhouette"]
-        im_c = batch["im_cloth"]
-        # layout
+    def visualize(self, b, warped_cloth, warped_grid):
+        person_visuals = self.fetch_person_visuals(b)
+
         visuals = [
-            [im_h, silhouette, im_cocopose] + maybe_densepose,
-            [c, warped_cloth, im_c],
-            [warped_grid, (warped_cloth + im) * 0.5, im],
+            person_visuals,
+            [b["cloth"], warped_cloth, b["im_cloth"]],
+            [warped_grid, (warped_cloth + b["image"]) * 0.5, b["image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment

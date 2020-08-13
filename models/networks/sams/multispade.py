@@ -44,30 +44,30 @@ class MultiSpade(SPADE):
             }
         )
 
-    def forward(self, x: Tensor, segmaps_dict: Dict[str, Tensor]):
+    def forward(self, x: Tensor, labelmap_dict: Dict[str, Tensor]):
         """
         Args:
             x: input
-            segmaps_dict: list of segmaps
+            labelmap_dict: list of labelmap
 
         Returns: transformed x
         """
-        if isinstance(segmaps_dict, Tensor):
-            segmaps_dict = self.try_fix_segmaps_dict(segmaps_dict)
-        assert len(segmaps_dict) == len(
+        if isinstance(labelmap_dict, Tensor):
+            labelmap_dict = self.try_fix_labelmap_dict(labelmap_dict)
+        assert len(labelmap_dict) == len(
             self.spade_layers
-        ), f"{len(segmaps_dict)=} != {len(self.spade_layers)=}"
+        ), f"{len(labelmap_dict)=} != {len(self.spade_layers)=}"
         # run sequentially in the requested order
-        for key, segmap in self.sort_fn(segmaps_dict.items()):
+        for key, segmap in self.sort_fn(labelmap_dict.items()):
             layer = self.spade_layers[key]
             x = layer(x, segmap)
         return x
 
-    def try_fix_segmaps_dict(self, tensor: Tensor):
+    def try_fix_labelmap_dict(self, tensor: Tensor):
         if len(self.spade_layers) == 1:
             key = list(self.spade_layers.keys())[0]
-            segmaps_dict = {key: tensor}
-            return segmaps_dict
+            labelmap_dict = {key: tensor}
+            return labelmap_dict
         else:
             raise ValueError(
                 "You passed a single Tensor, but I don't know which spade layer to "

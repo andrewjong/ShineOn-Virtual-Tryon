@@ -1,4 +1,6 @@
 import importlib
+from collections import Iterable
+from typing import List, Tuple, Union
 
 
 def find_class_in_module(target_cls_name, module):
@@ -37,3 +39,14 @@ def without_key(d, *keys):
     for k in keys:
         d.pop(k)
     return d
+
+
+def get_prev_data_zero_bounded(data: Union[List, Tuple], end_idx, num_frames):
+    start_idx = end_idx - num_frames + 1
+    prev_n_data = data[max(0, start_idx) : end_idx]
+    if not isinstance(prev_n_data, list) and not isinstance(prev_n_data, tuple):
+        prev_n_data = [prev_n_data]
+    if start_idx < 0:
+        prepend_dupes = [data[0] for _ in range(abs(start_idx))]
+        prev_n_data = prepend_dupes + prev_n_data
+    return prev_n_data
