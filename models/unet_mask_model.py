@@ -66,11 +66,11 @@ class UnetMaskModel(BaseModel):
         m_composites = F.sigmoid(m_composites)
         weight_masks = F.sigmoid(weight_masks) if weight_masks is not None else None
         # chunk for operation per individual frame
-        warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames)
-        p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames)
-        m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames)
+        warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames_total)
+        p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames_total)
+        m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames_total)
         weight_masks = (
-            torch.chunk(weight_masks, self.hparams.n_frames)
+            torch.chunk(weight_masks, self.hparams.n_frames_total)
             if weight_masks is not None
             else None
         )
