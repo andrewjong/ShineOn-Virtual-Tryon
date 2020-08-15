@@ -140,16 +140,22 @@ class BaseModel(pl.LightningModule, abc.ABC):
             sort_fn: function to sort in desired order; function should return List[str]
         """
         person_vis_names = self.replace_actual_with_visual()
+        print("person_vis_names", person_vis_names)
         if sort_fn:
             person_vis_names = sort_fn(person_vis_names)
         person_visual_tensors = []
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
+<<<<<<< HEAD
             if self.hparams.n_frames_total > 1:
                 channels = tensor.shape[-3]//2
                 tensor = tensor[:, channels:, :, :]
             else:
                 channels = tensor.shape[-3]
+=======
+            channels = tensor.shape[-3]//2
+            tensor = tensor[:, channels:, :, :]
+>>>>>>> got flownet training working w 2 frames, but training is really slow
             if channels <= VVTDataset.RGB_CHANNELS:
                 person_visual_tensors.append(tensor)
             else:
@@ -168,6 +174,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         Returns a list copy.
         """
         person_visuals: List[str] = self.hparams.person_inputs.copy()
+        print("person_visuals", person_visuals)
         if "agnostic" in person_visuals:
             i = person_visuals.index("agnostic")
             person_visuals.pop(i)
@@ -184,5 +191,6 @@ class BaseModel(pl.LightningModule, abc.ABC):
             person_visuals.pop(i)
             if self.hparams.visualize_flow:
                 person_visuals.insert(i, "flow_image")
+        print("person_visuals", person_visuals)
 
         return person_visuals
