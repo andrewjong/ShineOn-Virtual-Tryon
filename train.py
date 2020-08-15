@@ -44,7 +44,11 @@ def main(train=True):
         log_save_interval=opt.display_count,
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,
+<<<<<<< HEAD
         val_check_interval=val_check,
+=======
+        profiler=True
+>>>>>>> timing dataloader and profiler
     )
 
     def save_on_interrupt(*args, name=""):

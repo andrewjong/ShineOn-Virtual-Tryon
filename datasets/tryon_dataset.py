@@ -18,7 +18,7 @@ from datasets.util import segment_cloths_from_image
 from enum import Enum
 
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
-
+import time
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
@@ -212,15 +212,29 @@ class TryonDataset(BaseDataset, ABC):
         """
         ret = {}
         # person image
+        start_time = time.time()
         image = self.get_person_image(index)
+        end_time = time.time()
+        print("image", end_time - start_time)
         # load parsing image
+        start_time = time.time()
         _parse_array = self.get_person_parsed(index)
+        end_time = time.time()
+        print("_parse_array", end_time - start_time)
         # body silhouette
+        start_time = time.time()
         silhouette = self.get_person_body_silhouette(_parse_array)
+        end_time = time.time()
+        print("silhouette", end_time - start_time)
         # isolated head
+        start_time = time.time()
         im_head = self.get_person_head(image, _parse_array)
+        end_time = time.time()
+        print("im_head", end_time - start_time)
         # isolated cloth
         im_cloth = segment_cloths_from_image(image, _parse_array)
+        end_time = time.time()
+        print("im_cloth", end_time - start_time)
 
         if "agnostic" in self.opt.person_inputs:
             _agnostic_items = [silhouette, im_head]
@@ -234,7 +248,10 @@ class TryonDataset(BaseDataset, ABC):
             ret["im_cocopose"] = im_cocopose
 
         if "densepose" in self.opt.person_inputs:
+            start_time = time.time()
             densepose = self.get_person_densepose(index)
+            end_time = time.time()
+            print("densepose", end_time - start_time)
             ret["densepose"] = densepose
 
         ret.update(
@@ -485,13 +502,22 @@ class TryonDataset(BaseDataset, ABC):
         }
 
         if self.opt.flow or "flow" in self.opt.person_inputs:
+            start_time = time.time()
             flow, flow_image = self.get_person_flow(index)
+            end_time = time.time()
+            print("flow dataloading time", end_time - start_time)
             result["flow"], result["flow_image"] = flow, flow_image
 
         # cloth representation
+        start_time = time.time()
         result.update(self.get_cloth_representation(index))
+        end_time = time.time()
+        print("cloth rep dataloading time", end_time - start_time)
         # person representation
+        start_time = time.time()
         result.update(self.get_person_representation(index))
+        end_time = time.time()
+        print("person rep dataloading time", end_time - start_time)
 
         # def run_assertions():
         #     assert cloth.shape == torch.Size(
