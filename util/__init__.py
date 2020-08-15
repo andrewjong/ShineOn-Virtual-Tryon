@@ -2,6 +2,8 @@ import importlib
 from collections import Iterable
 from typing import List, Tuple, Union
 
+import torch
+
 
 def find_class_in_module(target_cls_name, module):
     target_cls_name = target_cls_name.replace("_", "").lower()
@@ -50,3 +52,8 @@ def get_prev_data_zero_bounded(data: Union[List, Tuple], end_idx, num_frames):
         prepend_dupes = [data[0] for _ in range(abs(start_idx))]
         prev_n_data = prepend_dupes + prev_n_data
     return prev_n_data
+
+
+def get_and_cat_inputs(batch, names):
+    inputs = torch.cat([batch[inp] for inp in names], dim=1)
+    return inputs

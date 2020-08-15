@@ -1,5 +1,5 @@
 # coding=utf-8
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Iterable
 import json
 from abc import abstractmethod, ABC
 from argparse import ArgumentParser
@@ -524,3 +524,13 @@ class TryonDataset(BaseDataset, ABC):
         # run_assertions()
 
         return result
+
+
+def parse_num_channels(list_of_inputs: Iterable[str]):
+    """ Get number of in channels for each input"""
+    if isinstance(list_of_inputs, str):
+        list_of_inputs = [list_of_inputs]
+    channels = sum(
+        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
+    )
+    return channels

@@ -7,13 +7,8 @@ from torch import Tensor
 from torch.nn import L1Loss
 from torch.optim import Adam
 
-from models import BaseModel, networks
-from models.networks import (
-    MultiscaleDiscriminator,
-    NLayerDiscriminator,
-    parse_num_channels,
-    TryonDataset,
-)
+from datasets.tryon_dataset import parse_num_channels, TryonDataset
+from models.base_model import BaseModel
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 from options import gan_options
@@ -30,6 +25,12 @@ class SamsModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose", "flow"))
+        parser.add_argument(
+            "--encoder_input",
+            default="flow",
+            help="which of the --person_inputs to use as the encoder segmap input "
+            "(only 1 allowed).",
+        )
         # num previous frames fed as input = n_frames_total - 1
         parser.set_defaults(n_frames_total=5)
         # batch size effectively becomes n_frames_total * batch
@@ -46,15 +47,17 @@ class SamsModel(BaseModel):
             default="spectralinstance",
             help="instance normalization or batch normalization",
         )
-        parser.add_argument(
-            "--encoder_input",
-            default="flow",
-            help="which of the --person_inputs to use as the encoder segmap input "
-                 "(only 1 allowed).",
-        )
+        from models import networks
         parser = networks.modify_commandline_options(parser, is_train)
         parser = gan_options.modify_commandline_options(parser, is_train)
         return parser
+
+    @staticmethod
+    def apply_default_encoder_input(opt):
+        """ Call in Base Options after opt parsed """
+        if hasattr(opt, "encoder_input") and opt.encoder_input is None:
+            opt.encoder_input = opt.person_inputs[0]
+        return opt
 
     def __init__(self, hparams):
         # Lightning bug, see https://github.com/PyTorchLightning/pytorch-lightning/issues/924#issuecomment-673137383
@@ -62,6 +65,9 @@ class SamsModel(BaseModel):
             hparams = argparse.Namespace(**hparams)
         super().__init__(hparams)
         self.n_frames_total = hparams.n_frames_total
+        self.n_frames_now = (
+            hparams.n_frames_now if hparams.n_frames_now else self.n_frames_total
+        )
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
@@ -69,13 +75,17 @@ class SamsModel(BaseModel):
             init = hparams.init_type, hparams.init_variance
             self.generator.init_weights(*init)
 
+            from models.networks import MultiscaleDiscriminator
+
             self.multiscale_discriminator = MultiscaleDiscriminator(hparams)
             self.multiscale_discriminator.init_weights(*init)
 
             enc_ch = parse_num_channels(hparams.encoder_input)
             temporal_in_channels = self.n_frames_total * (
-                    enc_ch + TryonDataset.RGB_CHANNELS
+                enc_ch + TryonDataset.RGB_CHANNELS
             )
+            from models.networks import NLayerDiscriminator
+
             self.temporal_discriminator = NLayerDiscriminator(
                 hparams, in_channels=temporal_in_channels
             )
@@ -170,7 +180,8 @@ class SamsModel(BaseModel):
         all_generated_frames: Tensor = torch.zeros_like(batch["image"])
 
         # generate previous frames before this one
-        for fIdx in range(self.n_frames_total):
+        start_idx = self.n_frames_total - self.n_frames_now  # for progressive training
+        for fIdx in range(start_idx, self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
             labelmaps_this_frame: Dict[str, Tensor] = {
@@ -179,11 +190,11 @@ class SamsModel(BaseModel):
             prev_n_frames_G, prev_n_labelmaps = self.get_prev_frames_and_maps(
                 batch, fIdx, all_generated_frames
             )
-            # forward
+            # synthesize
             fake_frame: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
-            # add to buffer, but don't detach here; must go through temporal discriminator
+            # add to buffer, but don't detach; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame
 
         return fake_frame, labelmaps_this_frame, all_generated_frames
@@ -350,7 +361,6 @@ class SamsModel(BaseModel):
         # add to experiment
         for i, img in enumerate(tensor):
             self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
-
 
 
 def split_predictions(pred):

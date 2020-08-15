@@ -8,7 +8,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
-from models.base_model import BaseModel, get_and_cat_inputs
+from models.base_model import BaseModel
+from util import get_and_cat_inputs
 from models.networks.cpvton.warp import (
 
     FeatureExtraction,

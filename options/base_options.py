@@ -1,8 +1,5 @@
 import argparse
-import os
 import sys
-
-import torch
 
 import datasets
 import models
@@ -151,12 +148,30 @@ class BaseOptions:
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
         opt = BaseOptions.apply_sort_inputs(opt)
-        opt = BaseOptions.apply_set_encoder_input(opt)
+        from datasets.n_frames_interface import NFramesInterface
+        opt = NFramesInterface.apply_n_frames_now_default_total(opt)
+        from models.sams_model import SamsModel
+        opt = SamsModel.apply_default_encoder_input(opt)
 
         self.print_options(opt)
 
         self.opt = opt
         return self.opt
+
+    @staticmethod
+    def apply_ask_unnamed_experiment(opt):
+        if "--name" not in sys.argv:
+            print(
+                "\n"
+                "You didn't set an experiment name. Do you want to set one? If not, "
+                f"leave it blank. This message can be avoided by passing --name NAME."
+            )
+            new_name = input(f"Experiment name (default: {opt.name}): ")
+            print()
+            if new_name:
+                opt.name = new_name
+                print(f"Experiment name set to {opt.name}")
+        return opt
 
     @staticmethod
     def apply_gpu_ids(opt):
@@ -189,23 +204,4 @@ class BaseOptions:
         opt.cloth_inputs = sorted(opt.cloth_inputs)
         return opt
 
-    @staticmethod
-    def apply_set_encoder_input(opt):
-        if hasattr(opt, "encoder_input") and opt.encoder_input is None:
-            opt.encoder_input = opt.person_inputs[0]
-        return opt
 
-    @staticmethod
-    def apply_ask_unnamed_experiment(opt):
-        if "--name" not in sys.argv:
-            print(
-                "\n"
-                "You didn't set an experiment name. Do you want to set one? If not, "
-                f"leave it blank. This message can be avoided by passing --name NAME."
-            )
-            new_name = input(f"Experiment name (default: {opt.name}): ")
-            print()
-            if new_name:
-                opt.name = new_name
-                print(f"Experiment name set to {opt.name}")
-        return opt

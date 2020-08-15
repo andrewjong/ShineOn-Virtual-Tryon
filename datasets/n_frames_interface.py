@@ -7,6 +7,7 @@ import torch
 from torch.utils.data.dataloader import default_collate
 
 
+
 class NFramesInterface(ABC):
     """
     Given an index, collect N frames
@@ -34,32 +35,37 @@ class NFramesInterface(ABC):
             "--n_frames_total",
             type=int,
             default=1,
+            metavar="N",
             help="Total number of frames to load at once. This is useful for video "
             "training. Set to 1 for images.",
         )
-        if is_train:
-            parser.add_argument(
-                "--frame_start_idx",
-                type=int,
-                default=0,
-                help="Do progressive training. E.g. if --n_frames_total=5, start with "
-                "frame_start_idx=4 to start training with 1 frame, then gradually "
-                "decrease the start idx to add more frames. ",
-                # this is because the number of channels of the net is rigid
-            )
-            parser.add_argument(
-                "--add_frames_interval",
-                metavar="N",
-                type=int,
-                help="Automatically decrement the frame_start_idx every N steps, until "
-                "it reaches the total number of frames",
-            )
+        parser.add_argument(
+            "--n_frames_now",
+            type=int,
+            default=None,
+            metavar="N",
+            help="Use progressive video training by slowly incrementing "
+            "--n_frames_now from 1 up to --n_frames_total. Any frames at an index "
+            "between --n_frames_now and --n_frames_total will simply be filled with"
+            " zeros. Setting to None disables progressive training.",
+        )
         return parser
+
+    @staticmethod
+    def apply_n_frames_now_default_total(opt):
+        """ Call in Base Options after opt parsed """
+        if opt.n_frames_now is None:
+            opt.n_frames_now = opt.n_frames_total
+        return opt
 
     def __init__(self, opt):
         """ sets n_frames_total """
         self.n_frames_total = opt.n_frames_total
+        self.n_frames_now = opt.n_frames_now
         assert self.n_frames_total >= 1, "--n_frames_total Must be a positive integer"
+        assert (
+            self.n_frames_now <= self.n_frames_total
+        ), f"{opt.n_frames_now} > {opt.n_frames_total}"
 
     @abstractmethod
     def collect_n_frames_indices(self, index):

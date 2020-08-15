@@ -8,8 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import util
-from datasets.tryon_dataset import TryonDataset
-from models.base_model import parse_num_channels
+from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from models.networks import BaseNetwork
 from models.networks.normalization import get_nonspade_norm_layer
 

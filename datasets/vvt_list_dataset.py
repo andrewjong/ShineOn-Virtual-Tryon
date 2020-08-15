@@ -1,7 +1,7 @@
 import os.path as osp
 from glob import glob
 
-from datasets import VVTDataset
+from datasets.vvt_dataset import VVTDataset
 
 
 # Testing only
