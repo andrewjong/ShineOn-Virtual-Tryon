@@ -17,6 +17,7 @@ from models.networks.cpvton.unet import UnetGenerator
 from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
+import time
 
 class UnetMaskModel(BaseModel):
     """ CP-VTON Try-On Module (TOM) """
@@ -84,11 +85,11 @@ class UnetMaskModel(BaseModel):
         )
 
         # only use second frame for warping
-        flows = flows[1]
-        warped_cloths = warped_cloths_chunked[1]
-        p_rendereds = p_rendereds_chunked[1]
-        m_composites = m_composites_chunked[1]
-        weight_masks = weight_masks_chunked[1]
+        flows = flows[-1]
+        warped_cloths = warped_cloths_chunked[-1]
+        p_rendereds = p_rendereds_chunked[-1]
+        m_composites = m_composites_chunked[-1]
+        weight_masks = weight_masks_chunked[-1]
 
         if flows is not None:
 
@@ -122,22 +123,27 @@ class UnetMaskModel(BaseModel):
         cm = batch["cloth_mask"]
         flow = batch["flow"] if self.hparams.flow else None
         self.prev_frame = im[:, :3, :, :]
+        if self.hparams.n_frames_total is 2:
+            im = im[:,3:,:,:]
+            cm = cm[:, 3:, :, :]
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
+        start_time = time.time()
         p_rendered, m_composite, p_tryon = self.forward(
             person_inputs, cloth_inputs, flow
         )
+        print("forward pass", time.time() - start_time)
         # loss
-        loss_image_l1 = F.l1_loss(p_tryon, im[:, 3:, :, :])
-        loss_image_vgg = self.criterionVGG(p_tryon, im[:, 3:, :, :])
-        loss_mask_l1 = F.l1_loss(m_composite, cm[:, 3:, :, :])
+        loss_image_l1 = F.l1_loss(p_tryon, im)
+        loss_image_vgg = self.criterionVGG(p_tryon, im)
+        loss_mask_l1 = F.l1_loss(m_composite, cm)
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
-        if self.global_step % self.hparams.display_count == 0:
-            self.visualize(batch, p_rendered, m_composite, p_tryon)
+        #if self.global_step % self.hparams.display_count == 0:
+        #    self.visualize(batch, p_rendered, m_composite, p_tryon)
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,
@@ -186,9 +192,6 @@ class UnetMaskModel(BaseModel):
 
     def visualize(self, b, p_rendered, m_composite, p_tryon):
         person_visuals = self.fetch_person_visuals(b)
-        print("in vis")
-        print(len(person_visuals))
-        [print(x.size()) for x in person_visuals]
         visuals = [
             person_visuals,
             [b["cloth"][:,3:,:,:], b["cloth_mask"][:,1:,:,:] * 2 - 1, m_composite * 2 - 1],
