@@ -46,6 +46,10 @@ def main(train=True):
         max_epochs=opt.keep_epochs + opt.decay_epochs,
 <<<<<<< HEAD
         val_check_interval=val_check,
+<<<<<<< HEAD
+=======
+        profiler=True
+>>>>>>> timing dataloader and profiler
 =======
         profiler=True
 >>>>>>> timing dataloader and profiler

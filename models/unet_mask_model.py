@@ -90,11 +90,15 @@ class UnetMaskModel(BaseModel):
 
         # only use second frame for warping
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> timing dataloader and profiler
         flows = flows[-1]
         warped_cloths = warped_cloths_chunked[-1]
         p_rendereds = p_rendereds_chunked[-1]
         m_composites = m_composites_chunked[-1]
         weight_masks = weight_masks_chunked[-1]
+<<<<<<< HEAD
 =======
         flows = flows[1]
         warped_cloths = warped_cloths_chunked[1]
@@ -102,6 +106,8 @@ class UnetMaskModel(BaseModel):
         m_composites = m_composites_chunked[1]
         weight_masks = weight_masks_chunked[1]
 >>>>>>> got flownet training working w 2 frames, but training is really slow
+=======
+>>>>>>> timing dataloader and profiler
 
         if flows is not None:
 
@@ -136,11 +142,17 @@ class UnetMaskModel(BaseModel):
         flow = batch["flow"] if self.hparams.flow else None
         self.prev_frame = im[:, :3, :, :]
 <<<<<<< HEAD
+<<<<<<< HEAD
         if self.hparams.n_frames_total is 2:
             im = im[:,3:,:,:]
             cm = cm[:, 3:, :, :]
 =======
 >>>>>>> got flownet training working w 2 frames, but training is really slow
+=======
+        if self.hparams.n_frames_total is 2:
+            im = im[:,3:,:,:]
+            cm = cm[:, 3:, :, :]
+>>>>>>> timing dataloader and profiler
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
@@ -151,9 +163,9 @@ class UnetMaskModel(BaseModel):
         )
         print("forward pass", time.time() - start_time)
         # loss
-        loss_image_l1 = F.l1_loss(p_tryon, im[:, 3:, :, :])
-        loss_image_vgg = self.criterionVGG(p_tryon, im[:, 3:, :, :])
-        loss_mask_l1 = F.l1_loss(m_composite, cm[:, 3:, :, :])
+        loss_image_l1 = F.l1_loss(p_tryon, im)
+        loss_image_vgg = self.criterionVGG(p_tryon, im)
+        loss_mask_l1 = F.l1_loss(m_composite, cm)
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
@@ -208,11 +220,14 @@ class UnetMaskModel(BaseModel):
     def visualize(self, b, p_rendered, m_composite, p_tryon):
         person_visuals = self.fetch_person_visuals(b)
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         print("in vis")
         print(len(person_visuals))
         [print(x.size()) for x in person_visuals]
 >>>>>>> got flownet training working w 2 frames, but training is really slow
+=======
+>>>>>>> timing dataloader and profiler
         visuals = [
             person_visuals,
             [b["cloth"][:,3:,:,:], b["cloth_mask"][:,1:,:,:] * 2 - 1, m_composite * 2 - 1],
