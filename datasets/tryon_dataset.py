@@ -15,13 +15,8 @@ from PIL import ImageDraw
 from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
-<<<<<<< HEAD
 from enum import Enum
-
-=======
->>>>>>> c09cbc1688418f8c87a6723d0303a1f4c0721f3d
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
-import time
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
