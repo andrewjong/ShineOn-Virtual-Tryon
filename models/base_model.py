@@ -67,6 +67,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
 
+
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with
         # this: https://github.com/PyTorchLightning/pytorch-lightning/issues/1228
