@@ -73,12 +73,8 @@ class UnetMaskModel(BaseModel):
         # chunk for operation per individual frame
 
 
-<<<<<<< HEAD
 
         flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1))
-=======
-        #flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1))
->>>>>>> training is faster, change back to flow with 1 frame
         warped_cloths_chunked = list(torch.chunk(warped_cloths, self.hparams.n_frames_total, dim=1))
         p_rendereds_chunked = list(torch.chunk(p_rendereds, self.hparams.n_frames_total,dim=1))
         m_composites_chunked = list(torch.chunk(m_composites, self.hparams.n_frames_total,dim=1))
@@ -90,11 +86,7 @@ class UnetMaskModel(BaseModel):
         p_rendereds_warped = None
 
         # only use second frame for warping
-        """flows = flows[-1]
-        warped_cloths = warped_cloths_chunked[-1]
-        p_rendereds = p_rendereds_chunked[-1]
-        m_composites = m_composites_chunked[-1]
-        weight_masks = weight_masks_chunked[-1]"""
+
 
         if flows is not None:
 
@@ -102,10 +94,12 @@ class UnetMaskModel(BaseModel):
                 prev_im, flows.contiguous()
             )]  # what is past_frame, also not sure flows has n_frames_total
 
+
             p_rendereds_warped = [
                 (1 - weight) * warp_flow + weight * p_rendered
                 for weight, warp_flow, p_rendered in zip(
                     weight_masks_chunked, warped_flows, p_rendereds_chunked
+
                 )
             ]
 
@@ -128,17 +122,16 @@ class UnetMaskModel(BaseModel):
         prev_im = batch["prev_image"]
         cm = batch["cloth_mask"]
         flow = batch["flow"] if self.hparams.flow else None
-        #self.prev_frame = im[:, :3, :, :]
-        #if self.hparams.n_frames_total is 2:
-        #    im = im[:,3:,:,:]
-        #    cm = cm[:, 3:, :, :]
+
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
+        start_time = time.time()
         p_rendered, m_composite, p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
+        print("forward pass", time.time() - start_time)
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)
@@ -146,8 +139,8 @@ class UnetMaskModel(BaseModel):
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
-        if self.global_step % self.hparams.display_count == 0:
-            self.visualize(batch, p_rendered, m_composite, p_tryon)
+        #if self.global_step % self.hparams.display_count == 0:
+        #    self.visualize(batch, p_rendered, m_composite, p_tryon)
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,
