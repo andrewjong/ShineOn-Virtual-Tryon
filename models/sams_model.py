@@ -6,6 +6,7 @@ import torch
 from torch import Tensor
 from torch.nn import L1Loss
 from torch.optim import Adam
+from torch.utils.data.dataloader import default_collate
 
 from datasets.tryon_dataset import parse_num_channels, TryonDataset
 from models.base_model import BaseModel
@@ -132,14 +133,14 @@ class SamsModel(BaseModel):
 
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
         result = self.generator_step(batch)
-        train_log = result["log"]
-        val_loss = train_log["loss_G_l1"] + train_log["loss_G_vgg"]
-        val_log = {
+        generator_log = result["log"]
+        val_loss = generator_log["loss/G_l1"] + generator_log["loss/G_vgg"]
+        outputs = {
             "val_loss": val_loss,
-            "val_G_l1": train_log["loss_G_l1"],
-            "val_G_vgg": train_log["loss_G_vgg"],
+            "val_G_l1": generator_log["loss/G_l1"],
+            "val_G_vgg": generator_log["loss/G_vgg"],
         }
-        return {"val_loss": val_loss, "log": val_log}
+        return outputs
 
     def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
         pass
@@ -160,11 +161,11 @@ class SamsModel(BaseModel):
 
         # Log
         log = {
-            "loss_G": loss_G,
-            "loss_G_adv_multiscale": loss_G_adv_multiscale,
-            "loss_G_adv_temporal": loss_G_adv_temporal,
-            "loss_G_l1": loss_G_l1,
-            "loss_G_vgg": loss_G_vgg,
+            "loss/G": loss_G,
+            "loss/G_adv_multiscale": loss_G_adv_multiscale,
+            "loss/G_adv_temporal": loss_G_adv_temporal,
+            "loss/G_l1": loss_G_l1,
+            "loss/G_vgg": loss_G_vgg,
         }
         result = {
             "loss": loss_G,
@@ -329,9 +330,9 @@ class SamsModel(BaseModel):
         )
 
         log = {
-            "loss_D_multi": loss_D,
-            "loss_D_multi_fake": loss_D_fake,
-            "loss_D_multi_real": loss_D_real,
+            "loss/D_multi": loss_D,
+            "loss/D_multi_fake": loss_D_fake,
+            "loss/D_multi_real": loss_D_real,
         }
         result = {
             "loss": loss_D,
@@ -346,9 +347,9 @@ class SamsModel(BaseModel):
         )
 
         log = {
-            "loss_D_temporal": loss_D,
-            "loss_D_temporal_fake": loss_D_fake,
-            "loss_D_temporal_real": loss_D_real,
+            "loss/D_temporal": loss_D,
+            "loss/D_temporal_fake": loss_D_fake,
+            "loss/D_temporal_real": loss_D_real,
         }
         result = {
             "loss": loss_D,

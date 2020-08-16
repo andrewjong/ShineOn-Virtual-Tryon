@@ -8,6 +8,11 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 import log
+from callbacks import (
+    CheckpointCustomFilename,
+    SaveOnKeyboardInterrupt,
+    CheckpointEveryNSteps,
+)
 from models import find_model_using_name
 from options.test_options import TestOptions
 from options.train_options import TrainOptions
@@ -29,7 +34,11 @@ def main(train=True):
     root_dir = osp.join(opt.experiments_dir, opt.name)
     val_check = opt.val_check_interval if hasattr(opt, "val_check_interval") else 1
     trainer = Trainer(
-        checkpoint_callback=ModelCheckpoint(save_top_k=5),
+        checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
+        callbacks=[
+            CheckpointCustomFilename(),
+            CheckpointEveryNSteps(opt.save_count),
+        ],
         gpus=opt.gpu_ids,
         default_root_dir=root_dir,
         log_save_interval=opt.display_count,
