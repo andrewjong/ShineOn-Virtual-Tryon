@@ -231,7 +231,6 @@ class SamsModel(BaseModel):
             # only up to the last index, which is for current frame
             prev_labelmaps_now = enc_lblmaps[:, start:-1, :, :, :]
             prev_n_labelmaps = torch.cat((zero_pad, prev_labelmaps_now), dim=1)
-            # from IPython import embed; embed()
 
         return prev_n_frames_G, prev_n_labelmaps
 
@@ -272,27 +271,7 @@ class SamsModel(BaseModel):
             loss = (loss_fake + loss_real) / 2
             return loss, loss_real, loss_fake
 
-    def mask_unused_frames(self, tensor: Tensor):
-        """ For progressive training, mask out the previous frames.
-
-        Args:
-            tensor: (b x Frames x c x h x w) shape.
-
-        Returns:
-
-        """
-        n_mask = self.n_frames_total - self.n_frames_now
-        b, _, c, h, w = tensor.shape
-        zeros_mask = torch.zeros(b, n_mask, c, h, w).type_as(tensor)
-        part_to_keep = tensor[:, n_mask:, :, :, :]
-
-        masked_result = torch.cat((zeros_mask, part_to_keep), dim=1)
-        return masked_result
-
     def temporal_adversarial_loss(self, batch, for_discriminator):
-        # n_mask: how many frames to mask out for progressive training
-        n_mask = self.n_frames_total - self.n_frames_now
-
         reals = self.mask_unused_frames(batch["image"])
         b, _, _, h, w = reals.shape
         reals = reals.view(b, -1, h, w)
@@ -326,6 +305,23 @@ class SamsModel(BaseModel):
             )
             loss = (loss_fake + loss_real) / 2
             return loss, loss_real, loss_fake
+
+    def mask_unused_frames(self, tensor: Tensor):
+        """ For progressive training, mask out the previous frames.
+
+        Args:
+            tensor: (b x Frames x c x h x w) shape.
+
+        Returns:
+
+        """
+        n_mask = self.n_frames_total - self.n_frames_now
+        b, _, c, h, w = tensor.shape
+        zeros_mask = torch.zeros(b, n_mask, c, h, w).type_as(tensor)
+        part_to_keep = tensor[:, n_mask:, :, :, :]
+
+        masked_result = torch.cat((zeros_mask, part_to_keep), dim=1)
+        return masked_result
 
     def multiscale_discriminator_step(self, batch):
         loss_D, loss_D_real, loss_D_fake = self.multiscale_adversarial_loss(
