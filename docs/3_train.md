@@ -34,8 +34,20 @@ ssh -N -L localhost:6006:localhost:6006 username@IP.ADDRESS
 COMING SOON
 
 ```bash
-python train.py --model sams --n_frames [max that fits on GPU, 5+ is ideal]
+python train.py \
+--name "SAMS-GAN_train" \
+--model sams \
+--ngf_power_start 6 \
+--ngf_power_end 10 \
+--n_frames_total 5 \
+--n_frames_now 1 \
+--batch_size 4 \
+--num_workers 8
 ```
+
+Progressive Training:
+- `--n_frames_total` . Aim for max that fits on GPU, 5+ is ideal.
+- `--n_frames_now` . Slowly manually increase from 1 up to `--n_frames_total`
 
 Topics:
 - Generator size
