@@ -67,6 +67,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
 
+
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with
         # this: https://github.com/PyTorchLightning/pytorch-lightning/issues/1228
@@ -145,22 +146,13 @@ class BaseModel(pl.LightningModule, abc.ABC):
         person_visual_tensors = []
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> timing dataloader and profiler
+
             if self.hparams.n_frames_total > 1:
                 channels = tensor.shape[-3]//2
                 tensor = tensor[:, channels:, :, :]
             else:
                 channels = tensor.shape[-3]
-<<<<<<< HEAD
-=======
-            channels = tensor.shape[-3]//2
-            tensor = tensor[:, channels:, :, :]
->>>>>>> got flownet training working w 2 frames, but training is really slow
-=======
->>>>>>> timing dataloader and profiler
+
             if channels <= VVTDataset.RGB_CHANNELS:
                 person_visual_tensors.append(tensor)
             else:

@@ -49,10 +49,16 @@ def main(train=True):
 <<<<<<< HEAD
 =======
         profiler=True
+<<<<<<< HEAD
 >>>>>>> timing dataloader and profiler
 =======
         profiler=True
 >>>>>>> timing dataloader and profiler
+=======
+=======
+        profiler=True,
+>>>>>>> training is faster, change back to flow with 1 frame
+>>>>>>> training is faster, change back to flow with 1 frame
     )
 
     def save_on_interrupt(*args, name=""):
