@@ -1,5 +1,5 @@
 # coding=utf-8
-from typing import Type, TypeVar
+from typing import Type, TypeVar, Iterable
 import json
 from abc import abstractmethod, ABC
 from argparse import ArgumentParser
@@ -69,7 +69,7 @@ class TryonDataset(BaseDataset, ABC):
         parser.add_argument(
             "--val_fraction",
             type=float,
-            default=0.1,
+            default=0.01,
             help="fraction of data to reserve for validation",
         )
         if not is_train:  # on test dataset, use the whole thing
@@ -318,16 +318,16 @@ class TryonDataset(BaseDataset, ABC):
             + (_parse_array == LIP.HAIR).astype(np.float32)
             + (_parse_array == LIP.SUNGLASSES).astype(np.float32)
             + (_parse_array == LIP.FACE).astype(np.float32)
-            + (_parse_array == LIP.SOCKS).astype(np.float32)
-            + (_parse_array == LIP.PANTS).astype(np.float32)
-            + (_parse_array == LIP.SCARF).astype(np.float32)
-            + (_parse_array == LIP.SKIRT).astype(np.float32)
-            + (_parse_array == LIP.LEFT_ARM).astype(np.float32)
-            + (_parse_array == LIP.RIGHT_ARM).astype(np.float32)
-            + (_parse_array == LIP.LEFT_LEG).astype(np.float32)
-            + (_parse_array == LIP.RIGHT_LEG).astype(np.float32)
-            + (_parse_array == LIP.LEFT_SHOE).astype(np.float32)
-            + (_parse_array == LIP.RIGHT_SHOE).astype(np.float32)
+            # + (_parse_array == LIP.SOCKS).astype(np.float32)
+            # + (_parse_array == LIP.PANTS).astype(np.float32)
+            # + (_parse_array == LIP.SCARF).astype(np.float32)
+            # + (_parse_array == LIP.SKIRT).astype(np.float32)
+            # + (_parse_array == LIP.LEFT_ARM).astype(np.float32)
+            # + (_parse_array == LIP.RIGHT_ARM).astype(np.float32)
+            # + (_parse_array == LIP.LEFT_LEG).astype(np.float32)
+            # + (_parse_array == LIP.RIGHT_LEG).astype(np.float32)
+            # + (_parse_array == LIP.LEFT_SHOE).astype(np.float32)
+            # + (_parse_array == LIP.RIGHT_SHOE).astype(np.float32)
         )
         _phead = torch.from_numpy(_parse_head)  # [0,1]
         im_h = im * _phead - (1 - _phead)  # [-1,1], fill 0 for other parts
@@ -524,3 +524,13 @@ class TryonDataset(BaseDataset, ABC):
         # run_assertions()
 
         return result
+
+
+def parse_num_channels(list_of_inputs: Iterable[str]):
+    """ Get number of in channels for each input"""
+    if isinstance(list_of_inputs, str):
+        list_of_inputs = [list_of_inputs]
+    channels = sum(
+        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
+    )
+    return channels

@@ -6,14 +6,10 @@ import torch
 from torch import Tensor
 from torch.nn import L1Loss
 from torch.optim import Adam
+from torch.utils.data.dataloader import default_collate
 
-from models import BaseModel, networks
-from models.networks import (
-    MultiscaleDiscriminator,
-    NLayerDiscriminator,
-    parse_num_channels,
-    TryonDataset,
-)
+from datasets.tryon_dataset import parse_num_channels, TryonDataset
+from models.base_model import BaseModel
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
 from options import gan_options
@@ -30,6 +26,12 @@ class SamsModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(SamsModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose", "flow"))
+        parser.add_argument(
+            "--encoder_input",
+            default="flow",
+            help="which of the --person_inputs to use as the encoder segmap input "
+            "(only 1 allowed).",
+        )
         # num previous frames fed as input = n_frames_total - 1
         parser.set_defaults(n_frames_total=5)
         # batch size effectively becomes n_frames_total * batch
@@ -46,15 +48,18 @@ class SamsModel(BaseModel):
             default="spectralinstance",
             help="instance normalization or batch normalization",
         )
-        parser.add_argument(
-            "--encoder_input",
-            default="flow",
-            help="which of the --person_inputs to use as the encoder segmap input "
-                 "(only 1 allowed).",
-        )
+        from models import networks
+
         parser = networks.modify_commandline_options(parser, is_train)
         parser = gan_options.modify_commandline_options(parser, is_train)
         return parser
+
+    @staticmethod
+    def apply_default_encoder_input(opt):
+        """ Call in Base Options after opt parsed """
+        if hasattr(opt, "encoder_input") and opt.encoder_input is None:
+            opt.encoder_input = opt.person_inputs[0]
+        return opt
 
     def __init__(self, hparams):
         # Lightning bug, see https://github.com/PyTorchLightning/pytorch-lightning/issues/924#issuecomment-673137383
@@ -62,6 +67,9 @@ class SamsModel(BaseModel):
             hparams = argparse.Namespace(**hparams)
         super().__init__(hparams)
         self.n_frames_total = hparams.n_frames_total
+        self.n_frames_now = (
+            hparams.n_frames_now if hparams.n_frames_now else self.n_frames_total
+        )
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
 
@@ -69,13 +77,17 @@ class SamsModel(BaseModel):
             init = hparams.init_type, hparams.init_variance
             self.generator.init_weights(*init)
 
+            from models.networks import MultiscaleDiscriminator
+
             self.multiscale_discriminator = MultiscaleDiscriminator(hparams)
             self.multiscale_discriminator.init_weights(*init)
 
             enc_ch = parse_num_channels(hparams.encoder_input)
             temporal_in_channels = self.n_frames_total * (
-                    enc_ch + TryonDataset.RGB_CHANNELS
+                enc_ch + TryonDataset.RGB_CHANNELS
             )
+            from models.networks import NLayerDiscriminator
+
             self.temporal_discriminator = NLayerDiscriminator(
                 hparams, in_channels=temporal_in_channels
             )
@@ -121,23 +133,23 @@ class SamsModel(BaseModel):
 
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
         result = self.generator_step(batch)
-        train_log = result["log"]
-        val_loss = train_log["loss_G_l1"] + train_log["loss_G_vgg"]
-        val_log = {
+        generator_log = result["log"]
+        val_loss = generator_log["loss/G_l1"] + generator_log["loss/G_vgg"]
+        outputs = {
             "val_loss": val_loss,
-            "val_G_l1": train_log["loss_G_l1"],
-            "val_G_vgg": train_log["loss_G_vgg"],
+            "val_G_l1": generator_log["loss/G_l1"],
+            "val_G_vgg": generator_log["loss/G_vgg"],
         }
-        return {"val_loss": val_loss, "log": val_log}
+        return outputs
 
     def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
         pass
 
     def generator_step(self, batch):
-        loss_G_adv_multiscale = self.multiscale_discriminator_loss(
+        loss_G_adv_multiscale = self.multiscale_adversarial_loss(
             batch, for_discriminator=False
         )
-        loss_G_adv_temporal = self.temporal_discriminator_loss(
+        loss_G_adv_temporal = self.temporal_adversarial_loss(
             batch, for_discriminator=False
         )
         ground_truth = batch["image"][:, -1, :, :, :]
@@ -149,11 +161,11 @@ class SamsModel(BaseModel):
 
         # Log
         log = {
-            "loss_G": loss_G,
-            "loss_G_adv_multiscale": loss_G_adv_multiscale,
-            "loss_G_adv_temporal": loss_G_adv_temporal,
-            "loss_G_l1": loss_G_l1,
-            "loss_G_vgg": loss_G_vgg,
+            "loss/G": loss_G,
+            "loss/G_adv_multiscale": loss_G_adv_multiscale,
+            "loss/G_adv_temporal": loss_G_adv_temporal,
+            "loss/G_l1": loss_G_l1,
+            "loss/G_vgg": loss_G_vgg,
         }
         result = {
             "loss": loss_G,
@@ -169,8 +181,10 @@ class SamsModel(BaseModel):
         # make a buffer of previous frames, also (b x N x c x h x w)
         all_generated_frames: Tensor = torch.zeros_like(batch["image"])
 
-        # generate previous frames before this one
-        for fIdx in range(self.n_frames_total):
+        # generate previous frames before this one.
+        #   for progressive training, just generate from here
+        start_idx = self.n_frames_total - self.n_frames_now
+        for fIdx in range(start_idx, self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
             labelmaps_this_frame: Dict[str, Tensor] = {
@@ -179,40 +193,49 @@ class SamsModel(BaseModel):
             prev_n_frames_G, prev_n_labelmaps = self.get_prev_frames_and_maps(
                 batch, fIdx, all_generated_frames
             )
-            # forward
+            # synthesize
             fake_frame: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
-            # add to buffer, but don't detach here; must go through temporal discriminator
+            # add to buffer, but don't detach; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame
 
         return fake_frame, labelmaps_this_frame, all_generated_frames
 
     def get_prev_frames_and_maps(self, batch, fIdx, all_G_frames):
         """
-        Get previous frames, but protected by zero
+        Get previous frames, but padded by zero
         Returns:
             - prev_frames[end_idx - self.n_frames_total]... , prev_frames[end_idx]
 
         """
         enc_lblmaps: Tensor = batch[self.hparams.encoder_input]
-        n = self.hparams.n_frames_total
-        if n == 1:
+        nframes = self.n_frames_total
+        if nframes == 1:
             # (b x 1 x c x h x w)
             prev_n_frames_G = torch.zeros_like(all_G_frames)
-            prev_n_label_maps = torch.zeros_like(enc_lblmaps)
+            prev_n_labelmaps = torch.zeros_like(enc_lblmaps)
         else:
+            n_prev = nframes - 1
+            # Previously generated frames.
             # (b x N-1 x c x h x w)
             indices = torch.tensor(
-                [(i + 1) % n for i in range(fIdx, fIdx + n - 1)],
+                [(i + 1) % nframes for i in range(fIdx, fIdx + n_prev)],
                 device=all_G_frames.device,
             )
             prev_n_frames_G = torch.index_select(all_G_frames, 1, indices).detach()
-            prev_n_label_maps = torch.index_select(enc_lblmaps, 1, indices).detach()
 
-        return prev_n_frames_G, prev_n_label_maps
+            # Corresponding encoding maps.
+            b, n, c, h, w = enc_lblmaps.shape
+            start = nframes - fIdx  # nframes= 5,fIdx=3
+            zero_pad = torch.zeros(b, start, c, h, w).type_as(enc_lblmaps)
+            # only up to the last index, which is for current frame
+            prev_labelmaps_now = enc_lblmaps[:, start:-1, :, :, :]
+            prev_n_labelmaps = torch.cat((zero_pad, prev_labelmaps_now), dim=1)
 
-    def multiscale_discriminator_loss(self, batch, for_discriminator):
+        return prev_n_frames_G, prev_n_labelmaps
+
+    def multiscale_adversarial_loss(self, batch, for_discriminator):
         # Forward
         if not for_discriminator:  # generator
             fake_frame, labelmaps_this_frame, all_gen_frames = self.generate_n_frames(
@@ -249,20 +272,29 @@ class SamsModel(BaseModel):
             loss = (loss_fake + loss_real) / 2
             return loss, loss_real, loss_fake
 
-    def temporal_discriminator_loss(self, batch, for_discriminator):
-        ground_truth = batch["image"]  # this time it's all of them
-        b, n, c, h, w = ground_truth.shape
-        reals = ground_truth.view(b, n * c, h, w)
-        # already prepared by multiscale_discriminator_loss(). that one needs to be
-        # called first!
-        fakes = self.all_gen_frames.view(b, n * c, h, w)
+    def temporal_adversarial_loss(self, batch, for_discriminator):
+        reals = self.mask_unused_frames(batch["image"])
+        b, _, _, h, w = reals.shape
+        reals = reals.view(b, -1, h, w)
 
+        # fakes: already prepared by multiscale_discriminator_loss(). is pre-masked
+        #  by generate_n_frames
+        fakes = self.all_gen_frames.view(b, -1, h, w)
+
+        # enc_labl_maps: the single encoder labelmaps (e.g. flow) for ALL n_frames.
+        # for progressive training, should get rid of the extra ones, because generator
+        # doesn't see it either
         enc_labl_maps: Tensor = batch[self.hparams.encoder_input]
+        enc_labl_maps = self.mask_unused_frames(enc_labl_maps)
+        b, _, _, h, w = enc_labl_maps.shape
         input_semantics = enc_labl_maps.view(b, -1, h, w)
+
+        # run through temporal discriminator
         pred_fake, pred_real = self.discriminate(
             self.temporal_discriminator, input_semantics, fakes, reals
         )
 
+        # calculate adversarial loss
         loss_real = self.criterion_GAN(
             pred_real, True, for_discriminator=for_discriminator
         )
@@ -275,15 +307,32 @@ class SamsModel(BaseModel):
             loss = (loss_fake + loss_real) / 2
             return loss, loss_real, loss_fake
 
+    def mask_unused_frames(self, tensor: Tensor):
+        """ For progressive training, mask out the previous frames.
+
+        Args:
+            tensor: (b x Frames x c x h x w) shape.
+
+        Returns:
+
+        """
+        n_mask = self.n_frames_total - self.n_frames_now
+        b, _, c, h, w = tensor.shape
+        zeros_mask = torch.zeros(b, n_mask, c, h, w).type_as(tensor)
+        part_to_keep = tensor[:, n_mask:, :, :, :]
+
+        masked_result = torch.cat((zeros_mask, part_to_keep), dim=1)
+        return masked_result
+
     def multiscale_discriminator_step(self, batch):
-        loss_D, loss_D_real, loss_D_fake = self.multiscale_discriminator_loss(
+        loss_D, loss_D_real, loss_D_fake = self.multiscale_adversarial_loss(
             batch, for_discriminator=True
         )
 
         log = {
-            "loss_D_multi": loss_D,
-            "loss_D_multi_fake": loss_D_fake,
-            "loss_D_multi_real": loss_D_real,
+            "loss/D_multi": loss_D,
+            "loss/D_multi_fake": loss_D_fake,
+            "loss/D_multi_real": loss_D_real,
         }
         result = {
             "loss": loss_D,
@@ -293,14 +342,14 @@ class SamsModel(BaseModel):
         return result
 
     def temporal_discriminator_step(self, batch):
-        loss_D, loss_D_real, loss_D_fake = self.temporal_discriminator_loss(
+        loss_D, loss_D_real, loss_D_fake = self.temporal_adversarial_loss(
             batch, for_discriminator=True
         )
 
         log = {
-            "loss_D_temporal": loss_D,
-            "loss_D_temporal_fake": loss_D_fake,
-            "loss_D_temporal_real": loss_D_real,
+            "loss/D_temporal": loss_D,
+            "loss/D_temporal_fake": loss_D_fake,
+            "loss/D_temporal_real": loss_D_real,
         }
         result = {
             "loss": loss_D,
@@ -350,7 +399,6 @@ class SamsModel(BaseModel):
         # add to experiment
         for i, img in enumerate(tensor):
             self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
-
 
 
 def split_predictions(pred):

@@ -4,11 +4,9 @@ import logging
 import os
 import os.path as osp
 from glob import glob
-from torch.utils.data import DataLoader
 
-from datasets.tryon_dataset import TryonDataset
 from datasets.n_frames_interface import NFramesInterface
-from options.train_options import TrainOptions
+from datasets.tryon_dataset import TryonDataset
 
 logger = logging.getLogger("logger")
 

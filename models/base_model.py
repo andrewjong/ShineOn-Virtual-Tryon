@@ -1,18 +1,21 @@
 import abc
 import argparse
+import logging
 import os.path as osp
 from pprint import pformat
-from typing import Union, List, Iterable
+from typing import List, Dict
+from torch import Tensor
 
 import pytorch_lightning as pl
 import torch
 from tensorboardX import SummaryWriter
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.utils.data.dataloader import default_collate
 
-from datasets import find_dataset_using_name, VVTDataset, CappedDataLoader
-from datasets.tryon_dataset import TryonDataset
-import logging
+from datasets import find_dataset_using_name, CappedDataLoader
+from datasets.tryon_dataset import TryonDataset, parse_num_channels
+from datasets.vvt_dataset import VVTDataset
 
 logger = logging.getLogger("logger")
 
@@ -70,6 +73,8 @@ class BaseModel(pl.LightningModule, abc.ABC):
         board: SummaryWriter = self.logger.experiment
         board.add_text("hparams", pformat(self.hparams, indent=4, width=1))
 
+        # hacky, adjust the filename
+
         # ----- actual data preparation ------
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
@@ -96,6 +101,17 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def validation_step(self, batch, idx):
         result = self.training_step(batch, idx)
         return {"val_loss": result["loss"]}
+
+    def validation_epoch_end(
+        self, outputs: List[Dict[str, Tensor]]
+    ) -> Dict[str, Dict[str, Tensor]]:
+        stacked = default_collate(outputs)
+        ret = {k: v.mean() for k, v in stacked.items()}
+        ret["global_step"] = self.global_step
+        val_loss=ret["val_loss"]
+        logger.info(f"{self.current_epoch=}, {self.global_step=}, {val_loss=}")
+
+        return ret
 
     def test_dataloader(self) -> DataLoader:
         # same loader type. test paths will be defined in hparams
@@ -144,6 +160,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def replace_actual_with_visual(self) -> List[str]:
         """
         Replaces non-RGB names with the names of their visualizations.
+        Returns a list copy.
         """
         person_visuals: List[str] = self.hparams.person_inputs.copy()
         if "agnostic" in person_visuals:
@@ -164,19 +181,3 @@ class BaseModel(pl.LightningModule, abc.ABC):
                 person_visuals.insert(i, "flow_image")
 
         return person_visuals
-
-
-
-def parse_num_channels(list_of_inputs: Iterable[str]):
-    """ Get number of in channels for each input"""
-    if isinstance(list_of_inputs, str):
-        list_of_inputs = [list_of_inputs]
-    channels = sum(
-        getattr(TryonDataset, f"{inp.upper()}_CHANNELS") for inp in list_of_inputs
-    )
-    return channels
-
-
-def get_and_cat_inputs(batch, names):
-    inputs = torch.cat([batch[inp] for inp in names], dim=1)
-    return inputs

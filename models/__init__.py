@@ -1,9 +1,5 @@
 import importlib
 
-import torch
-
-from models.base_model import BaseModel
-
 
 def find_model_using_name(model_name):
     """Import the module "data/[dataset_name]_dataset.py".
@@ -16,6 +12,7 @@ def find_model_using_name(model_name):
 
     model = None
     target_model_name = model_name.replace("_", "") + "model"
+    from models.base_model import BaseModel
     for name, cls in modellib.__dict__.items():
         if name.lower() == target_model_name.lower() and issubclass(cls, BaseModel):
             model = cls
