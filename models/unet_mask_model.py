@@ -108,7 +108,6 @@ class UnetMaskModel(BaseModel):
                 warped_cloths_chunked, p_rendereds_warped if p_rendereds_warped is not None else p_rendereds_chunked, m_composites_chunked
             )
         ]
-        #assert 1 == 0, print(len(p_tryons), p_tryons[0].size())
         p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons
