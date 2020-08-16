@@ -91,7 +91,7 @@ class UnetMaskModel(BaseModel):
         if flows is not None:
 
             warped_flows = [self.resample(
-                prev_im, flows.contiguous()
+                prev_im, flows[0].contiguous()
             )]  # what is past_frame, also not sure flows has n_frames_total
 
 
@@ -110,7 +110,6 @@ class UnetMaskModel(BaseModel):
                 warped_cloths_chunked, p_rendereds_warped if p_rendereds_warped is not None else p_rendereds_chunked, m_composites_chunked
             )
         ]
-        #assert 1 == 0, print(len(p_tryons), p_tryons[0].size())
         p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons
@@ -127,11 +126,9 @@ class UnetMaskModel(BaseModel):
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward
-        start_time = time.time()
         p_rendered, m_composite, p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
-        print("forward pass", time.time() - start_time)
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
         loss_image_vgg = self.criterionVGG(p_tryon, im)
@@ -139,8 +136,8 @@ class UnetMaskModel(BaseModel):
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
-        #if self.global_step % self.hparams.display_count == 0:
-        #    self.visualize(batch, p_rendered, m_composite, p_tryon)
+        if self.global_step % self.hparams.display_count == 0:
+            self.visualize(batch, p_rendered, m_composite, p_tryon)
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,
