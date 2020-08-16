@@ -16,9 +16,11 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 from enum import Enum
+<<<<<<< HEAD
 
+=======
+>>>>>>> fixed another conflict
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
-import time
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
