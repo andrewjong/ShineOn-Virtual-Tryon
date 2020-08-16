@@ -13,6 +13,12 @@ class TrainOptions(BaseOptions):
             help="how often to save a checkpoint, in steps",
             default=1000,
         )
+        parser.add_argument(
+            "--val_check_interval",
+            type=float,
+            default=0.25,
+            help="validate and potentially save a checkpoint after this many epochs"
+        )
         # optimization
         parser.add_argument(
             "--lr", type=float, default=1e-4, help="initial learning rate for adam"

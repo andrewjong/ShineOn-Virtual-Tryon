@@ -27,6 +27,7 @@ def main(train=True):
         model = model_class(opt)
 
     root_dir = osp.join(opt.experiments_dir, opt.name)
+    val_check = opt.val_check_interval if hasattr(opt, "val_check_interval") else 1
     trainer = Trainer(
         checkpoint_callback=ModelCheckpoint(save_top_k=5),
         gpus=opt.gpu_ids,
@@ -34,6 +35,7 @@ def main(train=True):
         log_save_interval=opt.display_count,
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,
+        val_check_interval=val_check,
     )
 
     def save_on_interrupt(*args, name=""):
