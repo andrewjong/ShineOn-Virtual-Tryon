@@ -61,7 +61,7 @@ class BaseOptions:
             "--display_count",
             type=int,
             help="how often to update tensorboard, in steps",
-            default=100,
+            default=200,
         )
         parser.add_argument(
             "--loglevel",

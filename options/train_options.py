@@ -13,7 +13,7 @@ class TrainOptions(BaseOptions):
             "--save_count",
             type=int,
             help="how often in steps to always save a checkpoint",
-            default=1000,
+            default=10000,
         )
         parser.add_argument(
             "--val_check_interval",
