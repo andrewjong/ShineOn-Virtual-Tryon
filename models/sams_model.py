@@ -36,12 +36,30 @@ class SamsModel(BaseModel):
         parser.set_defaults(n_frames_total=5)
         # batch size effectively becomes n_frames_total * batch
         parser.set_defaults(batch_size=4)
-        # parser.add_argument(  # just hard code choices for now
-        #     "--discriminator",
-        #     nargs="+",
-        #     default=("multiscale", "temporal"),
-        #     choices=("multiscale", "temporal", "nlayer"),
-        # )
+        parser.add_argument(
+            "--wt_l1",
+            type=float,
+            default=1.0,
+            help="Weight applied to l1 loss in the generator",
+        )
+        parser.add_argument(
+            "--wt_vgg",
+            type=float,
+            default=1.0,
+            help="Weight applied to vgg loss in the generator",
+        )
+        parser.add_argument(
+            "--wt_multiscale",
+            type=float,
+            default=1.0,
+            help="Weight applied to adversarial multiscale loss in the generator",
+        )
+        parser.add_argument(
+            "--wt_temporal",
+            type=float,
+            default=1.0,
+            help="Weight applied to adversarial temporal loss in the generator",
+        )
         parser.add_argument(
             "--norm_D",
             type=str,
@@ -96,8 +114,11 @@ class SamsModel(BaseModel):
             self.criterion_GAN = GANLoss(hparams.gan_mode)
             self.criterion_l1 = L1Loss()
             self.criterion_VGG = VGGLoss()
-            self.crit_adv_multiscale = None  # TODO
-            self.crit_adv_temporal = None  # TODO
+
+            self.wt_l1 = hparams.wt_l1
+            self.wt_vgg = hparams.wt_vgg
+            self.wt_multiscale = hparams.wt_multiscale
+            self.wt_temporal = hparams.wt_temporal
 
     def forward(self, *args, **kwargs):
         self.generator(*args, **kwargs)
@@ -134,11 +155,12 @@ class SamsModel(BaseModel):
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
         result = self.generator_step(batch)
         generator_log = result["log"]
-        val_loss = generator_log["loss/G_l1"] + generator_log["loss/G_vgg"]
+        l1, vgg = generator_log["loss/G/l1"], generator_log["loss/G/vgg"]
+        val_loss = l1 + vgg
         outputs = {
             "val_loss": val_loss,
-            "val_G_l1": generator_log["loss/G_l1"],
-            "val_G_vgg": generator_log["loss/G_vgg"],
+            "val_G_l1": l1,
+            "val_G_vgg": vgg,
         }
         return outputs
 
@@ -146,31 +168,35 @@ class SamsModel(BaseModel):
         pass
 
     def generator_step(self, batch):
-        loss_G_adv_multiscale = self.multiscale_adversarial_loss(
-            batch, for_discriminator=False
+        loss_G_adv_multiscale = (
+            self.multiscale_adversarial_loss(batch, for_discriminator=False)
+            * self.wt_multiscale
         )
-        loss_G_adv_temporal = self.temporal_adversarial_loss(
-            batch, for_discriminator=False
+        loss_G_adv_temporal = (
+            self.temporal_adversarial_loss(batch, for_discriminator=False)
+            * self.wt_temporal
         )
         ground_truth = batch["image"][:, -1, :, :, :]
         fake_frame = self.all_gen_frames[:, -1, :, :, :]
-        loss_G_l1 = self.criterion_l1(fake_frame, ground_truth)
-        loss_G_vgg = self.criterion_VGG(fake_frame, ground_truth)
+        loss_G_l1 = self.criterion_l1(fake_frame, ground_truth) * self.wt_l1
+        loss_G_vgg = self.criterion_VGG(fake_frame, ground_truth) * self.wt_vgg
 
-        loss_G = loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale + loss_G_adv_temporal
+        loss_G = (
+            loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale + loss_G_adv_temporal
+        )
 
         # Log
         log = {
             "loss/G": loss_G,
-            "loss/G_adv_multiscale": loss_G_adv_multiscale,
-            "loss/G_adv_temporal": loss_G_adv_temporal,
-            "loss/G_l1": loss_G_l1,
-            "loss/G_vgg": loss_G_vgg,
+            "loss/G/adv_multiscale": loss_G_adv_multiscale,
+            "loss/G/adv_temporal": loss_G_adv_temporal,
+            "loss/G/l1": loss_G_l1,
+            "loss/G/vgg": loss_G_vgg,
         }
         result = {
             "loss": loss_G,
             "log": log,
-            "progress_bar": {"loss_G": loss_G},
+            "progress_bar": {"loss/G": loss_G},
         }
         return result
 
@@ -330,14 +356,14 @@ class SamsModel(BaseModel):
         )
 
         log = {
-            "loss/D_multi": loss_D,
-            "loss/D_multi_fake": loss_D_fake,
-            "loss/D_multi_real": loss_D_real,
+            "loss/D/multi": loss_D,
+            "loss/D/multi_fake": loss_D_fake,
+            "loss/D/multi_real": loss_D_real,
         }
         result = {
             "loss": loss_D,
             "log": log,
-            "progress_bar": {"loss_D_multi": loss_D},
+            "progress_bar": {"loss/D/multi": loss_D},
         }
         return result
 
@@ -347,14 +373,14 @@ class SamsModel(BaseModel):
         )
 
         log = {
-            "loss/D_temporal": loss_D,
-            "loss/D_temporal_fake": loss_D_fake,
-            "loss/D_temporal_real": loss_D_real,
+            "loss/D/temporal": loss_D,
+            "loss/D/temporal_fake": loss_D_fake,
+            "loss/D/temporal_real": loss_D_real,
         }
         result = {
             "loss": loss_D,
             "log": log,
-            "progress_bar": {"loss_D_temporal": loss_D},
+            "progress_bar": {"loss/D/temporal": loss_D},
         }
         return result
 
