@@ -44,26 +44,8 @@ def main(train=True):
         log_save_interval=opt.display_count,
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,
-<<<<<<< HEAD
         val_check_interval=val_check,
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
         profiler=True
-<<<<<<< HEAD
->>>>>>> timing dataloader and profiler
-=======
-        profiler=True
->>>>>>> timing dataloader and profiler
-=======
-=======
-        profiler=True,
->>>>>>> training is faster, change back to flow with 1 frame
->>>>>>> training is faster, change back to flow with 1 frame
-=======
-        profiler=True
-
->>>>>>> 83bb8c9375c4c19053feaae4814ba1931a860199
     )
 
     def save_on_interrupt(*args, name=""):
