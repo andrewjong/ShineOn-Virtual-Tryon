@@ -80,14 +80,14 @@ class WarpModel(BaseModel):
 
         # forward
         grid, theta = self.forward(person_inputs, cloth_inputs)
-        warped_cloth = F.grid_sample(c, grid, padding_mode="border")
-        warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
+        self.warped_cloth = F.grid_sample(c, grid, padding_mode="border")
+        self.warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
         # loss
-        loss = F.l1_loss(warped_cloth, im_c)
+        loss = F.l1_loss(self.warped_cloth, im_c)
 
         # Logging
         if self.global_step % self.hparams.display_count == 0:
-            self.visualize(batch, warped_cloth, warped_grid)
+            self.visualize(batch)
 
         tensorboard_scalars = {"epoch": self.current_epoch, "loss": loss}
 
@@ -121,26 +121,26 @@ class WarpModel(BaseModel):
 
             # forward pass
             grid, theta = self.forward(person_inputs, cloth_inputs)
-            warped_cloth = F.grid_sample(c, grid, padding_mode="border")
+            self.warped_cloth = F.grid_sample(c, grid, padding_mode="border")
             warped_mask = F.grid_sample(cm, grid, padding_mode="zeros")
-            warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
+            self.warped_grid = F.grid_sample(im_g, grid, padding_mode="zeros")
 
             # save images
-            save_images(warped_cloth, c_names, warp_cloth_dirs)
+            save_images(self.warped_cloth, c_names, warp_cloth_dirs)
             save_images(warped_mask * 2 - 1, c_names, warp_mask_dirs)
 
         result = {"progress_bar": progress_bar}
         return result
 
-    def visualize(self, b, warped_cloth, warped_grid):
+    def visualize(self, b, tag="train"):
         person_visuals = self.fetch_person_visuals(b)
 
         visuals = [
             person_visuals,
-            [b["cloth"], warped_cloth, b["im_cloth"]],
-            [warped_grid, (warped_cloth + b["image"]) * 0.5, b["image"]],
+            [b["cloth"], self.warped_cloth, b["im_cloth"]],
+            [self.warped_grid, (self.warped_cloth + b["image"]) * 0.5, b["image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
-            self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)

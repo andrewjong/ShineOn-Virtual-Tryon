@@ -126,19 +126,19 @@ class UnetMaskModel(BaseModel):
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-        # forward
-        p_rendered, m_composite, p_tryon = self.forward(
+        # forward. save outputs to self for visualization
+        self.p_rendered, self.m_composite, self.p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
         # loss
-        loss_image_l1 = F.l1_loss(p_tryon, im)
-        loss_image_vgg = self.criterionVGG(p_tryon, im)
-        loss_mask_l1 = F.l1_loss(m_composite, cm)
+        loss_image_l1 = F.l1_loss(self.p_tryon, im)
+        loss_image_vgg = self.criterionVGG(self.p_tryon, im)
+        loss_mask_l1 = F.l1_loss(self.m_composite, cm)
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
         if self.global_step % self.hparams.display_count == 0:
-            self.visualize(batch, p_rendered, m_composite, p_tryon)
+            self.visualize(batch)
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,
@@ -178,24 +178,24 @@ class UnetMaskModel(BaseModel):
             person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
             cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-            p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
+            self.p_rendered, self.m_composite, self.p_tryon = self.forward(person_inputs, cloth_inputs)
 
-            save_images(p_tryon, im_names, try_on_dirs)
+            save_images(self.p_tryon, im_names, try_on_dirs)
 
         result = {"progress_bar": progress_bar}
         return result
 
-    def visualize(self, b, p_rendered, m_composite, p_tryon):
+    def visualize(self, b, tag="train"):
         person_visuals = self.fetch_person_visuals(b)
         visuals = [
             person_visuals,
-            [b["cloth"], b["cloth_mask"] * 2 - 1, m_composite * 2 - 1],
-            [p_rendered, p_tryon, b["image"], b["prev_image"]],
+            [b["cloth"], b["cloth_mask"] * 2 - 1, self.m_composite * 2 - 1],
+            [self.p_rendered, self.p_tryon, b["image"], b["prev_image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
-            self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
 
     def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
         """
