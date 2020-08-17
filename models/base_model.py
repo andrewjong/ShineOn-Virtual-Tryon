@@ -146,11 +146,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         person_visual_tensors = []
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
-            if self.hparams.n_frames_total > 1:
-                channels = tensor.shape[-3]//2
-                tensor = tensor[:, -1 * channels:, :, :]
-            else:
-                channels = tensor.shape[-3]
+            channels = tensor.shape[-3]
 
             if channels <= VVTDataset.RGB_CHANNELS:
                 person_visual_tensors.append(tensor)

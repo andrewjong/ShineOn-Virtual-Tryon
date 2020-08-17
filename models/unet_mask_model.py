@@ -8,6 +8,7 @@ from torch import nn as nn
 from torch.nn import functional as F
 import torchvision
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
+from datasets.vvt_dataset import VVTDataset
 from models.base_model import BaseModel
 from util import get_and_cat_inputs
 from models.networks import init_weights
@@ -17,7 +18,9 @@ from models.networks.cpvton.unet import UnetGenerator
 from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
-import time
+import logging
+
+logger = logging.getLogger("logger")
 
 class UnetMaskModel(BaseModel):
     """ CP-VTON Try-On Module (TOM) """
@@ -193,3 +196,35 @@ class UnetMaskModel(BaseModel):
         # add to experiment
         for i, img in enumerate(tensor):
             self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+
+    def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
+        """
+        Gets the correct tensors for --person_inputs. Can sort it with sort_fn if
+        desired.
+        Args:
+            batch:
+            sort_fn: function to sort in desired order; function should return List[str]
+        """
+        person_vis_names = self.replace_actual_with_visual()
+        if sort_fn:
+            person_vis_names = sort_fn(person_vis_names)
+        person_visual_tensors = []
+        for name in person_vis_names:
+            tensor: torch.Tensor = batch[name]
+            if self.hparams.n_frames_total > 1:
+                channels = tensor.shape[-3]//2
+                tensor = tensor[:, channels:, :, :]
+            else:
+                channels = tensor.shape[-3]
+
+            if channels <= VVTDataset.RGB_CHANNELS:
+                person_visual_tensors.append(tensor)
+            else:
+                logger.warning(
+                    f"Tried to visualize a tensor > {VVTDataset.RGB_CHANNELS} channels:"
+                    f" '{name}' tensor has {channels=}, {tensor.shape=}. Skipping it."
+                )
+        if len(person_visual_tensors) == 0:
+            raise ValueError("Didn't find any tensors to visualize!")
+
+        return person_visual_tensors
