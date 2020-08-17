@@ -67,6 +67,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
 
+
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with
         # this: https://github.com/PyTorchLightning/pytorch-lightning/issues/1228
@@ -146,6 +147,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
             channels = tensor.shape[-3]
+
             if channels <= VVTDataset.RGB_CHANNELS:
                 person_visual_tensors.append(tensor)
             else:
@@ -155,6 +157,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
                 )
         if len(person_visual_tensors) == 0:
             raise ValueError("Didn't find any tensors to visualize!")
+
         return person_visual_tensors
 
     def replace_actual_with_visual(self) -> List[str]:

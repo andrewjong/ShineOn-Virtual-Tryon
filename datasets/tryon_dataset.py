@@ -16,9 +16,7 @@ from datasets import BaseDataset
 from datasets.util import segment_cloths_from_image
 
 from enum import Enum
-
 from models.flownet2_pytorch.utils.flow_utils import flow2img, readFlow
-
 
 TryonDatasetType = TypeVar("TryonDatasetType", bound="TryonDataset")
 
@@ -212,13 +210,18 @@ class TryonDataset(BaseDataset, ABC):
         """
         ret = {}
         # person image
-        image = self.get_person_image(index)
+
+        image, prev_image = self.get_person_image(index)
+
         # load parsing image
         _parse_array = self.get_person_parsed(index)
+
         # body silhouette
         silhouette = self.get_person_body_silhouette(_parse_array)
+
         # isolated head
         im_head = self.get_person_head(image, _parse_array)
+
         # isolated cloth
         im_cloth = segment_cloths_from_image(image, _parse_array)
 
@@ -241,6 +244,7 @@ class TryonDataset(BaseDataset, ABC):
             {
                 "silhouette": silhouette,
                 "image": image,
+                "prev_image": prev_image,
                 "im_head": im_head,
                 "im_cloth": im_cloth,
             }
@@ -257,7 +261,15 @@ class TryonDataset(BaseDataset, ABC):
         # person image
         image_path = self.get_person_image_path(index)
         im = self.open_image_as_normed_tensor(image_path)
-        return im
+        try:
+            prev_image_path = self.get_person_image_path(index - 1)
+            prev_image = self.open_image_as_normed_tensor(prev_image_path)
+        except:
+            prev_image = torch.zeros_like(im)
+
+
+
+        return im, prev_image
 
     def get_person_flow(self, index):
         """
@@ -492,6 +504,7 @@ class TryonDataset(BaseDataset, ABC):
         result.update(self.get_cloth_representation(index))
         # person representation
         result.update(self.get_person_representation(index))
+
 
         # def run_assertions():
         #     assert cloth.shape == torch.Size(

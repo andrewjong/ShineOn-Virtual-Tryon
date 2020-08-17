@@ -1,3 +1,4 @@
+import os
 import os.path as osp
 import pytorch_lightning as pl
 
@@ -78,7 +79,8 @@ class CheckpointEveryNSteps(pl.Callback):
                 filename = trainer.checkpoint_callback.filename
             else:
                 filename = f"{self.prefix}_{epoch=}_{global_step=}.ckpt"
-            ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, filename)
+
+            ckpt_path = str(trainer.checkpoint_callback.dirpath) + os.sep + str(filename)
             trainer.save_checkpoint(ckpt_path)
 
 

@@ -6,8 +6,9 @@ from typing import List
 import torch
 from torch import nn as nn
 from torch.nn import functional as F
-
+import torchvision
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
+from datasets.vvt_dataset import VVTDataset
 from models.base_model import BaseModel
 from util import get_and_cat_inputs
 from models.networks import init_weights
@@ -17,6 +18,9 @@ from models.networks.cpvton.unet import UnetGenerator
 from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 from visualization import tensor_list_for_board, save_images, get_save_paths
 
+import logging
+
+logger = logging.getLogger("logger")
 
 class UnetMaskModel(BaseModel):
     """ CP-VTON Try-On Module (TOM) """
@@ -48,10 +52,13 @@ class UnetMaskModel(BaseModel):
         init_weights(self.unet, init_type="normal")
         self.prev_frame = None
 
-    def forward(self, person_representation, warped_cloths, flows=None):
+    def forward(self, person_representation, warped_cloths, flows=None, prev_im=None):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
+        if flows is not None:
+            assert self.hparams.n_frames_total <= 1, "flow does not support this"
+
         concat_tensor = torch.cat([person_representation, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
 
@@ -59,6 +66,7 @@ class UnetMaskModel(BaseModel):
         # the 2nd part the masks
         boundary = 3 * self.hparams.n_frames_total
         weight_boundary = 4 * self.hparams.n_frames_total
+
         p_rendereds = outputs[:, 0:boundary, :, :]
         m_composites = outputs[:, boundary:weight_boundary, :, :]
         weight_masks = outputs[:, weight_boundary:, :, :] if self.hparams.flow else None
@@ -67,32 +75,40 @@ class UnetMaskModel(BaseModel):
         m_composites = F.sigmoid(m_composites)
         weight_masks = F.sigmoid(weight_masks) if weight_masks is not None else None
         # chunk for operation per individual frame
-        warped_cloths_chunked = torch.chunk(warped_cloths, self.hparams.n_frames_total)
-        p_rendereds_chunked = torch.chunk(p_rendereds, self.hparams.n_frames_total)
-        m_composites_chunked = torch.chunk(m_composites, self.hparams.n_frames_total)
-        weight_masks = (
-            torch.chunk(weight_masks, self.hparams.n_frames_total)
+
+
+
+        flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1))
+        warped_cloths_chunked = list(torch.chunk(warped_cloths, self.hparams.n_frames_total, dim=1))
+        p_rendereds_chunked = list(torch.chunk(p_rendereds, self.hparams.n_frames_total,dim=1))
+        m_composites_chunked = list(torch.chunk(m_composites, self.hparams.n_frames_total,dim=1))
+        weight_masks_chunked = (
+            list(torch.chunk(weight_masks, self.hparams.n_frames_total, dim=1))
             if weight_masks is not None
             else None
         )
+        p_rendereds_warped = None
 
-        # flow = person_representation[] # how do i get flow here
+        # only use second frame for warping
+        if flows is not None:
 
-        if flows is not None and self.prev_frame is not None:
-            flows = self.resample(
-                self.prev_frame, flows
-            )  # what is past_frame, also not sure flows has n_frames_total
-            p_rendereds_chunked = [
-                (1 - weight) * flow + weight * p_rendered
-                for weight, flow, p_rendered in zip(
-                    weight_masks, flows, p_rendereds_chunked
+            warped_flows = [self.resample(
+                prev_im, flows[0].contiguous()
+            )]  # what is past_frame, also not sure flows has n_frames_total
+
+
+            p_rendereds_warped = [
+                (1 - weight) * warp_flow + weight * p_rendered
+                for weight, warp_flow, p_rendered in zip(
+                    weight_masks_chunked, warped_flows, p_rendereds_chunked
                 )
             ]
+
 
         p_tryons = [
             wc * mask + p * (1 - mask)
             for wc, p, mask in zip(
-                warped_cloths_chunked, p_rendereds_chunked, m_composites_chunked
+                warped_cloths_chunked, p_rendereds_warped if p_rendereds_warped is not None else p_rendereds_chunked, m_composites_chunked
             )
         ]
         p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
@@ -103,6 +119,7 @@ class UnetMaskModel(BaseModel):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         # unpack
         im = batch["image"]
+        prev_im = batch["prev_image"]
         cm = batch["cloth_mask"]
         flow = batch["flow"] if self.hparams.flow else None
 
@@ -111,7 +128,7 @@ class UnetMaskModel(BaseModel):
 
         # forward
         p_rendered, m_composite, p_tryon = self.forward(
-            person_inputs, cloth_inputs, flow
+            person_inputs, cloth_inputs, flow, prev_im
         )
         # loss
         loss_image_l1 = F.l1_loss(p_tryon, im)
@@ -170,13 +187,44 @@ class UnetMaskModel(BaseModel):
 
     def visualize(self, b, p_rendered, m_composite, p_tryon):
         person_visuals = self.fetch_person_visuals(b)
-
         visuals = [
             person_visuals,
             [b["cloth"], b["cloth_mask"] * 2 - 1, m_composite * 2 - 1],
-            [p_rendered, p_tryon, b["image"]],
+            [p_rendered, p_tryon, b["image"], b["prev_image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
             self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+
+    def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
+        """
+        Gets the correct tensors for --person_inputs. Can sort it with sort_fn if
+        desired.
+        Args:
+            batch:
+            sort_fn: function to sort in desired order; function should return List[str]
+        """
+        person_vis_names = self.replace_actual_with_visual()
+        if sort_fn:
+            person_vis_names = sort_fn(person_vis_names)
+        person_visual_tensors = []
+        for name in person_vis_names:
+            tensor: torch.Tensor = batch[name]
+            if self.hparams.n_frames_total > 1:
+                channels = tensor.shape[-3]//2
+                tensor = tensor[:, channels:, :, :]
+            else:
+                channels = tensor.shape[-3]
+
+            if channels <= VVTDataset.RGB_CHANNELS:
+                person_visual_tensors.append(tensor)
+            else:
+                logger.warning(
+                    f"Tried to visualize a tensor > {VVTDataset.RGB_CHANNELS} channels:"
+                    f" '{name}' tensor has {channels=}, {tensor.shape=}. Skipping it."
+                )
+        if len(person_visual_tensors) == 0:
+            raise ValueError("Didn't find any tensors to visualize!")
+
+        return person_visual_tensors
