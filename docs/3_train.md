@@ -62,7 +62,7 @@ python train.py \
 --n_frames_total 5 \
 --n_frames_now 1 \
 --batch_size 4 \
---num_workers 8
+--workers 8
 ```
 
 ### Modules
