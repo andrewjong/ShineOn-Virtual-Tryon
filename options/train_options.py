@@ -20,8 +20,10 @@ class TrainOptions(BaseOptions):
             "--val_frequency",
             dest="val_check_interval",
             type=float,
-            default=1,
-            help="validate and potentially save a checkpoint after this many epochs"
+            default=1.0,
+            help="If float, validate (and checkpoint) after this many epochs. "
+                 "If int, validate after this many batches. If 0 or 0.0, validate "
+                 "every step."
         )
         # optimization
         parser.add_argument(
