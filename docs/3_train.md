@@ -31,6 +31,8 @@ Experiment Setup
 - `--name` experiment name. Saves checkpoints and logs to `experiments/{name}`
 - `--gpu_ids`
 - `--workers`
+- `--keep_epochs` let the optimizer handle the learning rate for this many epochs
+- `--decay_epochs` linearly decay the learning rate for this many epochs (after completion of keep_epochs)
 
 Data
 - `--vvt_dataroot` path to FW-GAN VVT Dataset
