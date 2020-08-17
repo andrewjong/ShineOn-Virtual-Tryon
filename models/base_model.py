@@ -118,6 +118,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
     ) -> Dict[str, Dict[str, Tensor]]:
         stacked = default_collate(outputs)
         ret = {k: v.mean() for k, v in stacked.items()}
+        for k, v in ret.items():
+            self.logger.experiment.add_scalar(f"validation/{k}", v, self.global_step)
+
         ret["global_step"] = self.global_step
         val_loss = ret["val_loss"]
         logger.info(f"{self.current_epoch=}, {self.global_step=}, {val_loss=}")
