@@ -7,7 +7,7 @@ import torch
 from torch import Tensor
 from torch import nn
 
-from datasets.tryon_dataset import TryonDataset
+from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from models.networks import BaseNetwork
 from .attentive_multispade import AttentiveMultiSpade
 from .multispade import MultiSpade
@@ -184,7 +184,8 @@ class SamsGenerator(BaseNetwork):
             prev_n_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(
                 reference
             )
-            prev_n_labelmaps = torch.zeros(b, self.in_channels, h, w).type_as(reference)
+            enc_ch = parse_num_channels(self.hparams.encoder_input)
+            prev_n_labelmaps = torch.zeros(b, enc_ch, h, w).type_as(reference)
 
         x = prev_n_frames_G
 
