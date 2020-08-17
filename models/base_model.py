@@ -148,7 +148,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
             tensor: torch.Tensor = batch[name]
             if self.hparams.n_frames_total > 1:
                 channels = tensor.shape[-3]//2
-                tensor = tensor[:, channels:, :, :]
+                tensor = tensor[:, -1 * channels:, :, :]
             else:
                 channels = tensor.shape[-3]
 
