@@ -87,12 +87,12 @@ class UnetMaskModel(BaseModel):
         p_rendereds_warped = None
 
         # only use second frame for warping
-
         if flows is not None:
 
             warped_flows = [self.resample(
                 prev_im, flows[0].contiguous()
             )]  # what is past_frame, also not sure flows has n_frames_total
+
 
             p_rendereds_warped = [
                 (1 - weight) * warp_flow + weight * p_rendered
@@ -184,7 +184,6 @@ class UnetMaskModel(BaseModel):
 
     def visualize(self, b, p_rendered, m_composite, p_tryon):
         person_visuals = self.fetch_person_visuals(b)
-
         visuals = [
             person_visuals,
             [b["cloth"], b["cloth_mask"] * 2 - 1, m_composite * 2 - 1],

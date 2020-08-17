@@ -47,6 +47,7 @@ def main(train=True):
 <<<<<<< HEAD
         val_check_interval=val_check,
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
         profiler=True
 <<<<<<< HEAD
@@ -59,6 +60,10 @@ def main(train=True):
         profiler=True,
 >>>>>>> training is faster, change back to flow with 1 frame
 >>>>>>> training is faster, change back to flow with 1 frame
+=======
+        profiler=True
+
+>>>>>>> 83bb8c9375c4c19053feaae4814ba1931a860199
     )
 
     def save_on_interrupt(*args, name=""):
