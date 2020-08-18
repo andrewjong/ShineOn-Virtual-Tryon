@@ -74,7 +74,7 @@ class CheckpointEveryNSteps(pl.Callback):
     def on_batch_end(self, trainer: pl.Trainer, _):
         epoch = trainer.current_epoch
         global_step = trainer.global_step
-        if global_step % self.save_step_frequency == 0:
+        if global_step > 0 and global_step % self.save_step_frequency == 0:
             if self.use_modelcheckpoint_filename:
                 filename = trainer.checkpoint_callback.filename
             else:
