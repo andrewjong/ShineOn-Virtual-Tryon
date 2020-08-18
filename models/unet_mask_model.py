@@ -22,6 +22,7 @@ import logging
 
 logger = logging.getLogger("logger")
 
+
 class UnetMaskModel(BaseModel):
     """ CP-VTON Try-On Module (TOM) """
 
@@ -40,7 +41,7 @@ class UnetMaskModel(BaseModel):
         n_frames = hparams.n_frames_total if hasattr(hparams, "n_frames_total") else 1
         self.unet = UnetGenerator(
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
-            output_nc=5 * n_frames if self.hparams.flow else 4 * n_frames,
+            output_nc=5 * n_frames if self.hparams.flow_warp else 4 * n_frames,
             num_downs=6,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
@@ -69,19 +70,25 @@ class UnetMaskModel(BaseModel):
 
         p_rendereds = outputs[:, 0:boundary, :, :]
         m_composites = outputs[:, boundary:weight_boundary, :, :]
-        weight_masks = outputs[:, weight_boundary:, :, :] if self.hparams.flow else None
+        weight_masks = (
+            outputs[:, weight_boundary:, :, :] if self.hparams.flow_warp else None
+        )
 
         p_rendereds = F.tanh(p_rendereds)
         m_composites = F.sigmoid(m_composites)
         weight_masks = F.sigmoid(weight_masks) if weight_masks is not None else None
         # chunk for operation per individual frame
 
-
-
         flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1))
-        warped_cloths_chunked = list(torch.chunk(warped_cloths, self.hparams.n_frames_total, dim=1))
-        p_rendereds_chunked = list(torch.chunk(p_rendereds, self.hparams.n_frames_total,dim=1))
-        m_composites_chunked = list(torch.chunk(m_composites, self.hparams.n_frames_total,dim=1))
+        warped_cloths_chunked = list(
+            torch.chunk(warped_cloths, self.hparams.n_frames_total, dim=1)
+        )
+        p_rendereds_chunked = list(
+            torch.chunk(p_rendereds, self.hparams.n_frames_total, dim=1)
+        )
+        m_composites_chunked = list(
+            torch.chunk(m_composites, self.hparams.n_frames_total, dim=1)
+        )
         weight_masks_chunked = (
             list(torch.chunk(weight_masks, self.hparams.n_frames_total, dim=1))
             if weight_masks is not None
@@ -92,10 +99,9 @@ class UnetMaskModel(BaseModel):
         # only use second frame for warping
         if flows is not None:
 
-            warped_flows = [self.resample(
-                prev_im, flows[0].contiguous()
-            )]  # what is past_frame, also not sure flows has n_frames_total
-
+            warped_flows = [
+                self.resample(prev_im, flows[0].contiguous())
+            ]  # what is past_frame, also not sure flows has n_frames_total
 
             p_rendereds_warped = [
                 (1 - weight) * warp_flow + weight * p_rendered
@@ -104,11 +110,14 @@ class UnetMaskModel(BaseModel):
                 )
             ]
 
-
         p_tryons = [
             wc * mask + p * (1 - mask)
             for wc, p, mask in zip(
-                warped_cloths_chunked, p_rendereds_warped if p_rendereds_warped is not None else p_rendereds_chunked, m_composites_chunked
+                warped_cloths_chunked,
+                p_rendereds_warped
+                if p_rendereds_warped is not None
+                else p_rendereds_chunked,
+                m_composites_chunked,
             )
         ]
         p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
@@ -121,24 +130,24 @@ class UnetMaskModel(BaseModel):
         im = batch["image"]
         prev_im = batch["prev_image"]
         cm = batch["cloth_mask"]
-        flow = batch["flow"] if self.hparams.flow else None
+        flow = batch["flow"] if self.hparams.flow_warp else None
 
         person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-        # forward
-        p_rendered, m_composite, p_tryon = self.forward(
+        # forward. save outputs to self for visualization
+        self.p_rendered, self.m_composite, self.p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
         # loss
-        loss_image_l1 = F.l1_loss(p_tryon, im)
-        loss_image_vgg = self.criterionVGG(p_tryon, im)
-        loss_mask_l1 = F.l1_loss(m_composite, cm)
+        loss_image_l1 = F.l1_loss(self.p_tryon, im)
+        loss_image_vgg = self.criterionVGG(self.p_tryon, im)
+        loss_mask_l1 = F.l1_loss(self.m_composite, cm)
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
         if self.global_step % self.hparams.display_count == 0:
-            self.visualize(batch, p_rendered, m_composite, p_tryon)
+            self.visualize(batch)
 
         progress_bar = {
             "loss_image_l1": loss_image_l1,
@@ -178,24 +187,26 @@ class UnetMaskModel(BaseModel):
             person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
             cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-            p_rendered, m_composite, p_tryon = self.forward(person_inputs, cloth_inputs)
+            self.p_rendered, self.m_composite, self.p_tryon = self.forward(
+                person_inputs, cloth_inputs
+            )
 
-            save_images(p_tryon, im_names, try_on_dirs)
+            save_images(self.p_tryon, im_names, try_on_dirs)
 
         result = {"progress_bar": progress_bar}
         return result
 
-    def visualize(self, b, p_rendered, m_composite, p_tryon):
+    def visualize(self, b, tag="train"):
         person_visuals = self.fetch_person_visuals(b)
         visuals = [
             person_visuals,
-            [b["cloth"], b["cloth_mask"] * 2 - 1, m_composite * 2 - 1],
-            [p_rendered, p_tryon, b["image"], b["prev_image"]],
+            [b["cloth"], b["cloth_mask"] * 2 - 1, self.m_composite * 2 - 1],
+            [self.p_rendered, self.p_tryon, b["image"], b["prev_image"]],
         ]
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
-            self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
 
     def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
         """
@@ -212,12 +223,15 @@ class UnetMaskModel(BaseModel):
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
             if self.hparams.n_frames_total > 1:
-                channels = tensor.shape[-3]//2
+                channels = tensor.shape[-3] // 2
                 tensor = tensor[:, channels:, :, :]
             else:
                 channels = tensor.shape[-3]
 
-            if channels <= VVTDataset.RGB_CHANNELS:
+            if (
+                channels == VVTDataset.RGB_CHANNELS
+                or channels == VVTDataset.CLOTH_MASK_CHANNELS
+            ):
                 person_visual_tensors.append(tensor)
             else:
                 logger.warning(

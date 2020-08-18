@@ -47,7 +47,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
             dest="self_attn",
             help="No self-attention",
         )
-        parser.add_argument("--flow", action="store_true", help="Add flow")
+        parser.add_argument(
+            "--flow_warp", action="store_true", help="Warp the previous frame with flow"
+        )
         return parser
 
     def __init__(self, hparams, *args, **kwargs):
@@ -66,7 +68,6 @@ class BaseModel(pl.LightningModule, abc.ABC):
             self.test_results_dir = osp.join(
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
             )
-
 
     def prepare_data(self) -> None:
         # hacky, log hparams to tensorboard; lightning currently has problems with
@@ -100,16 +101,30 @@ class BaseModel(pl.LightningModule, abc.ABC):
         return val_loader
 
     def validation_step(self, batch, idx):
+        """ Must set self.batch = batch for validation_end() to visualize the last
+        sample"""
+        self.batch = batch
         result = self.training_step(batch, idx)
         return {"val_loss": result["loss"]}
+
+    def validation_end(self, outputs):
+        # just visualize one validation sample
+        self.visualize(self.batch, "validation")
+
+    def visualize(self, input_batch, tag="train"):
+        """ Any outputs to visualize should be saved to self """
+        pass
 
     def validation_epoch_end(
         self, outputs: List[Dict[str, Tensor]]
     ) -> Dict[str, Dict[str, Tensor]]:
         stacked = default_collate(outputs)
         ret = {k: v.mean() for k, v in stacked.items()}
+        for k, v in ret.items():
+            self.logger.experiment.add_scalar(f"validation/{k}", v, self.global_step)
+
         ret["global_step"] = self.global_step
-        val_loss=ret["val_loss"]
+        val_loss = ret["val_loss"]
         logger.info(f"{self.current_epoch=}, {self.global_step=}, {val_loss=}")
 
         return ret

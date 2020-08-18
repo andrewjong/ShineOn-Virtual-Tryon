@@ -48,15 +48,16 @@ class TryonDataset(BaseDataset, ABC):
     """ Loads all the necessary items for CP-Vton """
 
     RGB_CHANNELS = 3
+    MASK_CHANNELS = 1
 
     COCOPOSE_CHANNELS = 18
     IM_HEAD_CHANNELS = RGB_CHANNELS
-    SILHOUETTE_CHANNELS = 1
+    SILHOUETTE_CHANNELS = MASK_CHANNELS
 
     AGNOSTIC_CHANNELS = IM_HEAD_CHANNELS + SILHOUETTE_CHANNELS
 
     CLOTH_CHANNELS = RGB_CHANNELS
-    CLOTH_MASK_CHANNELS = 1
+    CLOTH_MASK_CHANNELS = MASK_CHANNELS
 
     DENSEPOSE_CHANNELS = 3
 
@@ -496,7 +497,7 @@ class TryonDataset(BaseDataset, ABC):
             "grid_vis": grid_vis,
         }
 
-        if self.opt.flow or "flow" in self.opt.person_inputs:
+        if self.opt.flow_warp or "flow" in self.opt.person_inputs:
             flow, flow_image = self.get_person_flow(index)
             result["flow"], result["flow_image"] = flow, flow_image
 

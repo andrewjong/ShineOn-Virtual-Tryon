@@ -153,6 +153,7 @@ class SamsModel(BaseModel):
         return result
 
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
+        self.batch = batch
         result = self.generator_step(batch)
         generator_log = result["log"]
         l1, vgg = generator_log["loss/G/l1"], generator_log["loss/G/vgg"]
@@ -163,6 +164,7 @@ class SamsModel(BaseModel):
             "val_G_vgg": vgg,
         }
         return outputs
+
 
     def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
         pass
@@ -404,7 +406,7 @@ class SamsModel(BaseModel):
 
         return pred_fake, pred_real
 
-    def visualize(self, batch):
+    def visualize(self, batch, tag="train"):
         rows = []  # one type per row
         # add inputs
         person_vis_names = self.replace_actual_with_visual()
@@ -424,7 +426,7 @@ class SamsModel(BaseModel):
         tensor = tensor_list_for_board(rows)
         # add to experiment
         for i, img in enumerate(tensor):
-            self.logger.experiment.add_image(f"combine/{i:03d}", img, self.global_step)
+            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
 
 
 def split_predictions(pred):
