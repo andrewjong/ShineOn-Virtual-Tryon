@@ -57,8 +57,8 @@ A general train command:
 python train.py \
 --name "SAMS-GAN_train" \
 --model sams \
---ngf_power_start 6 \
---ngf_power_end 10 \
+--ngf_pow_outer 6 \
+--ngf_pow_inner 10 \
 --n_frames_total 5 \
 --n_frames_now 1 \
 --batch_size 4 \
@@ -69,9 +69,9 @@ python train.py \
 #### Generator
 The SAMS-GAN generator is an encoder-decoder architecture. The outer layers start with higher resolution (hxw) and fewer features. The inner layers have lower resolution and more features. Unlike other models, SAMS does NOT use `--ngf` for generator features.
 
-The number of features in the **outer** layers equals `pow(ngf_power_base,`**`ngf_power_start`**`)`; by default, the outer layers have `2^6=64` features. 
+The number of features in the **outer** layers equals `pow(ngf_power_base,`**`ngf_pow_outer`**`)`; by default, the outer layers have `2^6=64` features. 
 
-The number of features in the **inner** layers equals `pow(ngf_power_base, `**`ngf_power_end`**`)`; by default, the inner layers have `2^10=1024` features.
+The number of features in the **inner** layers equals `pow(ngf_power_base, `**`ngf_pow_inner`**`)`; by default, the inner layers have `2^10=1024` features.
 
 Self-attention layers are enabled by default (self-attention is literally part of the acronym SAMS). They can be turned off with `--no_self_attn` to use vanilla Multi-Spade layers. 
 
