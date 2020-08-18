@@ -52,7 +52,7 @@ def main(train=True):
         name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
         try:
             ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
-            logger.error(
+            logger.warning(
                 f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!"
             )
             trainer.save_checkpoint(ckpt_path)
