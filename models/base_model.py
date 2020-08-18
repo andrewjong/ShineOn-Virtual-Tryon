@@ -47,7 +47,9 @@ class BaseModel(pl.LightningModule, abc.ABC):
             dest="self_attn",
             help="No self-attention",
         )
-        parser.add_argument("--flow", action="store_true", help="Add flow")
+        parser.add_argument(
+            "--flow_warp", action="store_true", help="Warp the previous frame with flow"
+        )
         return parser
 
     def __init__(self, hparams, *args, **kwargs):
