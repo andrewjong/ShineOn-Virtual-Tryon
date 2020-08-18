@@ -33,20 +33,32 @@ def main(train=True):
 
     root_dir = osp.join(opt.experiments_dir, opt.name)
     val_check = opt.val_check_interval if hasattr(opt, "val_check_interval") else 1
-    trainer = Trainer(
-        checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
-        callbacks=[
-            CheckpointCustomFilename(),
-            CheckpointEveryNSteps(opt.save_count),
-        ],
-        gpus=opt.gpu_ids,
-        default_root_dir=root_dir,
-        log_save_interval=opt.display_count,
-        fast_dev_run=opt.fast_dev_run,
-        max_epochs=opt.keep_epochs + opt.decay_epochs,
-        val_check_interval=val_check,
-        profiler=True
-    )
+    if train:
+        trainer = Trainer(
+            checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
+            callbacks=[
+                CheckpointCustomFilename(),
+                CheckpointEveryNSteps(opt.save_count),
+            ],
+            gpus=opt.gpu_ids,
+            default_root_dir=root_dir,
+            log_save_interval=opt.display_count,
+            fast_dev_run=opt.fast_dev_run,
+            max_epochs=opt.keep_epochs + opt.decay_epochs,
+            val_check_interval=val_check,
+            profiler=True
+        )
+    else:
+        trainer = Trainer(
+            checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
+            gpus=opt.gpu_ids,
+            default_root_dir=root_dir,
+            log_save_interval=opt.display_count,
+            fast_dev_run=opt.fast_dev_run,
+            max_epochs=1,
+            val_check_interval=val_check,
+            profiler=True
+        )
 
     def save_on_interrupt(*args, name=""):
         name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
