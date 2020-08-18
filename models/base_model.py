@@ -141,12 +141,19 @@ class BaseModel(pl.LightningModule, abc.ABC):
         return [optimizer], [scheduler]
 
     def _make_step_scheduler(self, optimizer):
-        scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer,
-            lr_lambda=lambda e: 1.0
-            - max(0, e - self.hparams.keep_epochs)
-            / float(self.hparams.decay_epochs + 1),
-        )
+        def step_func(epoch):
+            decrease = max(0, epoch - self.hparams.keep_epochs) / float(
+                self.hparams.decay_epochs + 1
+            )
+            decay = 1.0 - decrease
+            if decay < 1.0:
+                logger.info(
+                    f"{epoch=}, multiplied original learning rate by {decay:.2f}"
+                )
+
+            return decay
+
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=step_func)
         return scheduler
 
     def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
