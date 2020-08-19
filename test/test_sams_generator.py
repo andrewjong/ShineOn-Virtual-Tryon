@@ -11,9 +11,9 @@ hparams = argparse.Namespace(
     ngf=1, 
     n_frames=1,
     ngf_base=2,
-    ngf_power_start=6,
-    ngf_power_end=10,
-    ngf_power_step=4,
+    ngf_pow_outer=6,
+    ngf_pow_inner=10,
+    ngf_pow_step=4,
     num_middle=3,
     self_attn=False
 )

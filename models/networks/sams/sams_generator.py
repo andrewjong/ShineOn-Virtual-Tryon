@@ -44,7 +44,6 @@ class SamsGenerator(BaseNetwork):
     @classmethod
     def modify_commandline_options(cls, parser: argparse.ArgumentParser, is_train):
         parser = BaseNetwork.modify_commandline_options(parser, is_train)
-        parser.set_defaults(self_attn=True)
         parser.add_argument("--norm_G", default="spectralspadesyncbatch3x3")
         parser.add_argument(
             "--ngf_base",
@@ -54,25 +53,29 @@ class SamsGenerator(BaseNetwork):
         )
         parser.add_argument(
             "--ngf_power_start",
+            "--ngf_pow_outer",
+            dest="ngf_pow_outer",
             type=int,
             default=6,
-            help="number of features at the outer ends = ngf_base ** start; "
+            help="number of features at the outer ends = ngf_base ** ngf_pow_outer; "
             "decrease for less features",
         )
         parser.add_argument(
             "--ngf_power_end",
+            "--ngf_pow_inner",
+            dest="ngf_pow_inner",
             type=int,
             default=10,
             help="INCLUSIVE! number of features in the middle of the network "
-            "= ngf_base ** end; decrease for less features",
+            "= ngf_base ** ngf_pow_inner; decrease for less features",
         )
         parser.add_argument(
-            "--ngf_power_step",
+            "--ngf_pow_step",
             type=int,
             default=1,
-            help="increment the power this much between layers until >= ngf_power_end; "
+            help="increment the power this much between layers until >= ngf_pow_inner; "
             "increase for less layers. Total layers is: "
-            "(ngf_power_end - ngf_power_start + 1) // ngf_power_step",
+            "(ngf_pow_inner - ngf_pow_outer + 1) // ngf_pow_step",
         )
         parser.add_argument(
             "--num_middle",
@@ -80,10 +83,20 @@ class SamsGenerator(BaseNetwork):
             default=3,
             help="Number of channel-preserving layers between the encoder and decoder",
         )
+        parser.add_argument(
+            "--attention_middle",
+            action="store_true",
+            help="Use self-attention in the middle layers",
+        )
+        parser.add_argument(
+            "--attention_decoder",
+            action="store_true",
+            help="Use self-attention in the decoder layers",
+        )
         if "--ngf" in sys.argv:
             logger.warning(
                 "SamsGenerator does NOT use --ngf. "
-                "Use --ngf_base, --ngf_power_start, --ngf_power_end, --ngf_power_step, "
+                "Use --ngf_base, --ngf_pow_outer, --ngf_pow_inner, --ngf_pow_step, "
                 "and --num_middle to control the architecture."
             )
         return parser
@@ -91,7 +104,7 @@ class SamsGenerator(BaseNetwork):
     def __init__(self, hparams):
         super().__init__()
         assert hparams.ngf_base > 1, f"{hparams.ngf_base}"
-        assert hparams.ngf_power_end >= 1, f"{hparams.ngf_power_end=}"
+        assert hparams.ngf_pow_inner >= 1, f"{hparams.ngf_pow_inner=}"
 
         self.hparams = hparams
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
@@ -100,8 +113,8 @@ class SamsGenerator(BaseNetwork):
         self.in_channels = in_channels = TryonDataset.RGB_CHANNELS * num_prev_frames
         out_channels = TryonDataset.RGB_CHANNELS
 
-        NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_power_start)
-        NGF_INNER = int(hparams.ngf_base ** hparams.ngf_power_end)
+        NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_pow_outer)
+        NGF_INNER = int(hparams.ngf_base ** hparams.ngf_pow_inner)
 
         # ----- ENCODE --------
         enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
@@ -119,12 +132,12 @@ class SamsGenerator(BaseNetwork):
             )
         ]
         for pow in range(
-            hparams.ngf_power_start, hparams.ngf_power_end, hparams.ngf_power_step
+            hparams.ngf_pow_outer, hparams.ngf_pow_inner, hparams.ngf_pow_step
         ):
             in_feat = int(hparams.ngf_base ** pow)
-            out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_power_step))
+            out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_pow_step))
             self.encode_layers.extend(make_encode_block(in_feat, out_feat, **kwargs))
-        # ensure we get to exactly ngf_base ** ngf_power_end
+        # ensure we get to exactly ngf_base ** ngf_pow_inner
         self.encode_layers.extend(make_encode_block(out_feat, NGF_INNER, **kwargs))
         self.encode_layers = nn.ModuleList(self.encode_layers)
 
@@ -135,7 +148,9 @@ class SamsGenerator(BaseNetwork):
                 inp: getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
                 for inp in sorted(self.inputs)
             },
-            "spade_class": AttentiveMultiSpade if hparams.self_attn else MultiSpade,
+            "spade_class": AttentiveMultiSpade
+            if hparams.attention_middle
+            else MultiSpade,
         }
         self.middle_layers = nn.ModuleList(
             AnySpadeResBlock(NGF_INNER, NGF_INNER, **kwargs)
@@ -143,17 +158,46 @@ class SamsGenerator(BaseNetwork):
         )
 
         # ----- DECODE --------
+        kwargs["spade_class"] = (
+            AttentiveMultiSpade if hparams.attention_decoder else MultiSpade
+        )
         self.decode_layers = nn.ModuleList()
         for pow in range(
-            hparams.ngf_power_end, hparams.ngf_power_start, -hparams.ngf_power_step
+            hparams.ngf_pow_inner, hparams.ngf_pow_outer, -hparams.ngf_pow_step
         ):
             in_feat = int(hparams.ngf_base ** pow)
-            out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_power_step))
+            out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_pow_step))
             self.decode_layers.extend(make_decode_block(in_feat, out_feat, **kwargs))
         self.decode_layers.extend(make_decode_block(out_feat, NGF_OUTER, **kwargs))
         self.decode_layers.append(
             nn.Conv2d(NGF_OUTER, out_channels, kernel_size=3, padding=1)
         )
+
+        self.print_layers()
+
+    def print_layers(self):
+        print("---Initialized SAMS Generator---")
+        i = 1
+        for group_name, layer_group in zip(
+            ["Encoder", "Middle", "Decoder"],
+            [self.encode_layers, self.middle_layers, self.decode_layers],
+        ):
+            print(f"{group_name} Layers")
+            for layer in layer_group:
+                if isinstance(layer, AnySpadeResBlock):
+                    channels = layer.conv_1.out_channels
+                    spade_type = type(layer.spade_0).__name__
+                    print(
+                        f"\tLayer {i}: {group_name} {spade_type} ResBlock with {channels=}"
+                    )
+                elif isinstance(layer, nn.Conv2d):
+                    channels = layer.out_channels
+                    print(f"\tLayer {i}: {group_name} Conv2d with {channels=}")
+                elif isinstance(layer, nn.Upsample):
+                    scale_factor = layer.scale_factor
+                    print(f"\tLayer {i}: {group_name} Upsample with {scale_factor=}")
+                i += 1
+        print("--------------------------------")
 
     def forward(
         self,
@@ -181,9 +225,7 @@ class SamsGenerator(BaseNetwork):
             # set to Zeros
             reference = list(current_labelmap_dict.values())[0]
             b, _, h, w = reference.shape  # only 4D because dataset not adding Nframes
-            prev_n_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(
-                reference
-            )
+            prev_n_frames_G = torch.zeros(b, self.in_channels, h, w).type_as(reference)
             enc_ch = parse_num_channels(self.hparams.encoder_input)
             prev_n_labelmaps = torch.zeros(b, enc_ch, h, w).type_as(reference)
 

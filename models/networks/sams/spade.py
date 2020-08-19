@@ -109,7 +109,7 @@ class AnySpadeResBlock(nn.Module):
         fout: int,
         norm_G: str,
         label_channels: Union[int, Dict[str,int]],
-        spade_class: Type[SPADE] = SPADE,
+        spade_class: Type[SPADE],
     ):
         """
 
@@ -118,7 +118,7 @@ class AnySpadeResBlock(nn.Module):
             fout:
             norm_G:
             label_channels:
-            spade_class: SPADE, MultiSpade, or AttnMultiSpade; default=SPADE
+            spade_class: SPADE, MultiSpade, or AttnMultiSpade
         """
         super().__init__()
         # Attributes
