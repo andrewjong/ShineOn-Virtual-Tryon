@@ -61,7 +61,7 @@ class BaseOptions:
             "--display_count",
             type=int,
             help="how often to update tensorboard, in steps",
-            default=100,
+            default=200,
         )
         parser.add_argument(
             "--loglevel",
@@ -72,6 +72,24 @@ class BaseOptions:
         # debug
         parser.add_argument(
             "--fast_dev_run", action="store_true", help="quickly test out the pipeline",
+        )
+        parser.add_argument(
+            "--save_count",
+            type=int,
+            help="how often in steps to always save a checkpoint",
+            default=10000,
+        )
+        parser.add_argument(
+            "--keep_epochs",
+            type=int,
+            help="number of epochs with initial learning rate",
+            default=5,
+        )
+        parser.add_argument(
+            "--decay_epochs",
+            type=int,
+            help="number of epochs to linearly decay the learning rate",
+            default=5,
         )
         self.initialized = True
         return parser
