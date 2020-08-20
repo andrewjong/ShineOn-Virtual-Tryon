@@ -8,10 +8,10 @@ from torch import Tensor
 
 import pytorch_lightning as pl
 import torch
-from tensorboardX import SummaryWriter
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
+from torch.utils.tensorboard import SummaryWriter
 
 from datasets import find_dataset_using_name, CappedDataLoader
 from datasets.tryon_dataset import TryonDataset, parse_num_channels

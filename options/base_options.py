@@ -1,8 +1,13 @@
+import logging
+
+import torch
 import argparse
 import sys
 
 import datasets
 import models
+
+logger = logging.getLogger("logger")
 
 
 class BaseOptions:
@@ -17,6 +22,15 @@ class BaseOptions:
         )
         parser.add_argument("-j", "--workers", type=int, default=4)
         parser.add_argument("-b", "--batch_size", type=int, default=8)
+        parser.add_argument(
+            "-fp",
+            "--precision",
+            type=int,
+            dest="precision",
+            help="choose fp16 (half) or fp32 (full) precision training",
+            choices=(16, 32),
+            default=16,
+        )
         # data
         parser.add_argument(
             "--dataset", choices=("viton", "viton_vvt_mpv", "vvt", "mpv"), default="vvt"
@@ -147,10 +161,14 @@ class BaseOptions:
         opt = BaseOptions.apply_ask_unnamed_experiment(opt)
         opt = BaseOptions.apply_model_synonyms(opt)
         opt = BaseOptions.apply_gpu_ids(opt)
+        opt = BaseOptions.apply_half_precision_if_pytorch_1_6(opt)
+        opt = BaseOptions.apply_val_check_interval_number_type(opt)
         opt = BaseOptions.apply_sort_inputs(opt)
         from datasets.n_frames_interface import NFramesInterface
+
         opt = NFramesInterface.apply_n_frames_now_default_total(opt)
         from models.sams_model import SamsModel
+
         opt = SamsModel.apply_default_encoder_input(opt)
 
         self.print_options(opt)
@@ -204,4 +222,23 @@ class BaseOptions:
         opt.cloth_inputs = sorted(opt.cloth_inputs)
         return opt
 
+    @staticmethod
+    def apply_val_check_interval_number_type(opt):
+        if hasattr(opt, "val_check_interval"):
+            if "." in opt.val_check_interval:
+                opt.val_check_interval = float(opt.val_check_interval)
+            else:
+                opt.val_check_interval = int(opt.val_check_interval)
+                if opt.datacap < opt.val_check_interval:
+                    opt.val_check_interval = int(opt.datacap)
+        return opt
 
+    @staticmethod
+    def apply_half_precision_if_pytorch_1_6(opt):
+        if torch.__version__ < "1.6.0" and opt.precision == 16:
+            logger.warning(
+                "Cannot use half precision with PyTorch < 1.6.0. "
+                f"Detected {torch.__version__ = }. Changing to full precision (fp32)."
+            )
+            opt.precision = 32
+        return opt

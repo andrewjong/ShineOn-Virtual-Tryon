@@ -45,7 +45,8 @@ def main(train=True):
         fast_dev_run=opt.fast_dev_run,
         max_epochs=opt.keep_epochs + opt.decay_epochs,
         val_check_interval=val_check,
-        profiler=True
+        profiler=True,
+        precision=opt.precision
     )
 
     def save_on_interrupt(*args, name=""):
