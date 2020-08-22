@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.tensorboard import SummaryWriter
 
-from datasets import find_dataset_using_name, CappedDataLoader
+from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from datasets.vvt_dataset import VVTDataset
 
@@ -92,12 +92,22 @@ class BaseModel(pl.LightningModule, abc.ABC):
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader
-        train_loader = CappedDataLoader(self.train_dataset, self.hparams,)
+        train_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.hparams.batch_size,
+            shuffle=self.hparams.no_shuffle,
+            num_workers=self.hparams.workers
+        )
         return train_loader
 
     def val_dataloader(self) -> DataLoader:
         # create dataloader
-        val_loader = CappedDataLoader(self.val_dataset, self.hparams,)
+        val_loader = DataLoader(
+            self.val_dataset,
+            batch_size=self.hparams.batch_size,
+            shuffle=self.hparams.no_shuffle,
+            num_workers=self.hparams.workers
+        )
         return val_loader
 
     def validation_step(self, batch, idx):

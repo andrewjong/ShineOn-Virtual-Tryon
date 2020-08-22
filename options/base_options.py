@@ -18,9 +18,16 @@ class BaseOptions:
         parser.add_argument("--name", default="unnamed_experiment")
         # compute
         parser.add_argument(
+            "--distributed_backend",
+            default="ddp",
+            help="how to do distributed multigpu training",
+        )
+        parser.add_argument(
             "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
         )
-        parser.add_argument("-j", "--workers", type=int, default=4)
+        parser.add_argument(
+            "-j", "--num_workers", "--workers", dest="workers", type=int, default=4
+        )
         parser.add_argument("-b", "--batch_size", type=int, default=8)
         parser.add_argument(
             "-fp",
@@ -43,9 +50,18 @@ class BaseOptions:
         )
         parser.add_argument(
             "--datacap",
-            type=float,
-            default=float("inf"),
-            help="limits the DataLoader to this many batches",
+            "--datacap_train",
+            "--limit_train_batches",
+            dest="limit_train_batches",
+            default="1.0",
+            help="limits the train DataLoader to this many batches",
+        )
+        parser.add_argument(
+            "--datacap_val",
+            "--limit_val_batches",
+            dest="limit_val_batches",
+            default="1.0",
+            help="limits the val DataLoader to this many batches",
         )
         # logging
         parser.add_argument(
@@ -105,7 +121,7 @@ class BaseOptions:
         # get the basic options
         opt, _ = parser.parse_known_args()
 
-        opt = BaseOptions.apply_model_synonyms(opt)
+        BaseOptions.apply_model_synonyms(opt)
         # modify model-related parser options
         model_name = opt.model
         model_option_setter = models.get_option_setter(model_name)
@@ -158,18 +174,18 @@ class BaseOptions:
         #     opt.name = opt.name + suffix
         #
 
-        opt = BaseOptions.apply_ask_unnamed_experiment(opt)
-        opt = BaseOptions.apply_model_synonyms(opt)
-        opt = BaseOptions.apply_gpu_ids(opt)
-        opt = BaseOptions.apply_half_precision_if_pytorch_1_6(opt)
-        opt = BaseOptions.apply_val_check_interval_number_type(opt)
-        opt = BaseOptions.apply_sort_inputs(opt)
+        BaseOptions.apply_ask_unnamed_experiment(opt)
+        BaseOptions.apply_model_synonyms(opt)
+        BaseOptions.apply_gpu_ids(opt)
+        BaseOptions.apply_val_check_ge_train_batch(opt)
+        BaseOptions.apply_half_precision_if_pytorch_1_6(opt)
+        BaseOptions.apply_sort_inputs(opt)
         from datasets.n_frames_interface import NFramesInterface
 
-        opt = NFramesInterface.apply_n_frames_now_default_total(opt)
+        NFramesInterface.apply_n_frames_now_default_total(opt)
         from models.sams_model import SamsModel
 
-        opt = SamsModel.apply_default_encoder_input(opt)
+        SamsModel.apply_default_encoder_input(opt)
 
         self.print_options(opt)
 
@@ -189,7 +205,6 @@ class BaseOptions:
             if new_name:
                 opt.name = new_name
                 print(f"Experiment name set to {opt.name}")
-        return opt
 
     @staticmethod
     def apply_gpu_ids(opt):
@@ -201,7 +216,6 @@ class BaseOptions:
             if id >= 0:
                 opt.gpu_ids.append(id)
         print(opt.gpu_ids)
-        return opt
 
     @staticmethod
     def apply_model_synonyms(opt):
@@ -214,24 +228,11 @@ class BaseOptions:
 
         if before != opt.model:
             print(f"User passed --model {before}, assuming you meant {opt.model}")
-        return opt
 
     @staticmethod
     def apply_sort_inputs(opt):
         opt.person_inputs = sorted(opt.person_inputs)
         opt.cloth_inputs = sorted(opt.cloth_inputs)
-        return opt
-
-    @staticmethod
-    def apply_val_check_interval_number_type(opt):
-        if hasattr(opt, "val_check_interval"):
-            if "." in opt.val_check_interval:
-                opt.val_check_interval = float(opt.val_check_interval)
-            else:
-                opt.val_check_interval = int(opt.val_check_interval)
-                if opt.datacap < opt.val_check_interval:
-                    opt.val_check_interval = int(opt.datacap)
-        return opt
 
     @staticmethod
     def apply_half_precision_if_pytorch_1_6(opt):
@@ -241,4 +242,13 @@ class BaseOptions:
                 f"Detected {torch.__version__ = }. Changing to full precision (fp32)."
             )
             opt.precision = 32
-        return opt
+
+    @staticmethod
+    def apply_val_check_ge_train_batch(opt):
+        if hasattr(opt, "val_check_interval"):
+            from util import str2num
+            val_check_interval = str2num(opt.val_check_interval)
+            limit_train_batches = str2num(opt.limit_train_batches)
+            if isinstance(val_check_interval, int) and isinstance(limit_train_batches, int) and val_check_interval > limit_train_batches:
+                opt.val_check_interval = opt.limit_train_batches
+
