@@ -75,20 +75,19 @@ class BaseModel(pl.LightningModule, abc.ABC):
         board: SummaryWriter = self.logger.experiment
         board.add_text("hparams", pformat(self.hparams, indent=4, width=1))
 
-        # hacky, adjust the filename
-
-        # ----- actual data preparation ------
+    def setup(self, stage):
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
         logger.info(
             f"Train {self.hparams.dataset} dataset initialized: "
             f"{len(self.train_dataset)} samples."
         )
-        self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
-        logger.info(
-            f"Val {self.hparams.dataset} dataset initialized: "
-            f"{len(self.val_dataset)} samples."
-        )
+        if stage == "fit":
+            self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
+            logger.info(
+                f"Val {self.hparams.dataset} dataset initialized: "
+                f"{len(self.val_dataset)} samples."
+            )
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader
