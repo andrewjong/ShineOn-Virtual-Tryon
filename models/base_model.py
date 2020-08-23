@@ -109,13 +109,13 @@ class BaseModel(pl.LightningModule, abc.ABC):
             num_workers=self.hparams.workers
         )
         return val_loader
-    #
-    # def validation_step(self, batch, idx):
-    #     """ Must set self.batch = batch for validation_end() to visualize the last
-    #     sample"""
-    #     self.batch = batch
-    #     result = self.training_step(batch, idx)
-    #     return result
+
+    def validation_step(self, batch, idx):
+        """ Must set self.batch = batch for validation_end() to visualize the last
+        sample"""
+        self.batch = batch
+        result = self.training_step(batch, idx, val=True)
+        return result
 
     def visualize(self, input_batch, tag="train"):
         """ Any outputs to visualize should be saved to self """
