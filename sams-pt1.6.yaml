@@ -12,8 +12,8 @@ dependencies:
   - blas=1.0=mkl
   - bleach=3.1.5=py_0
   - c-ares=1.16.1=h516909a_0
-  - ca-certificates=2020.6.24=0
-  - certifi=2020.6.20=py38_0
+  - ca-certificates=2020.6.20=hecda079_0
+  - certifi=2020.6.20=py38h32f6830_0
   - cffi=1.14.1=py38he30daa8_0
   - cloudpickle=1.5.0=py_0
   - colorlog=4.2.1=py38_0
@@ -84,7 +84,7 @@ dependencies:
   - numpy=1.19.1=py38hbc911f0_0
   - numpy-base=1.19.1=py38hfa32c7d_0
   - olefile=0.46=py_0
-  - openssl=1.1.1g=h7b6447c_0
+  - openssl=1.1.1g=h516909a_1
   - packaging=20.4=py_0
   - pandoc=2.10.1=0
   - pandocfilters=1.4.2=py38_1
@@ -108,7 +108,6 @@ dependencies:
   - python-dateutil=2.8.1=py_0
   - python_abi=3.8=1_cp38
   - pytorch=1.6.0=py3.8_cuda10.1.243_cudnn7.6.3_0
-  - pytorch-lightning=0.8.5=py_0
   - pywavelets=1.1.1=py38h7b6447c_0
   - pyyaml=5.3.1=py38h1e0a361_0
   - pyzmq=19.0.1=py38he6710b0_1
@@ -123,7 +122,6 @@ dependencies:
   - sip=4.19.13=py38he6710b0_0
   - six=1.15.0=py_0
   - sqlite=3.32.3=h62c20be_0
-  - tensorboard=1.15.0=py38_0
   - terminado=0.8.3=py38_0
   - testpath=0.4.4=py_0
   - tk=8.6.10=hbc83047_0
@@ -143,3 +141,20 @@ dependencies:
   - zipp=3.1.0=py_0
   - zlib=1.2.11=h7b6447c_3
   - zstd=1.4.5=h9ceee32_0
+  - pip:
+    - cachetools==4.1.1
+    - chardet==3.0.4
+    - google-auth==1.20.1
+    - google-auth-oauthlib==0.4.1
+    - idna==2.10
+    - oauthlib==3.1.0
+    - pyasn1==0.4.8
+    - pyasn1-modules==0.2.8
+    - pytorch-lightning==0.9.0
+    - requests==2.24.0
+    - requests-oauthlib==1.3.0
+    - rsa==4.6
+    - tensorboard==2.2.0
+    - tensorboard-plugin-wit==1.7.0
+    - urllib3==1.25.10
+prefix: /home/andrew/.miniconda3/envs/sams-pt1.6

@@ -23,6 +23,13 @@ def find_class_in_module(target_cls_name, module):
     return cls
 
 
+def str2num(s: str):
+    try:
+        return int(s)
+    except ValueError:
+        return float(s)
+
+
 def multiply(a, b):
     return a * b
 

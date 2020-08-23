@@ -2,6 +2,10 @@ import os
 import os.path as osp
 import pytorch_lightning as pl
 
+import logging
+
+logger = logging.getLogger("logger")
+
 
 class CheckpointCustomFilename(pl.Callback):
     def __init__(self, filename_fmt="{epoch}_{global_step}_{val_loss:.2f}"):
@@ -57,6 +61,7 @@ class CheckpointEveryNSteps(pl.Callback):
         save_step_frequency,
         prefix="N-Step-Checkpoint",
         use_modelcheckpoint_filename=False,
+        verbose=False,
     ):
         """
 
@@ -70,6 +75,7 @@ class CheckpointEveryNSteps(pl.Callback):
         self.use_modelcheckpoint_filename = use_modelcheckpoint_filename
         self.save_step_frequency = save_step_frequency
         self.prefix = prefix
+        self.verbose = verbose
 
     def on_batch_end(self, trainer: pl.Trainer, _):
         epoch = trainer.current_epoch
@@ -80,8 +86,12 @@ class CheckpointEveryNSteps(pl.Callback):
             else:
                 filename = f"{self.prefix}_{epoch=}_{global_step=}.ckpt"
 
-            ckpt_path = str(trainer.checkpoint_callback.dirpath) + os.sep + str(filename)
+            ckpt_path = (
+                str(trainer.checkpoint_callback.dirpath) + os.sep + str(filename)
+            )
             trainer.save_checkpoint(ckpt_path)
+            if self.verbose:
+                logger.info("Saved N-Step checkpoint: " + ckpt_path)
 
 
 class SaveOnKeyboardInterrupt(pl.Callback):

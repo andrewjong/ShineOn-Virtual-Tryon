@@ -4,6 +4,7 @@ import os.path as osp
 from typing import List
 
 import torch
+from pytorch_lightning import TrainResult, EvalResult
 from torch import nn as nn
 from torch.nn import functional as F
 import torchvision
@@ -124,7 +125,7 @@ class UnetMaskModel(BaseModel):
 
         return p_rendereds, m_composites, p_tryons
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx, val=False):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         # unpack
         im = batch["image"]
@@ -149,21 +150,16 @@ class UnetMaskModel(BaseModel):
         if self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
 
-        progress_bar = {
-            "loss_image_l1": loss_image_l1,
-            "loss_image_vgg": loss_image_vgg,
-            "loss_mask_l1": loss_mask_l1,
-        }
-        tensorboard_scalars = {
-            "epoch": self.current_epoch,
-            "loss": loss,
-        }
-        tensorboard_scalars.update(progress_bar)
-        result = {
-            "loss": loss,
-            "log": tensorboard_scalars,
-            "progress_bar": progress_bar,
-        }
+        val_ = "val_" if val else ""
+        result = (
+            EvalResult(checkpoint_on=loss)
+            if val
+            else TrainResult(loss)
+        )
+        result.log(f"{val_}loss/G", loss, prog_bar=True)
+        result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
+        result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
+        result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
 
         self.prev_frame = im
         return result

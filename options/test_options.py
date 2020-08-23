@@ -4,6 +4,7 @@ from options.base_options import BaseOptions
 class TestOptions(BaseOptions):
     def initialize(self, parser):
         parser = BaseOptions.initialize(self, parser)
+        parser.set_defaults(no_shuffle=True)
         parser.add_argument(
             "--result_dir", type=str, default="result", help="save result infos"
         )

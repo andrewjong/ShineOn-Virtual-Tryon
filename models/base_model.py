@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from torch.utils.tensorboard import SummaryWriter
 
-from datasets import find_dataset_using_name, CappedDataLoader
+from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from datasets.vvt_dataset import VVTDataset
 
@@ -75,61 +75,54 @@ class BaseModel(pl.LightningModule, abc.ABC):
         board: SummaryWriter = self.logger.experiment
         board.add_text("hparams", pformat(self.hparams, indent=4, width=1))
 
-        # hacky, adjust the filename
-
-        # ----- actual data preparation ------
+    def setup(self, stage):
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
         logger.info(
             f"Train {self.hparams.dataset} dataset initialized: "
             f"{len(self.train_dataset)} samples."
         )
-        self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
-        logger.info(
-            f"Val {self.hparams.dataset} dataset initialized: "
-            f"{len(self.val_dataset)} samples."
-        )
+        if stage == "fit":
+            self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
+            logger.info(
+                f"Val {self.hparams.dataset} dataset initialized: "
+                f"{len(self.val_dataset)} samples."
+            )
 
     def train_dataloader(self) -> DataLoader:
         # create dataloader
-        train_loader = CappedDataLoader(self.train_dataset, self.hparams,)
+        train_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.hparams.batch_size,
+            shuffle=self.hparams.no_shuffle,
+            num_workers=self.hparams.workers
+        )
         return train_loader
 
     def val_dataloader(self) -> DataLoader:
         # create dataloader
-        val_loader = CappedDataLoader(self.val_dataset, self.hparams,)
+        val_loader = DataLoader(
+            self.val_dataset,
+            batch_size=self.hparams.batch_size,
+            shuffle=self.hparams.no_shuffle,
+            num_workers=self.hparams.workers
+        )
         return val_loader
 
     def validation_step(self, batch, idx):
         """ Must set self.batch = batch for validation_end() to visualize the last
         sample"""
         self.batch = batch
-        result = self.training_step(batch, idx)
-        return {"val_loss": result["loss"]}
+        result = self.training_step(batch, idx, val=True)
+        return result
 
     def visualize(self, input_batch, tag="train"):
         """ Any outputs to visualize should be saved to self """
         pass
 
-    def validation_epoch_end(
-        self, outputs: List[Dict[str, Tensor]]
-    ) -> Dict[str, Dict[str, Tensor]]:
-        # just visualize the last validation sample at the end of the epoch
-        self.visualize(self.batch, "validation")
-
-        # create summary metrics
-        stacked = default_collate(outputs)
-        ret = {k: v.mean() for k, v in stacked.items()}
-        for k, v in ret.items():
-            self.logger.experiment.add_scalar(f"validation/{k}", v, self.global_step)
-
-        # save global_step for our CheckpointCustomFilename in callbacks.py
-        ret["global_step"] = self.global_step
-
-        val_loss = ret["val_loss"]
-        logger.info(f"{self.current_epoch=}, {self.global_step=}, {val_loss=}")
-
-        return ret
+    def on_validation_epoch_end(self) -> None:
+        if hasattr(self, "batch"):
+            self.visualize(self.batch, "validation")
 
     def test_dataloader(self) -> DataLoader:
         # same loader type. test paths will be defined in hparams
