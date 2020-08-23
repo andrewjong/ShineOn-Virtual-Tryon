@@ -51,7 +51,7 @@ def main(train=True):
             checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
             callbacks=[
                 CheckpointCustomFilename(),
-                CheckpointEveryNSteps(opt.save_count),
+                CheckpointEveryNSteps(opt.save_count, verbose=True),
             ],
             default_root_dir=osp.join(opt.experiments_dir, opt.name),
             log_save_interval=opt.display_count,
@@ -74,7 +74,8 @@ def main(train=True):
                     trainer.checkpoint_callback.dirpath, f"{name}.ckpt"
                 )
                 logger.warning(
-                    f"Interrupt detected, saving Trainer checkpoint to: {ckpt_path}!"
+                    "Training stopped prematurely. "
+                    f"Saving Trainer checkpoint to: {ckpt_path}"
                 )
                 trainer.save_checkpoint(ckpt_path)
             except:

@@ -3,6 +3,7 @@ import logging
 from typing import Dict, List
 
 import torch
+from pytorch_lightning import TrainResult, EvalResult
 from torch import Tensor
 from torch.nn import L1Loss
 from torch.optim import Adam
@@ -154,23 +155,20 @@ class SamsModel(BaseModel):
 
     def validation_step(self, batch, idx) -> Dict[str, Tensor]:
         self.batch = batch
-        result = self.generator_step(batch)
-        generator_log = result["log"]
-        l1, vgg = generator_log["loss/G/l1"], generator_log["loss/G/vgg"]
-        val_loss = l1 + vgg
-        outputs = {
-            "val_loss": val_loss,
-            "val_G_l1": l1,
-            "val_G_vgg": vgg,
-        }
-        return outputs
+        result = self.generator_step(batch, val=True)
+        result.global_step = self.global_step
 
+        return result
+
+    # def validation_epoch_end(self, result) -> EvalResult:
+    #     result.val_loss = result["val_loss"].mean()
+    #     return result
 
     def test_step(self, *args, **kwargs) -> Dict[str, Tensor]:
         pass
 
-    def generator_step(self, batch):
-        loss_G_adv_multiscale = (
+    def generator_step(self, batch, val=False):
+        loss_G_adv_multiscale = (  # also calls generator forward
             self.multiscale_adversarial_loss(batch, for_discriminator=False)
             * self.wt_multiscale
         )
@@ -183,23 +181,21 @@ class SamsModel(BaseModel):
         loss_G_l1 = self.criterion_l1(fake_frame, ground_truth) * self.wt_l1
         loss_G_vgg = self.criterion_VGG(fake_frame, ground_truth) * self.wt_vgg
 
-        loss_G = (
-            loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale + loss_G_adv_temporal
-        )
+        loss_G = loss_G_l1 + loss_G_vgg + loss_G_adv_multiscale + loss_G_adv_temporal
 
         # Log
-        log = {
-            "loss/G": loss_G,
-            "loss/G/adv_multiscale": loss_G_adv_multiscale,
-            "loss/G/adv_temporal": loss_G_adv_temporal,
-            "loss/G/l1": loss_G_l1,
-            "loss/G/vgg": loss_G_vgg,
-        }
-        result = {
-            "loss": loss_G,
-            "log": log,
-            "progress_bar": {"loss/G": loss_G},
-        }
+        val_ = "val_" if val else ""
+        result = (
+            EvalResult(checkpoint_on=loss_G_l1 + loss_G_vgg)
+            if val
+            else TrainResult(loss_G)
+        )
+        result.log(f"{val_}loss", loss_G)
+        result.log(f"{val_}loss/G/adv_multiscale", loss_G_adv_multiscale)
+        result.log(f"{val_}loss/G/adv_temporal", loss_G_adv_temporal)
+        result.log(f"{val_}loss/G/l1+vgg", loss_G_l1 + loss_G_vgg)
+        result.log(f"{val_}loss/G/l1", loss_G_l1)
+        result.log(f"{val_}loss/G/vgg", loss_G_vgg)
         return result
 
     def generate_n_frames(self, batch):
@@ -357,16 +353,10 @@ class SamsModel(BaseModel):
             batch, for_discriminator=True
         )
 
-        log = {
-            "loss/D/multi": loss_D,
-            "loss/D/multi_fake": loss_D_fake,
-            "loss/D/multi_real": loss_D_real,
-        }
-        result = {
-            "loss": loss_D,
-            "log": log,
-            "progress_bar": {"loss/D/multi": loss_D},
-        }
+        result = TrainResult(loss_D)
+        result.log("loss/D/multi", loss_D, prog_bar=True)
+        result.log("loss/D/multi_fake", loss_D_fake)
+        result.log("loss/D/multi_real", loss_D_real)
         return result
 
     def temporal_discriminator_step(self, batch):
@@ -374,16 +364,10 @@ class SamsModel(BaseModel):
             batch, for_discriminator=True
         )
 
-        log = {
-            "loss/D/temporal": loss_D,
-            "loss/D/temporal_fake": loss_D_fake,
-            "loss/D/temporal_real": loss_D_real,
-        }
-        result = {
-            "loss": loss_D,
-            "log": log,
-            "progress_bar": {"loss/D/temporal": loss_D},
-        }
+        result = TrainResult(loss_D)
+        result.log("loss/D/temporal", loss_D, prog_bar=True)
+        result.log("loss/D/temporal_fake", loss_D_fake)
+        result.log("loss/D/temporal_real", loss_D_real)
         return result
 
     def discriminate(self, discriminator, input_semantics, fake_image, real_image):

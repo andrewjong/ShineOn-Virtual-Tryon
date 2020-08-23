@@ -246,9 +246,17 @@ class BaseOptions:
     @staticmethod
     def apply_val_check_ge_train_batch(opt):
         if hasattr(opt, "val_check_interval"):
+            if opt.fast_dev_run:
+                opt.val_check_interval = 1
+                return
+
             from util import str2num
+
             val_check_interval = str2num(opt.val_check_interval)
             limit_train_batches = str2num(opt.limit_train_batches)
-            if isinstance(val_check_interval, int) and isinstance(limit_train_batches, int) and val_check_interval > limit_train_batches:
+            if (
+                isinstance(val_check_interval, int)
+                and isinstance(limit_train_batches, int)
+                and val_check_interval > limit_train_batches
+            ):
                 opt.val_check_interval = opt.limit_train_batches
-
