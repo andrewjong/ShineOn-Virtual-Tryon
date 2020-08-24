@@ -199,6 +199,12 @@ class UnetMaskModel(BaseModel):
             [b["cloth"], b["cloth_mask"] * 2 - 1, self.m_composite * 2 - 1],
             [self.p_rendered, self.p_tryon, b["image"], b["prev_image"]],
         ]
+        for list_i in range(len(visuals)):
+            for list_j in range(len(visuals[list_i])):
+                tensor = visuals[list_i][list_j]
+                if tensor.dim() == 5:
+                    tensor = torch.squeeze(tensor, 1)
+                    visuals[list_i][list_j] = tensor
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
