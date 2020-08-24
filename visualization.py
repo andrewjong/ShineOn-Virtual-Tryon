@@ -3,12 +3,13 @@ import os
 import torch
 from PIL import Image
 
-
 def tensor_for_board(img_tensor):
     # map into [0,1]
     tensor = (img_tensor.clone() + 1) * 0.5
-    tensor.cpu().clamp(0, 1)
-
+    try:
+        tensor.cpu().clamp(0, 1)
+    except:
+        tensor.float().cpu().clamp(0, 1)
     if tensor.size(1) == 1:  # masks, make it RGB
         tensor = tensor.repeat(1, 3, 1, 1)
 
@@ -31,7 +32,6 @@ def tensor_list_for_board(img_tensors_list):
             canvas[
                 :, :, offset_h : offset_h + height, offset_w : offset_w + width
             ].copy_(tensor)
-
     return canvas
 
 
