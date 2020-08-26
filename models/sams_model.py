@@ -229,8 +229,7 @@ class SamsModel(BaseModel):
             if flows is not None:
                 fake_frame = out[:, :weight_boundary, :, :]
                 weight_mask = out[:, weight_boundary:, :, :]
-                assert 1 == 0, print(type(prev_ims[fIdx]), type(flows[fIdx]))
-                warped_flow = self.resample(prev_ims[fIdx], flows[fIdx])
+                warped_flow = self.resample(torch.squeeze(prev_ims[fIdx]), torch.squeeze(flows[fIdx]))
                 fake_frame = (1 - weight_mask) * warped_flow + weight_mask * fake_frame
             else:
                 fake_frame = out
