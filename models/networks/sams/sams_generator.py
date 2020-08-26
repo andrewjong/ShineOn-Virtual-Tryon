@@ -111,7 +111,7 @@ class SamsGenerator(BaseNetwork):
         # if n_frames_total is 1, then we pass in a 0 for the prev frame anyway
         num_prev_frames = max(hparams.n_frames_total - 1, 1)
         self.in_channels = in_channels = TryonDataset.RGB_CHANNELS * num_prev_frames
-        out_channels = TryonDataset.RGB_CHANNELS + 1 # plus 1 refers to weight_mask channel
+        out_channels = TryonDataset.RGB_CHANNELS + 1 if hparams.flow_warp else TryonDataset.RGB_CHANNELS # plus 1 refers to weight_mask channel
 
         NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_pow_outer)
         NGF_INNER = int(hparams.ngf_base ** hparams.ngf_pow_inner)
