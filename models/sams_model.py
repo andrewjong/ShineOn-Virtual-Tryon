@@ -194,8 +194,8 @@ class SamsModel(BaseModel):
             else TrainResult(loss_G)
         )
         result.log(f"{val_}loss", loss_G)
-        result.log(f"{val_}loss/G/adv_multiscale", loss_G_adv_multiscale)
-        result.log(f"{val_}loss/G/adv_temporal", loss_G_adv_temporal)
+        result.log(f"{val_}loss/G/adv_multiscale", loss_G_adv_multiscale, prog_bar=True)
+        result.log(f"{val_}loss/G/adv_temporal", loss_G_adv_temporal, prog_bar=True)
         result.log(f"{val_}loss/G/l1+vgg", loss_G_l1 + loss_G_vgg)
         result.log(f"{val_}loss/G/l1", loss_G_l1)
         result.log(f"{val_}loss/G/vgg", loss_G_vgg)
@@ -439,8 +439,13 @@ def split_predictions(pred):
         fake = []
         real = []
         for p in pred:
-            fake.append([tensor[: tensor.size(0) // 2] for tensor in p])
-            real.append([tensor[tensor.size(0) // 2 :] for tensor in p])
+            if isinstance(p, torch.Tensor):  # single N-Layer Discriminator
+                tensor = p
+                fake.append(tensor[: tensor.size(0) // 2])
+                real.append(tensor[tensor.size(0) // 2 :])
+            else:  # multiscale disc, has several N-Layer Discriminators
+                fake.append([tensor[: tensor.size(0) // 2] for tensor in p])
+                real.append([tensor[tensor.size(0) // 2 :] for tensor in p])
     else:
         fake = pred[: pred.size(0) // 2]
         real = pred[pred.size(0) // 2 :]
