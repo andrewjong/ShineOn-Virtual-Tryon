@@ -118,6 +118,9 @@ class SamsGenerator(BaseNetwork):
 
         # ----- ENCODE --------
         enc_lab_c = getattr(TryonDataset, f"{hparams.encoder_input.upper()}_CHANNELS")
+        print(hparams.encoder_input.upper())
+        print(enc_lab_c)
+        assert 1 == 0
         kwargs = {
             "norm_G": hparams.norm_G,  # prev frames is n_frames_total - 1
             "label_channels": enc_lab_c * num_prev_frames,
@@ -233,7 +236,10 @@ class SamsGenerator(BaseNetwork):
 
         # forward
         logger.debug(f"{x.shape=}")
-        for encoder in self.encode_layers:
+        for i, encoder in enumerate(self.encode_layers):
+            print(i)
+            print(encoder)
+            print(type(encoder))
             if isinstance(encoder, AnySpadeResBlock):
                 x = encoder(x, prev_n_labelmaps)
             else:
