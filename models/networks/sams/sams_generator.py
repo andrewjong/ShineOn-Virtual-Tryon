@@ -122,6 +122,7 @@ class SamsGenerator(BaseNetwork):
             "norm_G": hparams.norm_G,  # prev frames is n_frames_total - 1
             "label_channels": enc_lab_c * num_prev_frames,
             "spade_class": SPADE,
+            "activation": self.hparams.activation
         }
         self.encode_layers = [
             nn.Conv2d(
@@ -151,6 +152,7 @@ class SamsGenerator(BaseNetwork):
             "spade_class": AttentiveMultiSpade
             if hparams.attention_middle
             else MultiSpade,
+            "activation": self.hparams.activation
         }
         self.middle_layers = nn.ModuleList(
             AnySpadeResBlock(NGF_INNER, NGF_INNER, **kwargs)

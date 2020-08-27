@@ -15,6 +15,7 @@ class MultiSpade(SPADE):
         config_text: str,
         norm_nc: int,
         label_channels_dict: Dict[str, int],
+        activation: str,
         sort_fn: Callable = sorted,
     ):
         """
@@ -39,7 +40,7 @@ class MultiSpade(SPADE):
         self.label_channels: Dict[str, int] = label_channels_dict
         self.spade_layers: nn.ModuleDict = nn.ModuleDict(
             {
-                key: SPADE(config_text, norm_nc, label_nc)
+                key: SPADE(config_text, norm_nc, label_nc, activation)
                 for key, label_nc in label_channels_dict.items()
             }
         )

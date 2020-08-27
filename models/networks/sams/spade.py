@@ -13,6 +13,7 @@ import torch.nn.utils.spectral_norm as spectral_norm
 import torchvision
 
 from models.networks.sync_batchnorm import SynchronizedBatchNorm2d
+from models.networks.activation import Sine, Swish
 
 
 class SPADE(nn.Module):
@@ -57,18 +58,18 @@ class SPADE(nn.Module):
         ks = int(parsed.group(2))
         return param_free_norm, ks
 
-    def __init__(self, config_text, norm_nc, label_nc):
+    def __init__(self, config_text, norm_nc, label_nc, activation):
         super().__init__()
 
         param_free_norm_cls, ks = SPADE.parse_config_text(config_text)
         self.param_free_norm = param_free_norm_cls(norm_nc, affine=False)
-
+        self.actvn = self._get_activation_fn(activation)
         # The dimension of the intermediate embedding space. Yes, hardcoded.
         self.nhidden = nhidden = 128
 
         pw = ks // 2
         self.mlp_shared = nn.Sequential(
-            nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw), nn.ReLU()
+            nn.Conv2d(label_nc, nhidden, kernel_size=ks, padding=pw), self.actvn
         )
         self.mlp_gamma = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
         self.mlp_beta = nn.Conv2d(nhidden, norm_nc, kernel_size=ks, padding=pw)
@@ -88,6 +89,18 @@ class SPADE(nn.Module):
         out = normalized * (1 + gamma) + beta
 
         return out
+
+    def _get_activation_fn(self, activation):
+        if activation == "relu":
+            return nn.ReLU()
+        elif activation == "gelu":
+            return nn.GELU()
+        elif activation == "swish":
+            return Swish()
+        elif activation == "sine":
+            return Sine()
+        else:
+            raise RuntimeError(f"The selected activation should be relu/gelu/swish/sine, not {activation}")
 
 
 class AnySpadeResBlock(nn.Module):
@@ -110,6 +123,7 @@ class AnySpadeResBlock(nn.Module):
         norm_G: str,
         label_channels: Union[int, Dict[str,int]],
         spade_class: Type[SPADE],
+        activation: str
     ):
         """
 
@@ -140,10 +154,11 @@ class AnySpadeResBlock(nn.Module):
 
         # define normalization layers
         spade_config_str = norm_G.replace("spectral", "")
-        self.spade_0 = spade_class(spade_config_str, fin, label_channels)
-        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels)
+        self.spade_0 = spade_class(spade_config_str, fin, label_channels, activation)
+        self.spade_1 = spade_class(spade_config_str, fmiddle, label_channels, activation)
         if self.learned_shortcut:
-            self.norm_s = spade_class(spade_config_str, fin, label_channels)
+            self.norm_s = spade_class(spade_config_str, fin, label_channels, activation)
+        self.actvn = self._get_activation_fn(activation)
 
     # note the resnet block with SPADE also takes in |seg|,
     # the semantic segmentation map as input
@@ -164,8 +179,17 @@ class AnySpadeResBlock(nn.Module):
             x_s = x
         return x_s
 
-    def actvn(self, x):
-        return F.leaky_relu(x, 2e-1)
+    def _get_activation_fn(self, activation):
+        if activation == "relu":
+            return nn.LeakyReLU(2e-1)
+        elif activation == "gelu":
+            return nn.GELU()
+        elif activation == "swish":
+            return Swish()
+        elif activation == "sine":
+            return Sine()
+        else:
+            raise RuntimeError(f"The selected activation should be relu/gelu/swish/sine, not {activation}")
 
 
 class ResnetBlock(nn.Module):

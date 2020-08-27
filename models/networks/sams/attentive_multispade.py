@@ -14,9 +14,10 @@ class AttentiveMultiSpade(MultiSpade):
         config_text: str,
         norm_nc: int,
         label_channels_dict: Dict[str, int],
+        activation: str,
         attn_type: str = "sagan",
     ):
-        super().__init__(config_text, norm_nc, label_channels_dict)
+        super().__init__(config_text, norm_nc, label_channels_dict, activation)
         norm_class, kernel_size = SPADE.parse_config_text(config_text)
 
         num_spade = len(self.spade_layers)
