@@ -267,7 +267,7 @@ class SamsModel(BaseModel):
 
             # Corresponding encoding maps.
             b, n, c, h, w = enc_lblmaps.shape
-            start = nframes - fIdx  # nframes= 5,fIdx=3
+            start = n_prev - fIdx  # nframes= 5,fIdx=3
             zero_pad = torch.zeros(b, start, c, h, w).type_as(enc_lblmaps)
             # only up to the last index, which is for current frame
             prev_labelmaps_now = enc_lblmaps[:, start:-1, :, :, :]
