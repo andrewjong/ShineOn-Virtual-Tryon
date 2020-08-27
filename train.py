@@ -62,6 +62,7 @@ def main(train=True):
             val_check_interval=str2num(opt.val_check_interval),
             # Debug
             fast_dev_run=opt.fast_dev_run,
+            accumulate_grad_batches=opt.accumlated_batches,
             profiler=True,
         )
 
