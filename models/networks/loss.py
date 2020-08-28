@@ -120,3 +120,17 @@ class VGGLoss(nn.Module):
         for i in self.layids:
             loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())
         return loss
+
+def gradient_penalty(gamma, predicted_y, average_samples):
+    gradients = torch.autograd.
+
+
+def gradient_penalty_loss(y_true, y_pred, averaged_samples, weight):
+    gradients = K.gradients(y_pred, averaged_samples)[0]
+    gradients_sqr = K.square(gradients)
+    gradient_penalty = K.sum(gradients_sqr,
+                             axis=np.arange(1, len(gradients_sqr.shape)))
+
+    # weight * ||grad||^2
+    # Penalize the gradient norm
+    return K.mean(gradient_penalty * weight)
