@@ -7,7 +7,7 @@ assignees: andrewjong, gauravkuppa, veralauee
 
 ---
 
-<!--- Just fill in the major+minor version number where [M.m] is in the title. Patch will be reported in comments. -->
+<!--- Just fill in the major+minor version number where [M.m] is in the title. A separate issue should be created for each [M.m]. Patch will just be reported in comments. -->
 
 # Description
 Explain why we're running this and what we expect.
