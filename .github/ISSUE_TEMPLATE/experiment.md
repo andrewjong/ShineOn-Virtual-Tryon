@@ -24,7 +24,7 @@ python train.py ___
 # Report Results
 To report a result, copy this into a comment below:
 ```
-# Experiment Description
+# Result Description
 <!--- 
 For Experiment Number, use "Major.minor.patch", e.g. 1.2.0.
 Major.minor should match the [M.m] in the title. 
@@ -33,6 +33,7 @@ Patch describes a bug fix (change in the code or branch).
 **Experiment Number:** 1.2.0
 **Branch:** `master`
 **Timestamp:** MM/DD/YYYY 9pm PT
+**Epochs:** 
 
 # Loss Graphs
 <!--- Put detailed loss graphs here. Please include all graphs! -->
