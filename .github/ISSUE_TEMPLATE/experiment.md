@@ -9,8 +9,8 @@ assignees: andrewjong, gauravkuppa, veralauee
 
 <!--- Fill in the Major.minor version number where [M.m] is in the title. 
 - Major is an experiment category. Closely related experiments are grouped under the same major version.
-- Minor is a small difference that changes the train command, e.g. a different hyperparameter value.
-- Patch describes a bug fix (change in the code or branch) or rerun.
+- Minor is a small change in the train command, e.g. a different hyperparameter value.
+- Patch describes a bug fix (change in the code or branch), or rerun.
 - Separate issues should be created for each [M.m]. Patches are reported in comments. -->
 
 # Description
