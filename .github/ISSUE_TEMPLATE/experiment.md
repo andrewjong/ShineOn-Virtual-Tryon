@@ -7,7 +7,11 @@ assignees: andrewjong, gauravkuppa, veralauee
 
 ---
 
-<!--- Just fill in the major+minor version number where [M.m] is in the title. A separate issue should be created for each [M.m]. Patch will just be reported in comments. -->
+<!--- Fill in the Major.minor version number where [M.m] is in the title. 
+- Major is an experiment category. Closely related experiments are grouped under the same major version.
+- Minor is a small difference that changes the train command, e.g. a different hyperparameter value.
+- Patch describes a bug fix (change in the code or branch) or rerun.
+- Separate issues should be created for each [M.m]. Patches are reported in comments. -->
 
 # Description
 Explain why we're running this and what we expect.
