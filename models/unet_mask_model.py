@@ -58,8 +58,12 @@ class UnetMaskModel(BaseModel):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
-        if flows is not None:
-            assert self.hparams.n_frames_total <= 1, "flow does not support this"
+        #if flows is not None:
+        #    assert self.hparams.n_frames_total <= 1, "flow does not support this"
+
+
+        """for fIdx in range(self.n_frames_total): # no progressive training
+        """
 
         concat_tensor = torch.cat([person_representation, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
@@ -71,6 +75,7 @@ class UnetMaskModel(BaseModel):
 
         p_rendereds = outputs[:, 0:boundary, :, :]
         m_composites = outputs[:, boundary:weight_boundary, :, :]
+
         weight_masks = (
             outputs[:, weight_boundary:, :, :] if self.hparams.flow_warp else None
         )
@@ -95,33 +100,22 @@ class UnetMaskModel(BaseModel):
             if weight_masks is not None
             else None
         )
-        p_rendereds_warped = None
 
         # only use second frame for warping
-        if flows is not None:
+        all_generated_frames = []
+        for fIdx in range(self.hparams.n_frames_total):
+            if flows is not None:
+                last_generated_frame = all_generated_frames[fIdx - 1] if fIdx > 0 else torch.zeros_like(warped_cloths_chunked[0])
+                #from IPython import embed
+                #embed()
+                warp_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
+                p_rendered_warp = (1 - weight_masks_chunked[fIdx]) * warp_flow + weight_masks_chunked[fIdx] *  p_rendereds_chunked[fIdx]
+            p_rendered = p_rendered_warp if flows is not None else p_rendereds_chunked[fIdx]
+            p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
+            all_generated_frames.append(p_tryon)
 
-            warped_flows = [
-                self.resample(prev_im, flows[0].contiguous())
-            ]  # what is past_frame, also not sure flows has n_frames_total
 
-            p_rendereds_warped = [
-                (1 - weight) * warp_flow + weight * p_rendered
-                for weight, warp_flow, p_rendered in zip(
-                    weight_masks_chunked, warped_flows, p_rendereds_chunked
-                )
-            ]
-
-        p_tryons = [
-            wc * mask + p * (1 - mask)
-            for wc, p, mask in zip(
-                warped_cloths_chunked,
-                p_rendereds_warped
-                if p_rendereds_warped is not None
-                else p_rendereds_chunked,
-                m_composites_chunked,
-            )
-        ]
-        p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
+        p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons
 
@@ -141,6 +135,8 @@ class UnetMaskModel(BaseModel):
             person_inputs, cloth_inputs, flow, prev_im
         )
         # loss
+        from IPython import embed
+        embed()
         loss_image_l1 = F.l1_loss(self.p_tryon, im)
         loss_image_vgg = self.criterionVGG(self.p_tryon, im)
         loss_mask_l1 = F.l1_loss(self.m_composite, cm)
