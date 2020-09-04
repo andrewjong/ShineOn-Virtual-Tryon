@@ -134,12 +134,16 @@ class UnetMaskModel(BaseModel):
         self.p_rendered, self.m_composite, self.p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
+        self.p_tryon = torch.chunk(self.p_tryon, self.hparams.n_frames_total, dim=1)
+        self.p_rendered = torch.chunk(self.p_rendered, self.hparams.n_frames_total, dim=1)
+        self.m_composite = torch.chunk(self.m_composite, self.hparams.n_frames_total, dim=1)
+        im = torch.chunk(im, self.hparams.n_frames_total, dim=1)
+        cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
+
         # loss
-        from IPython import embed
-        embed()
-        loss_image_l1 = F.l1_loss(self.p_tryon, im)
-        loss_image_vgg = self.criterionVGG(self.p_tryon, im)
-        loss_mask_l1 = F.l1_loss(self.m_composite, cm)
+        loss_image_l1 = F.l1_loss(self.p_tryon[-1], im[-1])
+        loss_image_vgg = self.criterionVGG(self.p_tryon[-1], im[-1])
+        loss_mask_l1 = F.l1_loss(self.m_composite[-1], cm[-1])
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
@@ -192,8 +196,8 @@ class UnetMaskModel(BaseModel):
         person_visuals = self.fetch_person_visuals(b)
         visuals = [
             person_visuals,
-            [b["cloth"], b["cloth_mask"] * 2 - 1, self.m_composite * 2 - 1],
-            [self.p_rendered, self.p_tryon, b["image"], b["prev_image"]],
+            [b["cloth"][:, -3:, :, :], b["cloth_mask"][:, -1:, :, :] * 2 - 1, self.m_composite[-1] * 2 - 1],
+            [self.p_rendered[-1], self.p_tryon[-1], b["image"][:, -3:, :, :], b["prev_image"][:, -3:, :, :]],
         ]
         for list_i in range(len(visuals)):
             for list_j in range(len(visuals[list_i])):
@@ -221,8 +225,8 @@ class UnetMaskModel(BaseModel):
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
             if self.hparams.n_frames_total > 1:
-                channels = tensor.shape[-3] // 2
-                tensor = tensor[:, channels:, :, :]
+                channels = tensor.shape[-3] // self.hparams.n_frames_total
+                tensor = tensor[:, -1 * channels:, :, :]
             else:
                 channels = tensor.shape[-3]
 

@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from datasets.vvt_dataset import VVTDataset
-
+from datasets.n_frames_interface import maybe_combine_frames_and_channels
 logger = logging.getLogger("logger")
 
 
@@ -112,7 +112,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def validation_step(self, batch, idx):
         """ Must set self.batch = batch for validation_end() to visualize the last
         sample"""
-        self.batch = batch
+        self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
         result = self.training_step(batch, idx, val=True)
         return result
 
