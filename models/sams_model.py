@@ -207,7 +207,8 @@ class SamsModel(BaseModel):
 
         # make a buffer of previous frames, also (b x N x c x h x w)
         all_generated_frames: Tensor = torch.zeros_like(batch["image"])
-        flows = torch.chunk(batch["flow"], self.n_frames_total, dim=1)
+        flows = torch.chunk(batch["flow"], self.n_frames_total, dim=1) if self.hparams.flow_warp else None
+
         # generate previous frames before this one.
         #   for progressive training, just generate from here
         start_idx = self.n_frames_total - self.n_frames_now
@@ -229,11 +230,9 @@ class SamsModel(BaseModel):
             weight_mask = out[:, weight_boundary:, :, :]
 
             last_generated_frame = all_generated_frames[:, fIdx - 1, :, :, :] if fIdx > 0 else torch.zeros_like(all_generated_frames[:, fIdx, :, :, :])
-            from IPython import embed
-            embed()
+
             warped_flow = self.resample(last_generated_frame, torch.squeeze(flows[fIdx]).contiguous())
-            #from IPython import embed
-            #embed()
+
             fake_frame = (1 - weight_mask) * warped_flow + weight_mask * fake_frame
             # add to buffer, but don't detach; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame

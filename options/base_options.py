@@ -30,6 +30,9 @@ class BaseOptions:
         )
         parser.add_argument("-b", "--batch_size", type=int, default=8)
         parser.add_argument(
+            "--activation", choices=("relu", "gelu", "swish", "sine"), default="relu"
+        )
+        parser.add_argument(
             "-fp",
             "--precision",
             type=int,
