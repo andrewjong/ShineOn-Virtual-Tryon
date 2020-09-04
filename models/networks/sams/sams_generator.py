@@ -237,7 +237,7 @@ class SamsGenerator(BaseNetwork):
 
         # forward
         logger.debug(f"{x.shape=}")
-        for i, encoder in enumerate(self.encode_layers):
+        for encoder in self.encode_layers:
             if isinstance(encoder, AnySpadeResBlock):
                 x = encoder(x, prev_n_labelmaps)
             else:

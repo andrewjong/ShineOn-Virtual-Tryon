@@ -58,12 +58,6 @@ class UnetMaskModel(BaseModel):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
-        #if flows is not None:
-        #    assert self.hparams.n_frames_total <= 1, "flow does not support this"
-
-
-        """for fIdx in range(self.n_frames_total): # no progressive training
-        """
 
         concat_tensor = torch.cat([person_representation, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
