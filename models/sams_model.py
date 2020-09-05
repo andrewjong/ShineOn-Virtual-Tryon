@@ -207,7 +207,7 @@ class SamsModel(BaseModel):
 
         # make a buffer of previous frames, also (b x N x c x h x w)
         all_generated_frames: Tensor = torch.zeros_like(batch["image"])
-        flows = torch.chunk(batch["flow"], self.n_frames_total, dim=1) if self.hparams.flow_warp else None
+        flows = torch.unbind(batch["flow"], dim=1) if self.hparams.flow_warp else None
 
         # generate previous frames before this one.
         #   for progressive training, just generate from here
@@ -215,7 +215,7 @@ class SamsModel(BaseModel):
         for fIdx in range(start_idx, self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
-            weight_boundary = 3
+            weight_boundary = TryonDataset.RGB_CHANNELS
             labelmaps_this_frame: Dict[str, Tensor] = {
                 name: lblmap[:, fIdx, :, :, :] for name, lblmap in labelmap.items()
             }
@@ -231,7 +231,7 @@ class SamsModel(BaseModel):
 
             if self.hparams.flow_warp:
                 last_generated_frame = all_generated_frames[:, fIdx - 1, :, :, :] if fIdx > 0 else torch.zeros_like(all_generated_frames[:, fIdx, :, :, :])
-                warped_flow = self.resample(last_generated_frame, torch.squeeze(flows[fIdx]).contiguous())
+                warped_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
                 fake_frame = (1 - weight_mask) * warped_flow + weight_mask * fake_frame
             # add to buffer, but don't detach; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame

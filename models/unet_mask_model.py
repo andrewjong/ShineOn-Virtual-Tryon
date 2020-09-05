@@ -100,8 +100,6 @@ class UnetMaskModel(BaseModel):
         for fIdx in range(self.hparams.n_frames_total):
             if flows is not None:
                 last_generated_frame = all_generated_frames[fIdx - 1] if fIdx > 0 else torch.zeros_like(warped_cloths_chunked[0])
-                #from IPython import embed
-                #embed()
                 warp_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
                 p_rendered_warp = (1 - weight_masks_chunked[fIdx]) * warp_flow + weight_masks_chunked[fIdx] *  p_rendereds_chunked[fIdx]
             p_rendered = p_rendered_warp if flows is not None else p_rendereds_chunked[fIdx]
@@ -156,6 +154,13 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
 
         self.prev_frame = im
+        return result
+
+    def validation_step(self, batch, idx):
+        """ Must set self.batch = batch for validation_end() to visualize the last
+        sample"""
+        self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
+        result = self.training_step(batch, idx, val=True)
         return result
 
     def test_step(self, batch, batch_idx):

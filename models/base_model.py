@@ -112,7 +112,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def validation_step(self, batch, idx):
         """ Must set self.batch = batch for validation_end() to visualize the last
         sample"""
-        self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
+        self.batch = batch
         result = self.training_step(batch, idx, val=True)
         return result
 
