@@ -157,5 +157,3 @@ dependencies:
     - tensorboard==2.2.0
     - tensorboard-plugin-wit==1.7.0
     - urllib3==1.25.10
-prefix: /home/gaurav/.miniconda3/envs/sams-pt1.6
-
