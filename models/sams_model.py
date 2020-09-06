@@ -226,11 +226,11 @@ class SamsModel(BaseModel):
             out: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
-            fake_frame = out[:, :weight_boundary, :, :]
-            weight_mask = out[:, weight_boundary:, :, :]
+            fake_frame = out[:, :weight_boundary, :, :].clone()
+            weight_mask = out[:, weight_boundary:, :, :].clone()
 
             if self.hparams.flow_warp:
-                last_generated_frame = all_generated_frames[:, fIdx - 1, :, :, :] if fIdx > 0 else torch.zeros_like(all_generated_frames[:, fIdx, :, :, :])
+                last_generated_frame = all_generated_frames[:, fIdx - 1, :, :, :].clone() if fIdx > 0 else torch.zeros_like(all_generated_frames[:, fIdx, :, :, :])
                 warped_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
                 fake_frame = (1 - weight_mask) * warped_flow + weight_mask * fake_frame
             # add to buffer, but don't detach; must go through temporal discriminator
