@@ -12,12 +12,12 @@ dependencies:
   - blas=1.0=mkl
   - bleach=3.1.5=py_0
   - c-ares=1.16.1=h516909a_0
-  - ca-certificates=2020.6.20=hecda079_0
-  - certifi=2020.6.20=py38h32f6830_0
+  - ca-certificates=2020.7.22=0
+  - certifi=2020.6.20=py38_0
   - cffi=1.14.1=py38he30daa8_0
   - cloudpickle=1.5.0=py_0
   - colorlog=4.2.1=py38_0
-  - cudatoolkit=10.1.243=h6bb024c_0
+  - cudatoolkit=9.2=0
   - cycler=0.10.0=py38_0
   - cytoolz=0.10.1=py38h7b6447c_0
   - dask-core=2.23.0=py_0
@@ -107,7 +107,7 @@ dependencies:
   - python=3.8.5=hcff3b4d_0
   - python-dateutil=2.8.1=py_0
   - python_abi=3.8=1_cp38
-  - pytorch=1.6.0=py3.8_cuda10.1.243_cudnn7.6.3_0
+  - pytorch=1.6.0=py3.8_cuda9.2.148_cudnn7.6.3_0
   - pywavelets=1.1.1=py38h7b6447c_0
   - pyyaml=5.3.1=py38h1e0a361_0
   - pyzmq=19.0.1=py38he6710b0_1
@@ -126,7 +126,7 @@ dependencies:
   - testpath=0.4.4=py_0
   - tk=8.6.10=hbc83047_0
   - toolz=0.10.0=py_0
-  - torchvision=0.7.0=py38_cu101
+  - torchvision=0.7.0=py38_cu92
   - tornado=6.0.4=py38h7b6447c_1
   - tqdm=4.48.2=pyh9f0ad1d_0
   - traitlets=4.3.3=py38_0
@@ -157,4 +157,5 @@ dependencies:
     - tensorboard==2.2.0
     - tensorboard-plugin-wit==1.7.0
     - urllib3==1.25.10
-prefix: /home/andrew/.miniconda3/envs/sams-pt1.6
+prefix: /home/gaurav/.miniconda3/envs/sams-pt1.6
+
