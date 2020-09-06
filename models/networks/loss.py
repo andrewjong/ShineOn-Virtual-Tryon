@@ -121,12 +121,9 @@ class VGGLoss(nn.Module):
             loss += self.weights[i] * self.criterion(x_vgg[i], y_vgg[i].detach())
         return loss
 
-def gradient_penalty(gamma, predicted_y, average_samples):
-    gradients = torch.autograd.grad(predicted_y, )
-
-def gradient_penalty(images, output, weight = 10):
-    batch_size = images.shape[0]
-    gradients = torch.autograd.grad(outputs=output, inputs=images,
+def gradient_penalty(batch, output, weight = 10):
+    batch_size = batch.shape[0]
+    gradients = torch.autograd.grad(outputs=output, inputs=batch,
                            grad_outputs=torch.ones(output.size()).cuda(),
                            create_graph=True, retain_graph=True, only_inputs=True)[0]
 

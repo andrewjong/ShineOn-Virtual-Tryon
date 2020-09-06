@@ -33,6 +33,10 @@ class BaseOptions:
             "--activation", choices=("relu", "gelu", "swish", "sine"), default="relu"
         )
         parser.add_argument(
+            "--accumlated_batches", type=int, default=1,
+            help="number of batches to train through before updating gradients"
+        )
+        parser.add_argument(
             "-fp",
             "--precision",
             type=int,

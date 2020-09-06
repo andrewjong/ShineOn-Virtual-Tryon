@@ -112,7 +112,7 @@ class SamsGenerator(BaseNetwork):
         num_prev_frames = max(hparams.n_frames_total - 1, 1)
         self.in_channels = in_channels = TryonDataset.RGB_CHANNELS * num_prev_frames
 
-        out_channels = TryonDataset.RGB_CHANNELS + 1 if hparams.flow_warp else TryonDataset.RGB_CHANNELS # plus 1 refers to weight_mask channel
+        out_channels = TryonDataset.RGB_CHANNELS + TryonDataset.MASK_CHANNELS if hparams.flow_warp else TryonDataset.RGB_CHANNELS # plus 1 refers to weight_mask channel
 
 
         NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_pow_outer)
@@ -233,7 +233,8 @@ class SamsGenerator(BaseNetwork):
             enc_ch = parse_num_channels(self.hparams.encoder_input)
             prev_n_labelmaps = torch.zeros(b, enc_ch, h, w).type_as(reference)
 
-        x = prev_n_frames_G
+        x = prev_n_frames_G.requires_grad_()
+
 
         # forward
         logger.debug(f"{x.shape=}")
@@ -254,6 +255,8 @@ class SamsGenerator(BaseNetwork):
             else:
                 x = decoder(x)
             logger.debug(f"{x.shape=}")
+
+        print("x requires grad", x.requires_grad)
         return x
 
 
