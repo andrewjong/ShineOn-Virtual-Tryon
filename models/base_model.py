@@ -16,7 +16,7 @@ from torch.utils.tensorboard import SummaryWriter
 from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from datasets.vvt_dataset import VVTDataset
-
+from datasets.n_frames_interface import maybe_combine_frames_and_channels
 logger = logging.getLogger("logger")
 
 

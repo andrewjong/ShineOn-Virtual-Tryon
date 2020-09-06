@@ -58,8 +58,6 @@ class UnetMaskModel(BaseModel):
         # comment andrew: Do we need to interleave the concatenation? Or can we leave it
         #  like this? Theoretically the unet will learn where things are, so let's try
         #  simple concat for now.
-        if flows is not None:
-            assert self.hparams.n_frames_total <= 1, "flow does not support this"
 
         concat_tensor = torch.cat([person_representation, warped_cloths], 1)
         outputs = self.unet(concat_tensor)
@@ -71,6 +69,7 @@ class UnetMaskModel(BaseModel):
 
         p_rendereds = outputs[:, 0:boundary, :, :]
         m_composites = outputs[:, boundary:weight_boundary, :, :]
+
         weight_masks = (
             outputs[:, weight_boundary:, :, :] if self.hparams.flow_warp else None
         )
@@ -95,33 +94,20 @@ class UnetMaskModel(BaseModel):
             if weight_masks is not None
             else None
         )
-        p_rendereds_warped = None
 
         # only use second frame for warping
-        if flows is not None:
+        all_generated_frames = []
+        for fIdx in range(self.hparams.n_frames_total):
+            if flows is not None:
+                last_generated_frame = all_generated_frames[fIdx - 1] if fIdx > 0 else torch.zeros_like(warped_cloths_chunked[0])
+                warp_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
+                p_rendered_warp = (1 - weight_masks_chunked[fIdx]) * warp_flow + weight_masks_chunked[fIdx] *  p_rendereds_chunked[fIdx]
+            p_rendered = p_rendered_warp if flows is not None else p_rendereds_chunked[fIdx]
+            p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
+            all_generated_frames.append(p_tryon)
 
-            warped_flows = [
-                self.resample(prev_im, flows[0].contiguous())
-            ]  # what is past_frame, also not sure flows has n_frames_total
 
-            p_rendereds_warped = [
-                (1 - weight) * warp_flow + weight * p_rendered
-                for weight, warp_flow, p_rendered in zip(
-                    weight_masks_chunked, warped_flows, p_rendereds_chunked
-                )
-            ]
-
-        p_tryons = [
-            wc * mask + p * (1 - mask)
-            for wc, p, mask in zip(
-                warped_cloths_chunked,
-                p_rendereds_warped
-                if p_rendereds_warped is not None
-                else p_rendereds_chunked,
-                m_composites_chunked,
-            )
-        ]
-        p_tryons = torch.cat(p_tryons, dim=1)  # cat back to the channel dim
+        p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons
 
@@ -140,10 +126,16 @@ class UnetMaskModel(BaseModel):
         self.p_rendered, self.m_composite, self.p_tryon = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
+        self.p_tryon = torch.chunk(self.p_tryon, self.hparams.n_frames_total, dim=1)
+        self.p_rendered = torch.chunk(self.p_rendered, self.hparams.n_frames_total, dim=1)
+        self.m_composite = torch.chunk(self.m_composite, self.hparams.n_frames_total, dim=1)
+        im = torch.chunk(im, self.hparams.n_frames_total, dim=1)
+        cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
+
         # loss
-        loss_image_l1 = F.l1_loss(self.p_tryon, im)
-        loss_image_vgg = self.criterionVGG(self.p_tryon, im)
-        loss_mask_l1 = F.l1_loss(self.m_composite, cm)
+        loss_image_l1 = F.l1_loss(self.p_tryon[-1], im[-1])
+        loss_image_vgg = self.criterionVGG(self.p_tryon[-1], im[-1])
+        loss_mask_l1 = F.l1_loss(self.m_composite[-1], cm[-1])
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
@@ -162,6 +154,13 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
 
         self.prev_frame = im
+        return result
+
+    def validation_step(self, batch, idx):
+        """ Must set self.batch = batch for validation_end() to visualize the last
+        sample"""
+        self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
+        result = self.training_step(batch, idx, val=True)
         return result
 
     def test_step(self, batch, batch_idx):
@@ -196,9 +195,15 @@ class UnetMaskModel(BaseModel):
         person_visuals = self.fetch_person_visuals(b)
         visuals = [
             person_visuals,
-            [b["cloth"], b["cloth_mask"] * 2 - 1, self.m_composite * 2 - 1],
-            [self.p_rendered, self.p_tryon, b["image"], b["prev_image"]],
+            [b["cloth"][:, -3:, :, :], b["cloth_mask"][:, -1:, :, :] * 2 - 1, self.m_composite[-1] * 2 - 1],
+            [self.p_rendered[-1], self.p_tryon[-1], b["image"][:, -3:, :, :], b["prev_image"][:, -3:, :, :]],
         ]
+        for list_i in range(len(visuals)):
+            for list_j in range(len(visuals[list_i])):
+                tensor = visuals[list_i][list_j]
+                if tensor.dim() == 5:
+                    tensor = torch.squeeze(tensor, 1)
+                    visuals[list_i][list_j] = tensor
         tensor = tensor_list_for_board(visuals)
         # add to experiment
         for i, img in enumerate(tensor):
@@ -219,8 +224,8 @@ class UnetMaskModel(BaseModel):
         for name in person_vis_names:
             tensor: torch.Tensor = batch[name]
             if self.hparams.n_frames_total > 1:
-                channels = tensor.shape[-3] // 2
-                tensor = tensor[:, channels:, :, :]
+                channels = tensor.shape[-3] // self.hparams.n_frames_total
+                tensor = tensor[:, -1 * channels:, :, :]
             else:
                 channels = tensor.shape[-3]
 

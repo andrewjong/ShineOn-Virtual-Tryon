@@ -13,6 +13,7 @@ from datasets.tryon_dataset import parse_num_channels, TryonDataset
 from models.base_model import BaseModel
 from models.networks.loss import VGGLoss, GANLoss
 from models.networks.sams.sams_generator import SamsGenerator
+from .flownet2_pytorch.networks.resample2d_package.resample2d import Resample2d
 from options import gan_options
 from visualization import tensor_list_for_board
 
@@ -91,6 +92,8 @@ class SamsModel(BaseModel):
         )
         self.inputs = hparams.person_inputs + hparams.cloth_inputs
         self.generator = SamsGenerator(hparams)
+        self.resample = Resample2d()
+
 
         if self.isTrain:
             init = hparams.init_type, hparams.init_variance
@@ -204,6 +207,7 @@ class SamsModel(BaseModel):
 
         # make a buffer of previous frames, also (b x N x c x h x w)
         all_generated_frames: Tensor = torch.zeros_like(batch["image"])
+        flows = torch.unbind(batch["flow"], dim=1) if self.hparams.flow_warp else None
 
         # generate previous frames before this one.
         #   for progressive training, just generate from here
@@ -211,6 +215,7 @@ class SamsModel(BaseModel):
         for fIdx in range(start_idx, self.n_frames_total):
             # Prepare data...
             # all the guidance for the current frame
+            weight_boundary = TryonDataset.RGB_CHANNELS
             labelmaps_this_frame: Dict[str, Tensor] = {
                 name: lblmap[:, fIdx, :, :, :] for name, lblmap in labelmap.items()
             }
@@ -218,9 +223,16 @@ class SamsModel(BaseModel):
                 batch, fIdx, all_generated_frames
             )
             # synthesize
-            fake_frame: Tensor = self.generator.forward(
+            out: Tensor = self.generator.forward(
                 prev_n_frames_G, prev_n_labelmaps, labelmaps_this_frame
             )
+            fake_frame = out[:, :weight_boundary, :, :]
+            weight_mask = out[:, weight_boundary:, :, :]
+
+            if self.hparams.flow_warp:
+                last_generated_frame = all_generated_frames[:, fIdx - 1, :, :, :] if fIdx > 0 else torch.zeros_like(all_generated_frames[:, fIdx, :, :, :])
+                warped_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
+                fake_frame = (1 - weight_mask) * warped_flow + weight_mask * fake_frame
             # add to buffer, but don't detach; must go through temporal discriminator
             all_generated_frames[:, fIdx, :, :, :] = fake_frame
 
