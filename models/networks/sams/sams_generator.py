@@ -84,14 +84,16 @@ class SamsGenerator(BaseNetwork):
             help="Number of channel-preserving layers between the encoder and decoder",
         )
         parser.add_argument(
-            "--attention_middle",
-            action="store_true",
-            help="Use self-attention in the middle layers",
+            "--attention_middle_indices",
+            nargs="?",
+            help="middle layer indices for attention",
+            default=[],
         )
         parser.add_argument(
-            "--attention_decoder",
-            action="store_true",
-            help="Use self-attention in the decoder layers",
+            "--attention_decoder_indices",
+            nargs="?",
+            help="decoder layer indices for attention",
+            default=[],
         )
         if "--ngf" in sys.argv:
             logger.warning(
@@ -112,8 +114,11 @@ class SamsGenerator(BaseNetwork):
         num_prev_frames = max(hparams.n_frames_total - 1, 1)
         self.in_channels = in_channels = TryonDataset.RGB_CHANNELS * num_prev_frames
 
-        out_channels = TryonDataset.RGB_CHANNELS + TryonDataset.MASK_CHANNELS if hparams.flow_warp else TryonDataset.RGB_CHANNELS # plus 1 refers to weight_mask channel
-
+        out_channels = (
+            TryonDataset.RGB_CHANNELS + TryonDataset.MASK_CHANNELS
+            if hparams.flow_warp
+            else TryonDataset.RGB_CHANNELS
+        )  # plus 1 refers to weight_mask channel
 
         NGF_OUTER = out_feat = int(hparams.ngf_base ** hparams.ngf_pow_outer)
         NGF_INNER = int(hparams.ngf_base ** hparams.ngf_pow_inner)
@@ -123,8 +128,7 @@ class SamsGenerator(BaseNetwork):
         kwargs = {
             "norm_G": hparams.norm_G,  # prev frames is n_frames_total - 1
             "label_channels": enc_lab_c * num_prev_frames,
-            "spade_class": SPADE,
-            "activation": self.hparams.activation
+            "activation": self.hparams.activation,
         }
         self.encode_layers = [
             nn.Conv2d(
@@ -139,40 +143,70 @@ class SamsGenerator(BaseNetwork):
         ):
             in_feat = int(hparams.ngf_base ** pow)
             out_feat = int(hparams.ngf_base ** (pow + hparams.ngf_pow_step))
-            self.encode_layers.extend(make_encode_block(in_feat, out_feat, **kwargs))
+            self.encode_layers.extend(
+                make_encode_block(in_feat, out_feat, **kwargs, spade_class=SPADE)
+            )
         # ensure we get to exactly ngf_base ** ngf_pow_inner
-        self.encode_layers.extend(make_encode_block(out_feat, NGF_INNER, **kwargs))
+        if out_feat != NGF_INNER:
+            logger.warning(
+                f"Final {out_feat=} in encoder layers didn't match {NGF_INNER=}, "
+                f"adding an extra layer to make it work."
+            )
+            self.encode_layers.extend(
+                make_encode_block(out_feat, NGF_INNER, **kwargs, spade_class=SPADE)
+            )
         self.encode_layers = nn.ModuleList(self.encode_layers)
 
         # ------ MIDDLE ------
-        kwargs = {
-            "norm_G": hparams.norm_G,
-            "label_channels": {
-                inp: getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
-                for inp in sorted(self.inputs)
-            },
-            "spade_class": AttentiveMultiSpade
-            if hparams.attention_middle
-            else MultiSpade,
-            "activation": self.hparams.activation
+        kwargs["label_channels"] = {
+            inp: getattr(TryonDataset, f"{inp.upper()}_CHANNELS")
+            for inp in sorted(self.inputs)
         }
-        self.middle_layers = nn.ModuleList(
-            AnySpadeResBlock(NGF_INNER, NGF_INNER, **kwargs)
-            for _ in range(hparams.num_middle)
-        )
+        self.middle_layers = nn.ModuleList()
+        attn_indices = hparams.attention_middle_indices
+        rng_middle = range(hparams.num_middle)
+        num_middle = len(rng_middle)
+        for i, _ in enumerate(rng_middle):
+            spade_class = choose_spade_class_by_index(attn_indices, i, num_middle)
+            self.middle_layers.append(
+                AnySpadeResBlock(
+                    NGF_INNER, NGF_INNER, **kwargs, spade_class=spade_class
+                )
+            )
 
         # ----- DECODE --------
-        kwargs["spade_class"] = (
-            AttentiveMultiSpade if hparams.attention_decoder else MultiSpade
-        )
         self.decode_layers = nn.ModuleList()
-        for pow in range(
+
+        attn_indices = hparams.attention_decoder_indices
+        decode_pows = range(
             hparams.ngf_pow_inner, hparams.ngf_pow_outer, -hparams.ngf_pow_step
-        ):
+        )
+        num_decode = len(decode_pows)
+        for i, pow in enumerate(decode_pows):
             in_feat = int(hparams.ngf_base ** pow)
             out_feat = int(hparams.ngf_base ** (pow - hparams.ngf_pow_step))
-            self.decode_layers.extend(make_decode_block(in_feat, out_feat, **kwargs))
-        self.decode_layers.extend(make_decode_block(out_feat, NGF_OUTER, **kwargs))
+
+            spade_class = choose_spade_class_by_index(attn_indices, i, num_decode)
+            self.decode_layers.extend(
+                make_decode_block(in_feat, out_feat, **kwargs, spade_class=spade_class)
+            )
+
+        if out_feat != NGF_OUTER:  # make sure it matches
+            logger.warning(
+                f"Final {out_feat=} in decoder layers didn't match {NGF_OUTER=}, "
+                f"adding an extra layer to make it work."
+            )
+            self.decode_layers.extend(
+                make_decode_block(
+                    out_feat,
+                    NGF_OUTER,
+                    **kwargs,
+                    spade_class=AttentiveMultiSpade
+                    if hparams.attention_decoder_indices
+                    else MultiSpade,
+                )
+            )
+
         self.decode_layers.append(
             nn.Conv2d(NGF_OUTER, out_channels, kernel_size=3, padding=1)
         )
@@ -272,3 +306,12 @@ def make_decode_block(in_feat, out_feat, **spade_kwargs):
         nn.Upsample(scale_factor=2),
         AnySpadeResBlock(in_feat, out_feat, **spade_kwargs),
     ]
+
+
+def choose_spade_class_by_index(attn_indices, i, total_layers):
+    if str(i) in attn_indices or str(i - total_layers) in attn_indices:
+        # ^ positive or negative indices
+        spade_class = AttentiveMultiSpade
+    else:
+        spade_class = MultiSpade
+    return spade_class
