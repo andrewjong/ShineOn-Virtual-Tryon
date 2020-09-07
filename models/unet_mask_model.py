@@ -79,7 +79,7 @@ class UnetMaskModel(BaseModel):
         weight_masks = F.sigmoid(weight_masks) if weight_masks is not None else None
         # chunk for operation per individual frame
 
-        flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1))
+        flows = list(torch.chunk(flows, self.hparams.n_frames_total, dim=1)) if flows is not None else None
         warped_cloths_chunked = list(
             torch.chunk(warped_cloths, self.hparams.n_frames_total, dim=1)
         )
