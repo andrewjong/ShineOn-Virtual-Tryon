@@ -48,6 +48,7 @@ class UnetMaskModel(BaseModel):
             ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
+            activation=hparams.activation
         )
         self.resample = Resample2d()
         self.criterionVGG = VGGLoss()

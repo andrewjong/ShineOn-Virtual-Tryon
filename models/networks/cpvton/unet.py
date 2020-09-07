@@ -3,6 +3,7 @@ import torch
 from torch import nn as nn
 
 from models.networks.attention.sagan import SelfAttention
+from models.networks.activation import Sine, Swish
 
 
 class UnetGenerator(nn.Module):
@@ -22,6 +23,7 @@ class UnetGenerator(nn.Module):
         norm_layer=nn.BatchNorm2d,
         use_dropout=False,
         use_self_attn=False,
+        activation=None
     ):
         super(UnetGenerator, self).__init__()
         # construct unet structure
@@ -32,6 +34,7 @@ class UnetGenerator(nn.Module):
             submodule=None,
             norm_layer=norm_layer,
             innermost=True,
+            activation=activation
         )
         for i in range(num_downs - 5):
             unet_block = UnetSkipConnectionBlock(
@@ -41,9 +44,10 @@ class UnetGenerator(nn.Module):
                 submodule=unet_block,
                 norm_layer=norm_layer,
                 use_dropout=use_dropout,
+                activation=activation
             )
         unet_block = UnetSkipConnectionBlock(
-            ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer
+            ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, activation=activation
         )
         unet_block = UnetSkipConnectionBlock(
             ngf * 2,
@@ -52,6 +56,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             norm_layer=norm_layer,
             self_attn=use_self_attn,
+            activation=activation
         )
         # Self_Attn(ngf * 2, 'relu')
         unet_block = UnetSkipConnectionBlock(
@@ -61,6 +66,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             norm_layer=norm_layer,
             self_attn=use_self_attn,
+            activation=activation
         )
         # Self_Attn(ngf, 'relu')
         unet_block = UnetSkipConnectionBlock(
@@ -70,6 +76,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             outermost=True,
             norm_layer=norm_layer,
+            activation=activation
         )
 
         self.model = unet_block
@@ -96,6 +103,7 @@ class UnetSkipConnectionBlock(nn.Module):
         norm_layer=nn.BatchNorm2d,
         self_attn=False,
         use_dropout=False,
+        activation=None
     ):
         super(UnetSkipConnectionBlock, self).__init__()
         self.outermost = outermost
@@ -106,9 +114,9 @@ class UnetSkipConnectionBlock(nn.Module):
         downconv = nn.Conv2d(
             input_nc, inner_nc, kernel_size=4, stride=2, padding=1, bias=use_bias
         )
-        downrelu = nn.LeakyReLU(0.2, True)
+        down_activation = nn.LeakyReLU(0.2, True) if activation is None else _get_activation_fn(activation)
         downnorm = norm_layer(inner_nc)
-        uprelu = nn.ReLU(True)
+        up_activation = nn.ReLU(True) if activation is None else _get_activation_fn(activation)
         upnorm = norm_layer(outer_nc)
 
         if outermost:
@@ -122,15 +130,15 @@ class UnetSkipConnectionBlock(nn.Module):
                 bias=use_bias,
             )
             down = [downconv]
-            up = [uprelu, upsample, upconv, upnorm]
+            up = [up_activation, upsample, upconv, upnorm]
             model = down + [submodule] + up
         elif innermost:
             upsample = nn.Upsample(scale_factor=2, mode="bilinear")
             upconv = nn.Conv2d(
                 inner_nc, outer_nc, kernel_size=3, stride=1, padding=1, bias=use_bias
             )
-            down = [downrelu, downconv]
-            up = [uprelu, upsample, upconv, upnorm]
+            down = [down_activation, downconv]
+            up = [up_activation, upsample, upconv, upnorm]
             model = down + up
         else:
             upsample = nn.Upsample(scale_factor=2, mode="bilinear")
@@ -142,8 +150,8 @@ class UnetSkipConnectionBlock(nn.Module):
                 padding=1,
                 bias=use_bias,
             )
-            down = [downrelu, downconv, downnorm]
-            up = [uprelu, upsample, upconv, upnorm]
+            down = [down_activation, downconv, downnorm]
+            up = [up_activation, upsample, upconv, upnorm]
             if self_attn:
                 down.append(SelfAttention(inner_nc, "relu"))
                 up.append(SelfAttention(outer_nc, "relu"))
@@ -166,3 +174,15 @@ class UnetSkipConnectionBlock(nn.Module):
                 raise e
 
             return torch.cat([x, x_prime], 1)
+
+def _get_activation_fn(self, activation):
+    if activation == "relu":
+        return nn.ReLU()
+    elif activation == "gelu":
+        return nn.GELU()
+    elif activation == "swish":
+        return Swish()
+    elif activation == "sine":
+        return Sine()
+    else:
+        raise RuntimeError(f"The selected activation should be relu/gelu/swish/sine, not {activation}")
