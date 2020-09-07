@@ -69,11 +69,20 @@ python train.py \
 #### Generator
 The SAMS-GAN generator is an encoder-decoder architecture. The outer layers start with higher resolution (hxw) and fewer features. The inner layers have lower resolution and more features. Unlike other models, SAMS does NOT use `--ngf` for generator features.
 
+**Number of Layers**
+
 The number of features in the **outer** layers equals `pow(ngf_power_base,`**`ngf_pow_outer`**`)`; by default, the outer layers have `2^6=64` features. 
 
 The number of features in the **inner** layers equals `pow(ngf_power_base, `**`ngf_pow_inner`**`)`; by default, the inner layers have `2^10=1024` features.
 
-Self-attention layers are enabled by default (self-attention is literally part of the acronym SAMS). They can be turned off with `--no_self_attn` to use vanilla Multi-Spade layers. 
+**Attention Layers**
+
+Self-Attentive Multispade (SAMs) layer indices can be chosen with:
+- `--attention_middle_indices` for middle layers
+- `--attention_decoder_indices` for decoder layers.
+
+Supports negative index selection, e.g. use `--attention_decoder_indices -1 -2` to put 
+attention in the last two decoder layers.
 
 #### Discriminators
 SAMS-GAN has two discriminators: `Multiscale` that operates on the current frame at different image resolutions, and `Temporal` that operates at the past `--n_frames_now` at a single image resolution.
