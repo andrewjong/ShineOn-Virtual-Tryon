@@ -175,6 +175,7 @@ class UnetSkipConnectionBlock(nn.Module):
 
             return torch.cat([x, x_prime], 1)
 
+
 def _get_activation_fn(activation):
     if activation == "relu":
         return nn.ReLU()
