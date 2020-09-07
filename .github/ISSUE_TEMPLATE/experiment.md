@@ -39,6 +39,15 @@ Patch describes a bug fix (change in the code or branch).
 **Timestamp:** MM/DD/YYYY 9pm PT
 **Epochs:** 
 
+
+# Architecture
+**Model Layers:**
+<!-- Paste the printed Model Layers -->
+
+**Module Parameters:**
+<!-- Paste the Params table -->
+
+
 # Loss Graphs
 <!--- Put detailed loss graphs here. Please include all graphs! -->
 
@@ -47,5 +56,4 @@ Patch describes a bug fix (change in the code or branch).
 
 # Comments, Observations, or Insights
 <!--- Optional -->
-
 ```
