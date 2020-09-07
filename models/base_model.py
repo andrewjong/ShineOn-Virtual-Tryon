@@ -94,7 +94,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         train_loader = DataLoader(
             self.train_dataset,
             batch_size=self.hparams.batch_size,
-            shuffle=self.hparams.no_shuffle,
+            shuffle=not self.hparams.no_shuffle,
             num_workers=self.hparams.workers
         )
         return train_loader
@@ -104,7 +104,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         val_loader = DataLoader(
             self.val_dataset,
             batch_size=self.hparams.batch_size,
-            shuffle=self.hparams.no_shuffle,
+            shuffle=not self.hparams.no_shuffle,
             num_workers=self.hparams.workers
         )
         return val_loader
