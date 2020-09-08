@@ -36,6 +36,31 @@ adds support for RTX GPU architectures.
     ```
 That's it!
 
+
+<details>
+    <summary><b>Docker Image</b> (if problems above)</summary>
+<br>
+    
+Having trouble with the conda install? You can try our provided [Docker Image](https://hub.docker.com/r/andrewjong/2021-wacv).
+
+1) If you don't have Docker installed, follow NVIDIA's [Docker install guide](https://github.com/NVIDIA/nvidia-docker#getting-started).
+
+2) Pull and run the image via:
+    ```bash
+    docker run -it \
+    --name 2021-wacv \
+    -v /PATH/TO/PROJECT_DIR:/2021-wacv-video-vton  \
+    -v /data_hdd/fw_gan_vvt/:/data_hdd/fw_gan_vvt/ \
+    -v /PATH_TO_WARP-CLOTH/:/data_hdd/fw_gan_vvt/train/warp-cloth \
+    --gpus all --shm-size 8G \
+    andrewjong/2021-wacv:latest /bin/bash
+    ```
+    
+    And once within the Docker container, run `conda activate sams-pt1.6`.
+    
+</details>
+
+
 ## 2) VVT Dataset Download
 We add 
 [densepose](https://github.com/facebookresearch/detectron2/tree/master/projects/DensePose) 
