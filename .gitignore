@@ -12,3 +12,4 @@ result/*/*
 venv/*
 Untitled.ipynb
 experiments/*
+lightning_logs/*
