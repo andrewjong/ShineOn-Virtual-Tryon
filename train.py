@@ -94,7 +94,9 @@ def main(train=True):
             logger.error(traceback.format_exc())
             save_on_interrupt(name=e.__class__.__name__)
     else:
-        trainer.fit(model)
+        print("testing........")
+        print(opt)
+        trainer.test(model)
 
     logger.info(f"Finished {opt.model}, named {opt.name}!")
 
