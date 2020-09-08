@@ -89,6 +89,9 @@ class BaseOptions:
             "--result_dir", type=str, default="result", help="save result infos"
         )
         parser.add_argument(
+            "--result_dir", type=str, default="result", help="save result infos"
+        )
+        parser.add_argument(
             "--checkpoint",
             type=str,
             default="",
