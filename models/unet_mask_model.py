@@ -163,7 +163,6 @@ class UnetMaskModel(BaseModel):
         sample"""
         self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
         result = self.training_step(batch, idx, val=True)
-
         return result
 
     def test_step(self, batch, batch_idx):

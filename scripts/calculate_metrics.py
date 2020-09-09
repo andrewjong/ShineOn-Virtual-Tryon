@@ -45,26 +45,7 @@ def main():
         print(ssim_metric)
         print(psnr_metric)
     df = pd.DataFrame.from_dict(metrics)
-<<<<<<< HEAD
-<<<<<<< HEAD
     df.to_csv("vanilla_unet_cocopose_metrics_output.csv")
-=======
-    df.to_csv("vanilla_unet_densepose_metrics_output.csv")
->>>>>>> 7fded24... code_for_metrics
-=======
-    df.to_csv("vanilla_unet_densepose_metrics_output.csv")
->>>>>>> 53c6c79... code_for_metrics
-        #generated_image_numpy =
-        #ground_truth_image_numpy
-
 
 if __name__ == '__main__':
-<<<<<<< HEAD
-<<<<<<< HEAD
     main()
-=======
-    main()
->>>>>>> 7fded24... code_for_metrics
-=======
-    main()
->>>>>>> 53c6c79... code_for_metrics
