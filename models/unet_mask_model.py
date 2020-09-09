@@ -163,7 +163,6 @@ class UnetMaskModel(BaseModel):
         sample"""
         self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
         result = self.training_step(batch, idx, val=True)
-
         return result
 
     def test_step(self, batch, batch_idx):
@@ -173,7 +172,7 @@ class UnetMaskModel(BaseModel):
         # use subfolders for each subdataset
 
         try_on_dirs = [
-            osp.join("result", dname, "try-on") for dname in dataset_names
+            osp.join(self.hparams.result_dir, dname, "try-on") for dname in dataset_names
         ]
 
 

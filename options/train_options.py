@@ -43,9 +43,9 @@ class TrainOptions(BaseOptions):
         )
         parser.add_argument(
             "--accumulated_batches",
-            type=int,
-            help="number of batch gradients to accumulate before calling optimizer.step()",
-            default=1
+            type = int,
+            help = "number of batch gradients to accumulate before calling optimizer.step()",
+            default = 1
         )
         self.isTrain = True
         return parser

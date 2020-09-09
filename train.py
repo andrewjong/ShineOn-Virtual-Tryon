@@ -37,6 +37,7 @@ def main(train=True):
 
     if opt.checkpoint or not train:
         model = model_class.load_from_checkpoint(opt.checkpoint)
+        model.hparams = opt
         trainer = Trainer(
             resume_from_checkpoint=opt.checkpoint,
             # Hardware
