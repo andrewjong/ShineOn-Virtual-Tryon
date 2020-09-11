@@ -696,5 +696,5 @@ def load_checkpoint(model, checkpoint_path):
     if not os.path.exists(checkpoint_path):
         print("Did not found checkpoint at", checkpoint_path)
         return
-    model.load_state_dict(torch.load(checkpoint_path))
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cuda:0"))
     model.cuda()

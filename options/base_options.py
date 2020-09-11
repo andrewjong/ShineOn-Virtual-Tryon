@@ -12,6 +12,7 @@ class BaseOptions:
 
     def initialize(self, parser):
         parser.add_argument("--name", default="GMM")
+        parser.add_argument("--cloth_mask_threshold", type=int, default=240)
         # compute
         parser.add_argument(
             "--gpu_ids", default="0", help="comma separated of which GPUs to train on"
