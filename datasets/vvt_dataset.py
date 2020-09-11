@@ -45,6 +45,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         """ Reads the Videos from the fw_gan_vvt dataset. """
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
+
         videos_search = f"{self.root}/{folder}/*/"
         video_folders = sorted(glob(videos_search))
         num_videos = len(video_folders)

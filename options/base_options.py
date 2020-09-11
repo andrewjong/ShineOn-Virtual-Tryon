@@ -84,9 +84,7 @@ class BaseOptions:
         #     default="checkpoints",
         #     help="save checkpoint infos",
         # )
-        parser.add_argument(
-            "--result_dir", type=str, default="result", help="save result infos"
-        )
+
         parser.add_argument(
             "--checkpoint",
             type=str,

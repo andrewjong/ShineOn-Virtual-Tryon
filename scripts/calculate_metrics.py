@@ -45,7 +45,7 @@ def main():
         print(ssim_metric)
         print(psnr_metric)
     df = pd.DataFrame.from_dict(metrics)
-    df.to_csv("vanilla_unet_densepose_metrics_output.csv")
+    df.to_csv("vanilla_unet_cocopose_metrics_output.csv")
         #generated_image_numpy =
         #ground_truth_image_numpy
 

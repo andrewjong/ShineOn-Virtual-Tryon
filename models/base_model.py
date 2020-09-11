@@ -126,7 +126,13 @@ class BaseModel(pl.LightningModule, abc.ABC):
 
     def test_dataloader(self) -> DataLoader:
         # same loader type. test paths will be defined in hparams
-        return self.train_dataloader()
+        test_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.hparams.batch_size,
+            shuffle=self.hparams.no_shuffle,
+            num_workers=self.hparams.workers
+        )
+        return test_loader
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), self.hparams.lr)
