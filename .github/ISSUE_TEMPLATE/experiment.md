@@ -57,3 +57,11 @@ Patch describes a bug fix (change in the code or branch).
 # Comments, Observations, or Insights
 <!--- Optional -->
 ```
+
+- [ ] Open GitHub Issue
+- [ ] Start training with tmux (tensorboard and training)
+- [ ] Upload scalars, train, and validation images to GitHub
+- [ ] Upload checkpoints to Google Drive
+- [ ] Generate test results from latest epoch
+- [ ] Calculate metrics (PSNR, SSIM)
+- [ ] Visualize metrics
