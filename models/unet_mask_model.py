@@ -32,6 +32,7 @@ class UnetMaskModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
+
         return parser
 
     def __init__(self, hparams):
@@ -48,6 +49,7 @@ class UnetMaskModel(BaseModel):
             ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
             use_self_attn=hparams.self_attn,
+            activation=hparams.activation
         )
         self.resample = Resample2d()
         self.criterionVGG = VGGLoss()
@@ -161,18 +163,20 @@ class UnetMaskModel(BaseModel):
         sample"""
         self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
         result = self.training_step(batch, idx, val=True)
-
         return result
 
     def test_step(self, batch, batch_idx):
+
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
         # use subfolders for each subdataset
+
         try_on_dirs = [
-            osp.join(self.test_results_dir, dname, "try-on") for dname in dataset_names
+            osp.join(self.hparams.result_dir, dname, "try-on") for dname in dataset_names
         ]
 
-        im_names = batch["im_name"]
+
+        im_names = batch["image_name"]
         # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(im_names, try_on_dirs)
         if all(osp.exists(s) for s in save_paths):

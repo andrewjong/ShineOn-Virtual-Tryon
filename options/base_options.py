@@ -30,7 +30,7 @@ class BaseOptions:
         )
         parser.add_argument("-b", "--batch_size", type=int, default=8)
         parser.add_argument(
-            "--activation", choices=("relu", "gelu", "swish", "sine"), default="relu"
+            "--activation", choices=("relu", "gelu", "swish", "sine")
         )
         parser.add_argument(
             "-fp",
@@ -84,6 +84,7 @@ class BaseOptions:
         #     default="checkpoints",
         #     help="save checkpoint infos",
         # )
+
         parser.add_argument(
             "--checkpoint",
             type=str,
