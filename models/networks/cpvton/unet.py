@@ -19,6 +19,7 @@ class UnetGenerator(nn.Module):
         input_nc,
         output_nc,
         num_downs,
+        num_attention,
         ngf=64,
         norm_layer=nn.BatchNorm2d,
         use_dropout=False,
@@ -34,9 +35,10 @@ class UnetGenerator(nn.Module):
             submodule=None,
             norm_layer=norm_layer,
             innermost=True,
-            self_attn=use_self_attn,
+            self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
             activation=activation
         )
+        num_attention -= 1
         for i in range(num_downs - 5):
             unet_block = UnetSkipConnectionBlock(
                 ngf * 8,
@@ -45,20 +47,30 @@ class UnetGenerator(nn.Module):
                 submodule=unet_block,
                 norm_layer=norm_layer,
                 use_dropout=use_dropout,
-                self_attn=use_self_attn,
+                self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
                 activation=activation
             )
+            num_attention -= 1
         unet_block = UnetSkipConnectionBlock(
-            ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, activation=activation
+            ngf * 4,
+            ngf * 8,
+            input_nc=None,
+            submodule=unet_block,
+            norm_layer=norm_layer,
+            self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
+            activation=activation
         )
+        num_attention -= 1
         unet_block = UnetSkipConnectionBlock(
             ngf * 2,
             ngf * 4,
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
+            self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
             activation=activation
         )
+        num_attention -= 1
         # Self_Attn(ngf * 2, 'relu')
         unet_block = UnetSkipConnectionBlock(
             ngf,
@@ -66,8 +78,10 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
+            self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
             activation=activation
         )
+        num_attention -= 1
         # Self_Attn(ngf, 'relu')
         unet_block = UnetSkipConnectionBlock(
             output_nc,
@@ -76,6 +90,7 @@ class UnetGenerator(nn.Module):
             submodule=unet_block,
             outermost=True,
             norm_layer=norm_layer,
+            self_attn=use_self_attn if use_self_attn and num_attention > 0 else None,
             activation=activation
         )
 

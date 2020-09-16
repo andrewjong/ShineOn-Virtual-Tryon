@@ -48,6 +48,12 @@ class BaseModel(pl.LightningModule, abc.ABC):
             help="No self-attention",
         )
         parser.add_argument(
+            "--num_attn",
+            type=int,
+            default=2,
+            help="Num of self-attention layers: start layers from bottom of UNet all the way up the U"
+        )
+        parser.add_argument(
             "--flow_warp", action="store_true", help="Warp the previous frame with flow"
         )
         return parser
