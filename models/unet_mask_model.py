@@ -190,9 +190,7 @@ class UnetMaskModel(BaseModel):
             self.p_rendered, self.m_composite, self.p_tryon = self.forward(
                 person_inputs, cloth_inputs
             )
-
             save_images(self.p_tryon, im_names, try_on_dirs)
-
         result = {"progress_bar": progress_bar}
         return result
 
