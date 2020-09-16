@@ -14,5 +14,5 @@ Untitled.ipynb
 experiments/*
 lightning_logs/*
 result/*
-scripts/*.csv
+scripts/*
 
