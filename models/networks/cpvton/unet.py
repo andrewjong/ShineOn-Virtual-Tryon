@@ -34,6 +34,7 @@ class UnetGenerator(nn.Module):
             submodule=None,
             norm_layer=norm_layer,
             innermost=True,
+            self_attn=use_self_attn,
             activation=activation
         )
         for i in range(num_downs - 5):
@@ -44,6 +45,7 @@ class UnetGenerator(nn.Module):
                 submodule=unet_block,
                 norm_layer=norm_layer,
                 use_dropout=use_dropout,
+                self_attn=use_self_attn,
                 activation=activation
             )
         unet_block = UnetSkipConnectionBlock(
@@ -55,7 +57,6 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            self_attn=use_self_attn,
             activation=activation
         )
         # Self_Attn(ngf * 2, 'relu')
@@ -65,7 +66,6 @@ class UnetGenerator(nn.Module):
             input_nc=None,
             submodule=unet_block,
             norm_layer=norm_layer,
-            self_attn=use_self_attn,
             activation=activation
         )
         # Self_Attn(ngf, 'relu')
@@ -131,6 +131,10 @@ class UnetSkipConnectionBlock(nn.Module):
             )
             down = [downconv]
             up = [up_activation, upsample, upconv, upnorm]
+            if self_attn:
+                down.append(SelfAttention(inner_nc, "relu"))
+                up.append(SelfAttention(outer_nc, "relu"))
+
             model = down + [submodule] + up
         elif innermost:
             upsample = nn.Upsample(scale_factor=2, mode="bilinear")
@@ -139,6 +143,9 @@ class UnetSkipConnectionBlock(nn.Module):
             )
             down = [down_activation, downconv]
             up = [up_activation, upsample, upconv, upnorm]
+            if self_attn:
+                down.append(SelfAttention(inner_nc, "relu"))
+                up.append(SelfAttention(outer_nc, "relu"))
             model = down + up
         else:
             upsample = nn.Upsample(scale_factor=2, mode="bilinear")
