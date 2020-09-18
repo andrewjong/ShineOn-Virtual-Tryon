@@ -31,7 +31,12 @@ class UnetMaskModel(BaseModel):
         parser = argparse.ArgumentParser(parents=[parser], add_help=False)
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
-
+        parser.add_argument(
+            "--wt_weight_mask",
+            type=float,
+            default=1.0,
+            help="Weight applied to adversarial temporal loss in the generator",
+        )
         return parser
 
     def __init__(self, hparams):
@@ -128,7 +133,7 @@ class UnetMaskModel(BaseModel):
 
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
-        return p_rendereds, m_composites, p_tryons
+        return p_rendereds, m_composites, p_tryons, weight_masks
 
     def training_step(self, batch, batch_idx, val=False):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
@@ -142,7 +147,7 @@ class UnetMaskModel(BaseModel):
         cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
         # forward. save outputs to self for visualization
-        self.p_rendered, self.m_composite, self.p_tryon = self.forward(
+        self.p_rendered, self.m_composite, self.p_tryon, self.weight_masks = self.forward(
             person_inputs, cloth_inputs, flow, prev_im
         )
         self.p_tryon = torch.chunk(self.p_tryon, self.hparams.n_frames_total, dim=1)
@@ -152,6 +157,12 @@ class UnetMaskModel(BaseModel):
         self.m_composite = torch.chunk(
             self.m_composite, self.hparams.n_frames_total, dim=1
         )
+        self.weight_masks = (
+            torch.chunk(self.weight_masks, self.hparams.n_frames_total, dim=1)
+            if self.weight_masks is not None
+            else None
+        )
+
         im = torch.chunk(im, self.hparams.n_frames_total, dim=1)
         cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
 
@@ -159,7 +170,9 @@ class UnetMaskModel(BaseModel):
         loss_image_l1 = F.l1_loss(self.p_tryon[-1], im[-1])
         loss_image_vgg = self.criterionVGG(self.p_tryon[-1], im[-1])
         loss_mask_l1 = F.l1_loss(self.m_composite[-1], cm[-1])
-        loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
+        loss_weight_mask_l1 = self.hparams.wt_weight_mask * \
+              F.l1_loss(self.weight_masks[-1], torch.zeros_like(self.weight_masks[-1])) / (self.hparams.fine_height * self.hparams.fine_width) if self.weight_masks is not None else 0
+        loss = loss_image_l1 + loss_image_vgg + loss_mask_l1 + loss_weight_mask_l1
 
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
@@ -171,6 +184,7 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
         result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
         result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
+        result.log(f"{val_}loss/G/weight_mask_l1", loss_weight_mask_l1, prog_bar=True)
 
         self.prev_frame = im
         return result
