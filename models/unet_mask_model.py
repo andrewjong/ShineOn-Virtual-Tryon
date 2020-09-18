@@ -186,6 +186,7 @@ class UnetMaskModel(BaseModel):
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
 
+
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
