@@ -3,6 +3,7 @@ import os
 import torch
 from PIL import Image
 
+
 def tensor_for_board(img_tensor):
     # map into [0,1]
     tensor = (img_tensor.clone() + 1) * 0.5
@@ -73,6 +74,11 @@ def save_images(img_tensors, img_names, save_dirs):
             array = array.squeeze(0)
         elif array.shape[0] == 3:
             array = array.swapaxes(0, 1).swapaxes(1, 2)
+        else:
+            raise ValueError(
+                "Trying to save an image that is not 1 or 3 channels; "
+                f"this is unexpected. {array.shape=}"
+            )
 
         os.makedirs(os.path.dirname(path), exist_ok=True)
         Image.fromarray(array).save(path)

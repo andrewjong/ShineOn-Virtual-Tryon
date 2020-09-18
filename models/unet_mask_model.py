@@ -167,17 +167,22 @@ class UnetMaskModel(BaseModel):
         return result
 
     def test_step(self, batch, batch_idx):
-
-        batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
-        # use subfolders for each subdataset
+
+        # this if statement is for when we have multiple frames from --n_frames_total
+        if isinstance(dataset_names[0], tuple):
+            # we get a tuple of frames in each batch idx for n_frames.
+            # we only want the last one , as that's the one that at the current timestep
+            dataset_names = [frames[-1] for frames in dataset_names]
 
         try_on_dirs = [
             osp.join(self.hparams.result_dir, dname, "try-on") for dname in dataset_names
         ]
 
-
         im_names = batch["image_name"]
+        if isinstance(im_names[0], tuple):  # same if statement here as for dataset_names
+            im_names = [frames[-1] for frames in im_names]
+
         # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(im_names, try_on_dirs)
         if all(osp.exists(s) for s in save_paths):
@@ -185,13 +190,14 @@ class UnetMaskModel(BaseModel):
         else:
             progress_bar = {"file": f"{im_names[0]}"}
 
+            batch = maybe_combine_frames_and_channels(self.hparams, batch)
             person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
             cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
             self.p_rendered, self.m_composite, self.p_tryon = self.forward(
                 person_inputs, cloth_inputs
             )
-            save_images(self.p_tryon, im_names, try_on_dirs)
+            save_images(self.p_tryon[:, -3:, :, ], im_names, try_on_dirs)
         result = {"progress_bar": progress_bar}
         return result
 
