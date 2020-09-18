@@ -172,6 +172,7 @@ class UnetMaskModel(BaseModel):
                + (loss_image_vgg_curr + loss_image_vgg_prev)/2 \
                + (loss_mask_l1_curr + loss_mask_l1_prev)/2 \
                + loss_weight_mask_l1
+
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
@@ -207,7 +208,6 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr, prog_bar=False)
         result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr, prog_bar=False)
         result.log(f"{val_}loss/G/mask_l1_curr", loss_mask_l1_curr, prog_bar=False)
-
 
         self.prev_frame = im
         return result
