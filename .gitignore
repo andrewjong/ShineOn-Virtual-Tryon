@@ -15,4 +15,4 @@ experiments/*
 lightning_logs/*
 result/*
 scripts/*
-
+outputs/*

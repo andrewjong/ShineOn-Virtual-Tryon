@@ -241,7 +241,8 @@ class UnetMaskModel(BaseModel):
             person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
             cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
 
-            _, _, self.p_tryons = self.forward(person_inputs, cloth_inputs)
+
+            _, _, self.p_tryon, _ = self.forward(person_inputs, cloth_inputs)
             # TODO CLEANUP: we get the last frame here by picking the last RGB channels;
             #  this is different from how it's done in training_step, which uses
             #  chunking and -1 indexing. We should choose one method for consistency.
