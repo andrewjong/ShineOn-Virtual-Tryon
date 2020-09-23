@@ -35,13 +35,38 @@ def main(train=True):
         precision=opt.precision,
     ))
 
-    if opt.checkpoint or not train:
+    if opt.checkpoint and not train:
         model = model_class.load_from_checkpoint(opt.checkpoint)
         model.hparams = opt
         trainer = Trainer(
             resume_from_checkpoint=opt.checkpoint,
             # Hardware
             **hardware_kwargs,
+        )
+    elif opt.checkpoint:
+        model = model_class.load_from_checkpoint(opt.checkpoint)
+        model.hparams = opt
+        trainer = Trainer(
+            # Hardware
+            **hardware_kwargs,
+            # Checkpointing
+            resume_from_checkpoint=opt.checkpoint,
+            checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
+            callbacks=[
+                CheckpointCustomFilename(),
+                CheckpointEveryNSteps(opt.save_count, verbose=True),
+            ],
+            default_root_dir=osp.join(opt.experiments_dir, opt.name),
+            log_save_interval=opt.display_count,
+            # Training and data
+            limit_train_batches=str2num(opt.limit_train_batches),
+            limit_val_batches=str2num(opt.limit_val_batches),
+            max_epochs=opt.keep_epochs + opt.decay_epochs,
+            val_check_interval=str2num(opt.val_check_interval),
+            # Debug
+            fast_dev_run=opt.fast_dev_run,
+            accumulate_grad_batches=opt.accumulated_batches,
+            profiler=True,
         )
     else:
         model = model_class(opt)
