@@ -107,7 +107,7 @@ def maybe_combine_frames_and_channels(opt, inputs):
 
         def maybe_combine(t):
             # Tensor like items
-            if isinstance(t, torch.Tensor):
+            if isinstance(t, torch.Tensor) and len(t.shape) == 5:
                 bs, n_frames, c, h, w = t.shape
                 t = t.view(bs, n_frames * c, h, w)
             # Non-tensor like items, such as lists of strings or numbers
