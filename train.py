@@ -1,4 +1,5 @@
 import logging
+import torch
 import os.path as osp
 import signal
 import sys
@@ -21,6 +22,9 @@ from util import str2num
 
 logger = log.setup_custom_logger("logger")
 
+# DDP requires setting the manual seed
+# https://pytorch-lightning.readthedocs.io/en/latest/multi_gpu.html#distributed-data-parallel
+torch.manual_seed(420)
 
 def main(train=True):
     options_obj = TrainOptions() if train else TestOptions()
