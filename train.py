@@ -45,6 +45,7 @@ def main(train=True):
             is_train=train,
         )
         logger.info(f"RESUMED {model_class.__name__} from checkpoint: {opt.checkpoint}")
+
     else:
         model = model_class(opt, is_train=train)
         logger.info(f"INITIALIZED new {model_class.__name__}")
