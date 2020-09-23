@@ -65,6 +65,7 @@ def main(train=True):
             logger.warning(f"Caught a {type(e)}!")
             logger.error(traceback.format_exc())
             save_on_interrupt(name=e.__class__.__name__)
+
     else:
         print("Testing........")
         print(opt)
