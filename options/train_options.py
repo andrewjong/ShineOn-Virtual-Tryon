@@ -47,5 +47,5 @@ class TrainOptions(BaseOptions):
             help = "number of batch gradients to accumulate before calling optimizer.step()",
             default = 1
         )
-        self.isTrain = True
+        self.is_train = True
         return parser

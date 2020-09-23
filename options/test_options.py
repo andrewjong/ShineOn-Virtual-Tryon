@@ -6,7 +6,7 @@ class TestOptions(BaseOptions):
         parser = BaseOptions.initialize(self, parser)
         parser.set_defaults(no_shuffle=True)
         parser.set_defaults(datamode="test")
-        self.isTrain = False
+        self.is_train = False
         parser.add_argument(
             "--result_dir", type=str, default="result", help="save result infos"
         )

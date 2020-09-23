@@ -61,13 +61,15 @@ def main(train=True):
             default_root_dir=osp.join(opt.experiments_dir, opt.name),
             log_save_interval=opt.display_count,
             # Training and data
-            limit_train_batches=str2num(opt.limit_train_batches),
-            limit_val_batches=str2num(opt.limit_val_batches),
+            accumulate_grad_batches=opt.accumulated_batches,
             max_epochs=opt.keep_epochs + opt.decay_epochs,
             val_check_interval=str2num(opt.val_check_interval),
+            # see https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#replace-sampler-ddp
+            replace_sampler_ddp=False,
+            limit_train_batches=str2num(opt.limit_train_batches),
+            limit_val_batches=str2num(opt.limit_val_batches),
             # Debug
             fast_dev_run=opt.fast_dev_run,
-            accumulate_grad_batches=opt.accumulated_batches,
             profiler=True,
         )
 
