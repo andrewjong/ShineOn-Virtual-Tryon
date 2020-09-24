@@ -8,6 +8,7 @@ import torch
 from pytorch_lightning import TrainResult, EvalResult
 from torch import nn as nn
 from torch.nn import functional as F
+from torchvision.utils import save_image
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from datasets.tryon_dataset import TryonDataset
@@ -109,28 +110,24 @@ class UnetMaskModel(BaseModel):
         # only use second frame for warping
         all_generated_frames = []
         for fIdx in range(self.hparams.n_frames_total):
-            if flows is not None:
-                # if there is no previous frame, then warp from a zero tensor
-                last_generated_frame = (
-                    all_generated_frames[fIdx - 1]
-                    if fIdx > 0
-                    else torch.zeros_like(warped_cloths_chunked[0])
-                )
-                warped_by_flow = self.resample(
-                    last_generated_frame, flows[fIdx].contiguous()
-                )
-                p_rendered_warp = (
-                    (1 - weight_masks_chunked[fIdx]) * warped_by_flow
-                    + weight_masks_chunked[fIdx] * p_rendereds_chunked[fIdx]
-                )
-            p_rendered = (
-                p_rendered_warp if flows is not None else p_rendereds_chunked[fIdx]
-            )
-            p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[
-                fIdx
-            ] + p_rendered * (1 - m_composites_chunked[fIdx])
-            all_generated_frames.append(p_tryon)
+            if flows is not None and fIdx > 0:
+                last_generated_frame = all_generated_frames[fIdx - 1]
+                #save_image(last_generated_frame, f"last_generated_frame_{fIdx}.jpg")
+                warp_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
+                #save_image(warp_flow, f"warp_flow_{fIdx}.jpg")
+                #save_image(weight_masks_chunked[fIdx], f"weight_masks_chunked_{fIdx}.jpg")
+                p_rendered_warp = (1 - weight_masks_chunked[fIdx]) * warp_flow + weight_masks_chunked[fIdx] *  p_rendereds_chunked[fIdx]
 
+
+            try:
+                p_rendered = p_rendered_warp
+            except:
+                p_rendered = p_rendereds_chunked[fIdx]
+
+            #save_image(p_rendered, f"p_rendered_{fIdx}.jpg")
+            p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
+            all_generated_frames.append(p_tryon)
+        #assert 1 == 0
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons, weight_masks
