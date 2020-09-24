@@ -195,9 +195,12 @@ class UnetMaskModel(BaseModel):
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
 <<<<<<< HEAD
 
+<<<<<<< HEAD
 =======
 >>>>>>> c99cc1434... Code cleanup
 
+=======
+>>>>>>> 29a7b2af6... changed to warp with zero tensor
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
