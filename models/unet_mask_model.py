@@ -128,6 +128,7 @@ class UnetMaskModel(BaseModel):
                 + tryon_masks_chunked[fIdx] * warped_cloths_chunked[fIdx]
             )
 
+
             all_generated_frames.append(p_tryon)
 
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
@@ -188,7 +189,6 @@ class UnetMaskModel(BaseModel):
 
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
-
 
 
         # logging
