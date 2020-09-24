@@ -115,5 +115,18 @@ COMING SOON
 
 
 COMING SOON
+```
+python train.py \                                                                                                                                                                                               
+--name train_warp-cloth_viton-vvt-mpv \
+--model warp \                                                                                                                                                               
+--dataset viton_vvt_mpv \                                                                                                                                                                                          
+--viton_dataroot /data_hdd/cp-vton/viton_processed \                                                                                                                                                               
+--vvt_dataroot /data_hdd/fw_gan_vvt \                                                                                                                                                                              
+--mpv_dataroot /data_hdd/mpv_competition  \                                                                                                                                                                        
+--workers 4 \                                                                                                                                                                                                      
+--gpu_ids 0 \                                                                                                                                                                                                      
+--batch_size 16 
+--accumulated 4
+```
 
 </details>

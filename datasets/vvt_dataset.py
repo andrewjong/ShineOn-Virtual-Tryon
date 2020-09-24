@@ -15,8 +15,9 @@ class VVTDataset(TryonDataset, NFramesInterface):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     @staticmethod
-    def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = TryonDataset.modify_commandline_options(parser, is_train)
+    def modify_commandline_options(parser: argparse.ArgumentParser, is_train, shared=False):
+        if not shared:
+            parser = TryonDataset.modify_commandline_options(parser, is_train)
         parser = NFramesInterface.modify_commandline_options(parser, is_train)
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         parser.add_argument(

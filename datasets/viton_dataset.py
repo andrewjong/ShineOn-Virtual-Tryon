@@ -8,10 +8,11 @@ class VitonDataset(TryonDataset):
     """ CP-VTON dataset with the original Viton folder structure """
 
     @staticmethod
-    def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(VitonDataset, VitonDataset).modify_commandline_options(
-            parser, is_train
-        )
+    def modify_commandline_options(parser: argparse.ArgumentParser, is_train, shared=False):
+        if not shared:
+            parser = super(VitonDataset, VitonDataset).modify_commandline_options(
+                parser, is_train
+            )
         parser.add_argument("--viton_dataroot", default="data")
         parser.add_argument("--data_list", default="train_pairs.txt")
         return parser
@@ -22,7 +23,7 @@ class VitonDataset(TryonDataset):
         self.data_path = osp.join(opt.viton_dataroot, opt.datamode)
 
     # @overrides
-    def load_file_paths(self):
+    def load_file_paths(self, i_am_validation=False):
         """
         Reads the datalist txt file for CP-VTON
         sets self.image_names and self.cloth_names. they should correspond 1-to-1
@@ -88,3 +89,9 @@ class VitonDataset(TryonDataset):
         _pose_name = im_name.replace(".jpg", "_keypoints.json")
         pose_path = osp.join(self.data_path, "pose", _pose_name)
         return pose_path
+
+    def get_person_flow_path(self, index):
+        return NotImplementedError("THIS IS TODO. Image datasets don't have flow")
+
+    def get_person_densepose_path(self, index):
+        return NotImplementedError("THIS IS TODO. For now use cocopose on VITON")

@@ -20,7 +20,7 @@ class TrainOptions(BaseOptions):
             "--val_frequency",
             dest="val_check_interval",
             type=str,
-            default="25000",  # parsed later into int or float based on "."
+            default="0.125",  # parsed later into int or float based on "."
             help="If float, validate (and checkpoint) after this many epochs. "
                  "If int, validate after this many batches. If 0 or 0.0, validate "
                  "every step."
