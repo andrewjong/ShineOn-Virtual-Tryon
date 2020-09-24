@@ -95,7 +95,7 @@ class SamsModel(BaseModel):
         self.resample = Resample2d()
 
 
-        if self.isTrain:
+        if self.is_train:
             init = hparams.init_type, hparams.init_variance
             self.generator.init_weights(*init)
 

@@ -162,7 +162,7 @@ class UnetMaskModel(BaseModel):
         loss = loss_image_l1 + loss_image_vgg + loss_mask_l1
 
         # logging
-        if self.global_step % self.hparams.display_count == 0:
+        if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
 
         val_ = "val_" if val else ""
@@ -173,13 +173,6 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
 
         self.prev_frame = im
-        return result
-
-    def validation_step(self, batch, idx):
-        """ Must set self.batch = batch for validation_end() to visualize the last
-        sample"""
-        self.batch = maybe_combine_frames_and_channels(self.hparams, batch)
-        result = self.training_step(batch, idx, val=True)
         return result
 
     def test_step(self, batch, batch_idx):
@@ -224,6 +217,8 @@ class UnetMaskModel(BaseModel):
         return result
 
     def visualize(self, b, tag="train"):
+        if tag == "validation":
+            b = maybe_combine_frames_and_channels(self.hparams, b)
         person_visuals = self.fetch_person_visuals(b)
         visuals = [
             person_visuals,

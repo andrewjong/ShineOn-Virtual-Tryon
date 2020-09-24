@@ -17,6 +17,7 @@ from datasets import find_dataset_using_name
 from datasets.tryon_dataset import TryonDataset, parse_num_channels
 from datasets.vvt_dataset import VVTDataset
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
+
 logger = logging.getLogger("logger")
 
 
@@ -51,7 +52,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
             "--num_attn",
             type=int,
             default=2,
-            help="Num of self-attention layers: start layers from bottom of UNet all the way up the U"
+            help="Num of self-attention layers: start layers from bottom of UNet all the way up the U",
         )
         parser.add_argument(
             "--flow_warp", action="store_true", help="Warp the previous frame with flow"
@@ -68,8 +69,10 @@ class BaseModel(pl.LightningModule, abc.ABC):
         self.person_channels = parse_num_channels(hparams.person_inputs)
         self.cloth_channels = parse_num_channels(hparams.cloth_inputs)
 
-        self.isTrain = self.hparams.isTrain
-        if not self.isTrain:
+        self.is_train = self.hparams.is_train
+        if self.is_train:
+            self.val_visualization_batch = None
+        else:
             ckpt_name = osp.basename(hparams.checkpoint)
             self.test_results_dir = osp.join(
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
@@ -88,7 +91,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
             f"Train {self.hparams.dataset} dataset initialized: "
             f"{len(self.train_dataset)} samples."
         )
-        if stage == "fit":
+        if stage == "fit":  # passed from Trainer. fit means train mode
             self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
             logger.info(
                 f"Val {self.hparams.dataset} dataset initialized: "
@@ -96,29 +99,46 @@ class BaseModel(pl.LightningModule, abc.ABC):
             )
 
     def train_dataloader(self) -> DataLoader:
-        # create dataloader
+        # we use sampler because shuffle=True has no effect in distributed training
+        sampler = torch.utils.data.distributed.DistributedSampler(
+            self.train_dataset, shuffle=not self.hparams.no_shuffle
+        )
         train_loader = DataLoader(
             self.train_dataset,
             batch_size=self.hparams.batch_size,
-            shuffle=not self.hparams.no_shuffle,
-            num_workers=self.hparams.workers
+            sampler=sampler,
+            num_workers=self.hparams.workers,
         )
         return train_loader
 
     def val_dataloader(self) -> DataLoader:
-        # create dataloader
+        # by default, Lightning disables shuffle on DistributedSampler. we want to
+        # enable it for our visualization scheme.
+        # https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#replace-sampler-ddp
+        sampler = torch.utils.data.distributed.DistributedSampler(
+            self.val_dataset, shuffle=not self.hparams.no_shuffle
+        )
         val_loader = DataLoader(
             self.val_dataset,
             batch_size=self.hparams.batch_size,
-            shuffle=not self.hparams.no_shuffle,
-            num_workers=self.hparams.workers
+            num_workers=self.hparams.workers,
+            sampler=sampler,
         )
         return val_loader
+
+    def test_dataloader(self) -> DataLoader:
+        # same loader type. test paths will be defined in hparams
+        test_loader = DataLoader(
+            self.train_dataset,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.workers,
+        )
+        return test_loader
 
     def validation_step(self, batch, idx):
         """ Must set self.batch = batch for validation_end() to visualize the last
         sample"""
-        self.batch = batch
+        self.val_visualization_batch = batch
         result = self.training_step(batch, idx, val=True)
         return result
 
@@ -127,18 +147,10 @@ class BaseModel(pl.LightningModule, abc.ABC):
         pass
 
     def on_validation_epoch_end(self) -> None:
-        if hasattr(self, "batch"):
-            self.visualize(self.batch, "validation")
-
-    def test_dataloader(self) -> DataLoader:
-        # same loader type. test paths will be defined in hparams
-        test_loader = DataLoader(
-            self.train_dataset,
-            batch_size=self.hparams.batch_size,
-            shuffle=self.hparams.no_shuffle,
-            num_workers=self.hparams.workers
-        )
-        return test_loader
+        if self.val_visualization_batch is not None:
+            self.visualize(self.val_visualization_batch, "validation")
+        else:
+            logger.warning(f"{self.val_visualization_batch = }, nothing to visualize!")
 
     def configure_optimizers(self):
         optimizer = Adam(self.parameters(), self.hparams.lr)
