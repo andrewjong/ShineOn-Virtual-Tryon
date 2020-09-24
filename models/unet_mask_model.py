@@ -211,7 +211,6 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
         result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
 
-
         return result
 
     def visualize(self, b, tag="train"):
