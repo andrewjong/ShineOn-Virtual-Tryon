@@ -91,7 +91,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
             f"Train {self.hparams.dataset} dataset initialized: "
             f"{len(self.train_dataset)} samples."
         )
-        if stage == "fit":
+        if stage == "fit":  # passed from Trainer. fit means train mode
             self.val_dataset = self.train_dataset.make_validation_dataset(self.hparams)
             logger.info(
                 f"Val {self.hparams.dataset} dataset initialized: "
@@ -101,7 +101,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
     def train_dataloader(self) -> DataLoader:
         # we use sampler because shuffle=True has no effect in distributed training
         sampler = torch.utils.data.distributed.DistributedSampler(
-            self.val_dataset, shuffle=not self.hparams.no_shuffle
+            self.train_dataset, shuffle=not self.hparams.no_shuffle
         )
         train_loader = DataLoader(
             self.train_dataset,
