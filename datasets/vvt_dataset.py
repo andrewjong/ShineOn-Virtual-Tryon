@@ -44,6 +44,13 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(CpVtonDataset)
     def load_file_paths(self, i_am_validation=False):
         """ Reads the Videos from the fw_gan_vvt dataset. """
+        if self.is_train or self.opt.task == "reconstruction":
+            self.load_file_paths_for_reconstruction_task(i_am_validation)
+        else:
+            self.load_file_paths_for_tryon_task()
+
+    def load_file_paths_for_reconstruction_task(self, i_am_validation):
+        """ For the reconstruction task (training) We glob for videos """
         self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
 
@@ -57,9 +64,35 @@ class VVTDataset(TryonDataset, NFramesInterface):
         else:
             start, end = 0, validation_index
 
+        self.register_videos(video_folders, start, end)
+
+    def register_videos(self, video_folders, start=0, end=-1):
+        """ Records what index each video starts at, and collects all the video frames
+        in a flat list. """
         for video_folder in video_folders[start:end]:
             self._record_video_start_index()  # starts with 0
             self._add_video_frames_to_image_names(video_folder)
+
+    def load_file_paths_for_tryon_task(self):
+        """ For the try-on task, the videos are specified in a csv file """
+        self.video_ids_to_cloth_paths = {}
+        video_folders = []
+        with open(self.opt.tryon_list, "r") as f:
+            all_lines = f.readlines()
+        for line in all_lines:
+            cloth_path, video_id = line.split(",")
+            cloth_path, video_id = cloth_path.strip(), video_id.strip()
+            self.video_ids_to_cloth_paths[video_id] = cloth_path
+
+            video_folder = osp.join(
+                self.opt.vvt_dataroot,
+                self.opt.datamode,
+                f"{self.opt.datamode}_frames",
+                video_id,
+            )
+            video_folders.append(video_folder)
+
+        self.register_videos(video_folders)
 
     def _add_video_frames_to_image_names(self, video_folder):
         search = f"{video_folder}/*.png"
@@ -79,16 +112,23 @@ class VVTDataset(TryonDataset, NFramesInterface):
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
-        # for some reason fw_gan_vvt's clothes_persons folder is in upper case. this is a temporay hack; we should really lowercase those folders.
+        # for some reason fw_gan_vvt's clothes_persons folder is in upper case. this is
+        # a temporay hack; we should really lowercase those folders.
         # it also removes the ending sub-id, which is the garment id
         folder_id, cloth_id = folder_id.upper().split("-")
 
+        # TRYON TASK
+        if not self.opt.is_train and self.opt.task == "tryon":
+            return self.video_ids_to_cloth_paths[folder_id]
+
+        # RECONSTRUCTION TASK
         if self.opt.model == "warp":
             path = osp.join(self.root, "clothes_person", "img")
             keyword = "cloth_front"
         else:
             # TOM
             if self.opt.warp_cloth_dir == "warp-cloth":  # symlink version
+                # TODO: this line is specific to our own directory setup. should remove this
                 path = osp.join(self.root, self.opt.datamode, "warp-cloth")
             else:  # user specifies the path
                 path = self.opt.warp_cloth_dir
