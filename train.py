@@ -1,4 +1,6 @@
 import logging
+from typing import Callable
+
 import torch
 import os.path as osp
 import signal
@@ -26,32 +28,66 @@ logger = log.setup_custom_logger("logger")
 # https://pytorch-lightning.readthedocs.io/en/latest/multi_gpu.html#distributed-data-parallel
 torch.manual_seed(420)
 
+
 def main(train=True):
+    """ Runs train or test """
     options_obj = TrainOptions() if train else TestOptions()
     opt = options_obj.parse()
     logger.setLevel(getattr(logging, opt.loglevel.upper()))
 
     model_class = find_model_using_name(opt.model)
-
-    hardware_kwargs = vars(Namespace(
-        gpus=opt.gpu_ids,
-        distributed_backend=opt.distributed_backend,
-        precision=opt.precision,
-    ))
-
-    if opt.checkpoint or not train:
+    if opt.checkpoint:
         model = model_class.load_from_checkpoint(opt.checkpoint)
-        model.hparams = opt
-        trainer = Trainer(
-            resume_from_checkpoint=opt.checkpoint,
-            # Hardware
-            **hardware_kwargs,
-        )
+        logger.info(f"RESUMED from checkpoint: {opt.checkpoint}")
     else:
         model = model_class(opt)
-        trainer = Trainer(
-            # Hardware
-            **hardware_kwargs,
+        logger.info(f"INITIALIZED a new {model_class.__name__}")
+    model.hparams = opt
+
+    trainer = Trainer(
+        resume_from_checkpoint=opt.checkpoint if opt.checkpoint else None,
+        **get_hardware_kwargs(opt),
+        **get_train_kwargs(opt),
+    )
+
+    if train:
+        save_on_interrupt = make_save_on_interrupt(trainer)
+        try:
+            trainer.fit(model)
+        except Exception as e:
+            logger.warning(f"Caught a {type(e)}!")
+            logger.error(traceback.format_exc())
+            save_on_interrupt(name=e.__class__.__name__)
+    else:
+        print("Testing........")
+        print(opt)
+        trainer.test(model)
+
+    logger.info(f"Finished {opt.model}, named {opt.name}!")
+
+
+def get_hardware_kwargs(opt):
+    """ Hardware kwargs for the Trainer """
+    hardware_kwargs = vars(
+        Namespace(
+            gpus=opt.gpu_ids,
+            distributed_backend=opt.distributed_backend,
+            precision=opt.precision,
+        )
+    )
+    return hardware_kwargs
+
+
+def get_train_kwargs(opt):
+    """
+    Return Trainer kwargs specific to training if opt.is_train is True.
+    Otherwise return an empty dict.
+    """
+    if not opt.is_train:
+        return {}
+
+    train_kwargs = vars(
+        Namespace(
             # Checkpointing
             checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
             callbacks=[
@@ -72,40 +108,31 @@ def main(train=True):
             fast_dev_run=opt.fast_dev_run,
             profiler=True,
         )
+    )
+    return train_kwargs
 
-    if train:
 
-        def save_on_interrupt(*args, name=""):
-            name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
-            try:
-                ckpt_path = osp.join(
-                    trainer.checkpoint_callback.dirpath, f"{name}.ckpt"
-                )
-                logger.warning(
-                    "Training stopped prematurely. "
-                    f"Saving Trainer checkpoint to: {ckpt_path}"
-                )
-                trainer.save_checkpoint(ckpt_path)
-            except:
-                logger.warning(
-                    "No checkpoint to save. Either training didn't start, or I'm a "
-                    "child process."
-                )
-            exit()
+def make_save_on_interrupt(trainer: Trainer) -> Callable:
+    """ On interrupt, will save checkpoint """
 
-        signal.signal(signal.SIGINT, save_on_interrupt)
+    def save_on_interrupt(*args, name=""):
+        name = f"interrupted_by_{name}" if name else "interrupted_by_Ctrl-C"
         try:
-            trainer.fit(model)
-        except Exception as e:
-            logger.warning(f"Caught a {type(e)}!")
-            logger.error(traceback.format_exc())
-            save_on_interrupt(name=e.__class__.__name__)
-    else:
-        print("testing........")
-        print(opt)
-        trainer.test(model)
+            ckpt_path = osp.join(trainer.checkpoint_callback.dirpath, f"{name}.ckpt")
+            logger.warning(
+                "Training stopped prematurely. "
+                f"Saving Trainer checkpoint to: {ckpt_path}"
+            )
+            trainer.save_checkpoint(ckpt_path)
+        except:
+            logger.warning(
+                "No checkpoint to save. Either training didn't start, or I'm a "
+                "child process."
+            )
+        exit()
 
-    logger.info(f"Finished {opt.model}, named {opt.name}!")
+    signal.signal(signal.SIGINT, save_on_interrupt)
+    return save_on_interrupt
 
 
 if __name__ == "__main__":
