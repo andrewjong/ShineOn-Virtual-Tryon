@@ -126,8 +126,6 @@ class UnetMaskModel(BaseModel):
 
             #save_image(p_rendered, f"p_rendered_{fIdx}.jpg")
             p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
-            #save_image(p_tryon, f"p_tryon_{fIdx}.jpg")
-
             all_generated_frames.append(p_tryon)
 
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
