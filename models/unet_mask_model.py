@@ -128,6 +128,7 @@ class UnetMaskModel(BaseModel):
                 + tryon_masks_chunked[fIdx] * warped_cloths_chunked[fIdx]
             )
 
+
             all_generated_frames.append(p_tryon)
 
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
@@ -202,10 +203,17 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/flow_mask_l1", loss_flow_mask_l1, prog_bar=True)
 
         ## visualize prev frames losses
+<<<<<<< HEAD
         result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev)
         result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev)
         result.log(f"{val_}loss/G/tryon_mask_prev", loss_tryon_mask_prev)
 
+=======
+        result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/mask_l1_prev", loss_mask_l1_prev, prog_bar=False)
+        
+>>>>>>> 16dc47100... include loss for prev frame curr flow generation
         ## visualize curr frames losses
         result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr)
         result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
