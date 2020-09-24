@@ -129,7 +129,7 @@ class UnetMaskModel(BaseModel):
             )
 
             all_generated_frames.append(p_tryon)
-
+            
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, tryon_masks, p_tryons, flow_masks
