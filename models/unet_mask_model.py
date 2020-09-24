@@ -112,10 +112,7 @@ class UnetMaskModel(BaseModel):
         for fIdx in range(self.hparams.n_frames_total):
             if flows is not None and fIdx > 0:
                 last_generated_frame = all_generated_frames[fIdx - 1]
-                #save_image(last_generated_frame, f"last_generated_frame_{fIdx}.jpg")
                 warp_flow = self.resample(last_generated_frame, flows[fIdx].contiguous())
-                #save_image(warp_flow, f"warp_flow_{fIdx}.jpg")
-                #save_image(weight_masks_chunked[fIdx], f"weight_masks_chunked_{fIdx}.jpg")
                 p_rendered_warp = (1 - weight_masks_chunked[fIdx]) * warp_flow + weight_masks_chunked[fIdx] *  p_rendereds_chunked[fIdx]
 
 
@@ -124,9 +121,7 @@ class UnetMaskModel(BaseModel):
             except:
                 p_rendered = p_rendereds_chunked[fIdx]
 
-            #save_image(p_rendered, f"p_rendered_{fIdx}.jpg")
             p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
-            #save_image(p_tryon, f"p_tryon_{fIdx}.jpg")
 
             all_generated_frames.append(p_tryon)
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
@@ -188,6 +183,20 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/vgg_combined", (loss_image_vgg_curr + loss_image_vgg_prev) / 2, prog_bar=True)
         result.log(f"{val_}loss/G/mask_l1_combined", (loss_mask_l1_curr + loss_mask_l1_prev) / 2, prog_bar=True)
         result.log(f"{val_}loss/G/weight_mask_l1", loss_weight_mask_l1, prog_bar=True)
+<<<<<<< HEAD
+=======
+
+        ## visualize prev frames losses
+        result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/mask_l1_prev", loss_mask_l1_prev, prog_bar=False)
+
+        ## visualize curr frames losses
+        result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr, prog_bar=False)
+        result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr, prog_bar=False)
+        result.log(f"{val_}loss/G/mask_l1_curr", loss_mask_l1_curr, prog_bar=False)
+
+>>>>>>> f6ddbf93c3298fa1c1a0faa7888b30b69dfef7d0
 
         ## visualize prev frames losses
         result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev, prog_bar=False)
