@@ -9,10 +9,11 @@ class MPVDataset(TryonDataset):
     """ CP-VTON dataset with the MPV folder structure. """
 
     @staticmethod
-    def modify_commandline_options(parser: argparse.ArgumentParser, is_train):
-        parser = super(MPVDataset, MPVDataset).modify_commandline_options(
-            parser, is_train
-        )
+    def modify_commandline_options(parser: argparse.ArgumentParser, is_train, shared=False):
+        if not shared:
+            parser = super(MPVDataset, MPVDataset).modify_commandline_options(
+                parser, is_train
+            )
         parser.add_argument("--mpv_dataroot", default="/data_hdd/mpv_competition")
         return parser
 
@@ -20,7 +21,7 @@ class MPVDataset(TryonDataset):
         super(MPVDataset, self).__init__(opt)
 
     # @overrides(CpVtonDataset)
-    def load_file_paths(self):
+    def load_file_paths(self, i_am_validation=False):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.mpv_dataroot
         self.image_names = []
@@ -77,3 +78,9 @@ class MPVDataset(TryonDataset):
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
         pose_path = pose_path.replace(".jpg", "_keypoints.json")
         return pose_path
+
+    def get_person_densepose_path(self, index):
+        return NotImplementedError("THIS IS TODO. For now use cocopose on MPV")
+
+    def get_person_flow_path(self, index):
+        return NotImplementedError("THIS IS TODO. Image datasets don't have flow")

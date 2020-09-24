@@ -5,13 +5,16 @@ from PIL import Image
 
 
 def tensor_for_board(img_tensor):
+    assert (
+        img_tensor.ndim == 4
+    ), f"something's not right, i'm not a standard img_tensor. {img_tensor.shape=}"
     # map into [0,1]
     tensor = (img_tensor.clone() + 1) * 0.5
     try:
         tensor.cpu().clamp(0, 1)
     except:
         tensor.float().cpu().clamp(0, 1)
-    if tensor.size(1) == 1:  # masks, make it RGB
+    if tensor.shape[1] == 1:  # masks, make it RGB
         tensor = tensor.repeat(1, 3, 1, 1)
 
     return tensor

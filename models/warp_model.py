@@ -6,12 +6,12 @@ from typing import List
 
 import torch.nn as nn
 import torch.nn.functional as F
+from pytorch_lightning import EvalResult, TrainResult
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel
 from util import get_and_cat_inputs
 from models.networks.cpvton.warp import (
-
     FeatureExtraction,
     FeatureL2Norm,
     FeatureCorrelation,
@@ -32,7 +32,9 @@ class WarpModel(BaseModel):
         parser = ArgumentParser(parents=[parser], add_help=False)
         parser = super(WarpModel, cls).modify_commandline_options(parser, is_train)
         parser.add_argument("--grid_size", type=int, default=5)
-        parser.set_defaults(person_inputs=("agnostic", "densepose"))
+        parser.set_defaults(person_inputs=("agnostic", "cocopose"))
+        # TODO: We don't have densepose created for VITON and MPV yet
+        # parser.set_defaults(person_inputs=("agnostic", "densepose"))
         return parser
 
     def __init__(self, hparams):
@@ -69,7 +71,7 @@ class WarpModel(BaseModel):
         grid = self.gridGen(theta)
         return grid, theta
 
-    def training_step(self, batch, _):
+    def training_step(self, batch, idx, val=False):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         # unpack
         c = batch["cloth"]
@@ -86,12 +88,14 @@ class WarpModel(BaseModel):
         loss = F.l1_loss(self.warped_cloth, im_c)
 
         # Logging
-        if self.global_step % self.hparams.display_count == 0:
+        if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
 
-        tensorboard_scalars = {"epoch": self.current_epoch, "loss": loss}
+        val_ = "val_" if val else ""
+        result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
+        result.log(f"{val_}loss/G", loss, prog_bar=True)
 
-        return {"loss": loss, "log": tensorboard_scalars}
+        return result
 
     def test_step(self, batch, batch_idx):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
@@ -133,6 +137,8 @@ class WarpModel(BaseModel):
         return result
 
     def visualize(self, b, tag="train"):
+        if tag == "validation":
+            b = maybe_combine_frames_and_channels(self.hparams, b)
         person_visuals = self.fetch_person_visuals(b)
 
         visuals = [

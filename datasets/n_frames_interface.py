@@ -2,6 +2,7 @@ import collections
 import functools
 from abc import ABC, abstractmethod
 from argparse import ArgumentParser
+from typing import Dict
 
 import torch
 from torch.utils.data.dataloader import default_collate
@@ -101,15 +102,29 @@ class NFramesInterface(ABC):
         return wrapper
 
 
-def maybe_combine_frames_and_channels(opt, inputs):
-    """ if n_frames_total is true, combines frames and channels dim for all the tensors"""
+def maybe_combine_frames_and_channels(opt, inputs: Dict, has_batch_dim=True):
+    """
+    if n_frames_total is true, combines frames and channels dim for all the tensors.
+    For tuples, unpacks it from the list that wraps it.
+
+    Args:
+        opt:
+        inputs:
+        has_batch_dim: whether or not batch dim is already included. If called within
+            a dataset class, this should be False. If called as the output of a
+            dataloader, then should be True.
+    """
     if hasattr(opt, "n_frames_total"):
 
         def maybe_combine(t):
             # Tensor like items
-            if isinstance(t, torch.Tensor) and len(t.shape) == 5:
-                bs, n_frames, c, h, w = t.shape
-                t = t.view(bs, n_frames * c, h, w)
+            if isinstance(t, torch.Tensor):
+                if has_batch_dim and len(t.shape) == 5:
+                    bs, n_frames, c, h, w = t.shape
+                    t = t.view(bs, n_frames * c, h, w)
+                elif not has_batch_dim and len(t.shape) == 4:
+                    n_frames, c, h, w = t.shape
+                    t = t.view(n_frames * c, h, w)
             # Non-tensor like items, such as lists of strings or numbers
             elif isinstance(t, collections.abc.Sequence) and not isinstance(t, str):
                 # unpack
@@ -118,6 +133,6 @@ def maybe_combine_frames_and_channels(opt, inputs):
 
             return t
 
-        inputs = {k: maybe_combine(v) for k, v in inputs.items()}
+        new_inputs = {k: maybe_combine(v) for k, v in inputs.items()}
 
-    return inputs
+    return new_inputs
