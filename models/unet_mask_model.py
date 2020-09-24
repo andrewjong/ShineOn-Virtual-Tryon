@@ -129,7 +129,6 @@ class UnetMaskModel(BaseModel):
             )
 
             all_generated_frames.append(p_tryon)
-        #assert 1 == 0
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, tryon_masks, p_tryons, flow_masks
@@ -188,6 +187,7 @@ class UnetMaskModel(BaseModel):
 
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
+
 
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
