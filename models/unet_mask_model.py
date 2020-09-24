@@ -126,8 +126,9 @@ class UnetMaskModel(BaseModel):
 
             #save_image(p_rendered, f"p_rendered_{fIdx}.jpg")
             p_tryon = warped_cloths_chunked[fIdx] * m_composites_chunked[fIdx] + p_rendered * (1 - m_composites_chunked[fIdx])
+            #save_image(p_tryon, f"p_tryon_{fIdx}.jpg")
+
             all_generated_frames.append(p_tryon)
-        #assert 1 == 0
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, m_composites, p_tryons, weight_masks
@@ -164,13 +165,18 @@ class UnetMaskModel(BaseModel):
         cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
 
         # loss
-        loss_image_l1 = F.l1_loss(self.p_tryon[-1], im[-1])
-        loss_image_vgg = self.criterionVGG(self.p_tryon[-1], im[-1])
-        loss_mask_l1 = F.l1_loss(self.m_composite[-1], cm[-1])
+        loss_image_l1_curr = F.l1_loss(self.p_tryon[-1], im[-1])
+        loss_image_l1_prev = F.l1_loss(self.p_tryon[-2], im[-2])
+        loss_image_vgg_curr = self.criterionVGG(self.p_tryon[-1], im[-1])
+        loss_image_vgg_prev = self.criterionVGG(self.p_tryon[-2], im[-2])
+        loss_mask_l1_curr = F.l1_loss(self.m_composite[-1], cm[-1])
+        loss_mask_l1_prev = F.l1_loss(self.m_composite[-2], cm[-2])
         loss_weight_mask_l1 = self.hparams.wt_weight_mask * \
               F.l1_loss(self.weight_masks[-1], torch.zeros_like(self.weight_masks[-1])) / (self.hparams.fine_height * self.hparams.fine_width) if self.weight_masks is not None else 0
-        loss = loss_image_l1 + loss_image_vgg + loss_mask_l1 + loss_weight_mask_l1
-
+        loss = (loss_image_l1_curr + loss_image_l1_prev)/2 \
+               + (loss_image_vgg_curr + loss_image_vgg_prev)/2 \
+               + (loss_mask_l1_curr + loss_mask_l1_prev)/2 \
+               + loss_weight_mask_l1
         # logging
         if self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
@@ -178,10 +184,21 @@ class UnetMaskModel(BaseModel):
         val_ = "val_" if val else ""
         result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
         result.log(f"{val_}loss/G", loss, prog_bar=True)
-        result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
-        result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
-        result.log(f"{val_}loss/G/mask_l1", loss_mask_l1, prog_bar=True)
+        result.log(f"{val_}loss/G/l1_combined", (loss_image_l1_curr + loss_image_l1_prev) / 2, prog_bar=True)
+        result.log(f"{val_}loss/G/vgg_combined", (loss_image_vgg_curr + loss_image_vgg_prev) / 2, prog_bar=True)
+        result.log(f"{val_}loss/G/mask_l1_combined", (loss_mask_l1_curr + loss_mask_l1_prev) / 2, prog_bar=True)
         result.log(f"{val_}loss/G/weight_mask_l1", loss_weight_mask_l1, prog_bar=True)
+
+        ## visualize prev frames losses
+        result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev, prog_bar=False)
+        result.log(f"{val_}loss/G/mask_l1_prev", loss_mask_l1_prev, prog_bar=False)
+
+        ## visualize curr frames losses
+        result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr, prog_bar=False)
+        result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr, prog_bar=False)
+        result.log(f"{val_}loss/G/mask_l1_curr", loss_mask_l1_curr, prog_bar=False)
+
 
         self.prev_frame = im
         return result
