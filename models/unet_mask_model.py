@@ -127,8 +127,9 @@ class UnetMaskModel(BaseModel):
                 (1 - tryon_masks_chunked[fIdx]) * p_rendered  ##
                 + tryon_masks_chunked[fIdx] * warped_cloths_chunked[fIdx]
             )
-            all_generated_frames.append(p_tryon)
 
+            all_generated_frames.append(p_tryon)
+        #assert 1 == 0
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, tryon_masks, p_tryons, flow_masks
