@@ -41,7 +41,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         TryonDataset.__init__(self, opt, i_am_validation)
         NFramesInterface.__init__(self, opt)
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def load_file_paths(self, i_am_validation=False):
         """ Reads the Videos from the fw_gan_vvt dataset. """
         if self.is_train or self.opt.task == "reconstruction":
@@ -108,7 +108,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # CLOTH REPRESENTATION
     ########################
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
         folder_id = VVTDataset.extract_folder_id(image_path)
@@ -155,7 +155,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
 
         return cloth_path_matches[0]
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_input_cloth_name(self, index):
         cloth_path = self.get_input_cloth_path(index)
         folder_id = VVTDataset.extract_folder_id(cloth_path)
@@ -168,19 +168,19 @@ class VVTDataset(TryonDataset, NFramesInterface):
     ########################
     # PERSON REPRESENTATION
     ########################
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_image_path(self, index):
         # because we globbed, the path is the list
         return self.image_names[index]
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_image_name(self, index):
         image_path = self.get_person_image_path(index)
         folder_id = VVTDataset.extract_folder_id(image_path)
         name = osp.join(folder_id, osp.basename(image_path))
         return name
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_parsed_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_parsing"
@@ -192,7 +192,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
             parsed_path = parsed_path.replace("_label", "")
         return parsed_path
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_cocopose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_keypoint"
@@ -205,7 +205,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         pose_path = osp.join(self.root, folder, id, keypoint_fname)
         return pose_path
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_densepose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/densepose"
