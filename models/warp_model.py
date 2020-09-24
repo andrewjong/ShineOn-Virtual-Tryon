@@ -6,6 +6,7 @@ from typing import List
 
 import torch.nn as nn
 import torch.nn.functional as F
+from pytorch_lightning import EvalResult, TrainResult
 
 from datasets.n_frames_interface import maybe_combine_frames_and_channels
 from models.base_model import BaseModel
@@ -90,9 +91,11 @@ class WarpModel(BaseModel):
         if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
 
-        tensorboard_scalars = {"epoch": self.current_epoch, "loss": loss}
+        val_ = "val_" if val else ""
+        result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
+        result.log(f"{val_}loss/G", loss, prog_bar=True)
 
-        return {"loss": loss, "log": tensorboard_scalars}
+        return result
 
     def test_step(self, batch, batch_idx):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
