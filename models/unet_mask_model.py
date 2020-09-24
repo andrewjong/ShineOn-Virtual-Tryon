@@ -123,11 +123,11 @@ class UnetMaskModel(BaseModel):
             else:
                 p_rendered = p_rendereds_chunked[fIdx]
 
+
             p_tryon = (
                 (1 - tryon_masks_chunked[fIdx]) * p_rendered  ##
                 + tryon_masks_chunked[fIdx] * warped_cloths_chunked[fIdx]
             )
-
 
             all_generated_frames.append(p_tryon)
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
@@ -169,7 +169,6 @@ class UnetMaskModel(BaseModel):
         cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
 
         # loss
-
         loss_image_l1_prev = F.l1_loss(self.p_tryons[-2], im[-2])
         loss_image_l1_curr = F.l1_loss(self.p_tryons[-1], im[-1])
         loss_image_l1 = 0.5 * (loss_image_l1_curr + loss_image_l1_prev)
@@ -187,7 +186,6 @@ class UnetMaskModel(BaseModel):
         )
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
-
 
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
