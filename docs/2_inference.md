@@ -15,7 +15,7 @@ python test.py --model sams --checkpoint path/to/checkpoint.ckpt
 ## Try-on (Reproduce Results in the Paper)
 1) Warp Module
     ```
-    python test.py \                                                                           
+    python test.py \
     --name tryon_warp \
     --model warp \
     --workers 8 \
@@ -27,7 +27,7 @@ python test.py --model sams --checkpoint path/to/checkpoint.ckpt
     ```
 2) Try-on Module
     ```
-    python test.py \                
+    python test.py \
     --name tryon_final \
     --model unet \
     --batch 4 

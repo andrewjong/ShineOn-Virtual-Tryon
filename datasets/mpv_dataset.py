@@ -20,7 +20,7 @@ class MPVDataset(TryonDataset):
     def __init__(self, opt):
         super(MPVDataset, self).__init__(opt)
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def load_file_paths(self, i_am_validation=False):
         """ Reads the datalist txt file for CP-VTON"""
         self.root = self.opt.mpv_dataroot
@@ -42,37 +42,37 @@ class MPVDataset(TryonDataset):
     ########################
     # CLOTH REPRESENTATION
     ########################
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_input_cloth_path(self, index):
         cloth_name = self.get_input_cloth_name(index)
         subdir = "all" if self.opt.model == "warp" else "warp-cloth"
         cloth_path = osp.join(self.root, subdir, cloth_name)
         return cloth_path
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_input_cloth_name(self, index):
         return self.cloth_names[index]
 
     ########################
     # PERSON REPRESENTATION
     ########################
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_image_path(self, index):
         image_name = self.get_person_image_name(index)
         image_path = osp.join(self.root, "all", image_name)
         return image_path
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_image_name(self, index):
         return self.image_names[index]
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_parsed_path(self, index):
         image_name = self.get_person_image_name(index).replace(".jpg", ".png")
         parsed_path = osp.join(self.root, "all_parsing", image_name)
         return parsed_path
 
-    # @overrides(CpVtonDataset)
+    # @overrides(TryonDataset)
     def get_person_cocopose_path(self, index):
         image_name = self.get_person_image_name(index)
         pose_path = osp.join(self.root, "all_person_clothes_keypoints", image_name)
