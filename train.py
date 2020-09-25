@@ -98,8 +98,8 @@ def get_train_kwargs(opt):
             # Checkpointing
             checkpoint_callback=ModelCheckpoint(save_top_k=5, verbose=True),
             callbacks=[
-                CheckpointCustomFilename(),
-                CheckpointEveryNSteps(opt.save_count, verbose=True),
+                # CheckpointCustomFilename(),
+                CheckpointEveryNSteps(opt.save_count, prefix=opt.model, verbose=True),
             ],
             default_root_dir=osp.join(opt.experiments_dir, opt.name),
             log_save_interval=opt.display_count,

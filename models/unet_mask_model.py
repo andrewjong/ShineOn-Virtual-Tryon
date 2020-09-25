@@ -210,7 +210,7 @@ class UnetMaskModel(BaseModel):
 
         task = "tryon" if self.hparams.tryon_list else "reconstruction"
         try_on_dirs = [
-            osp.join(self.hparams.result_dir, dname, task)
+            osp.join(self.test_results_dir, dname, task)
             for dname in batch["dataset_name"]
         ]
         im_names = batch["image_name"]

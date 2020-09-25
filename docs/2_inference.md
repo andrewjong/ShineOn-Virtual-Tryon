@@ -32,6 +32,7 @@ Specify --tryon_list to a CSV.
     --name tryon \
     --model warp \
     --workers 4 \
+    --batch 4 \
     --dataset vvt \
     --datamode test \
     --checkpoint experiments/path/to/checkpoint.ckpt \
@@ -42,7 +43,9 @@ Specify --tryon_list to a CSV.
     python test.py \
     --name tryon \
     --model unet \
+    --workers 4 \
     --batch 4 \
+    --dataset vvt \
     --datamode test \
     --checkpoint path/to/unet/checkpoint.ckpt \
     --tryon_list path/to/csv/file \
