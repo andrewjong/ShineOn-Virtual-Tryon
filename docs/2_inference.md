@@ -14,25 +14,25 @@ clothes.
     The warp module takes the product images
     ```
     python test.py \
-    --name reconstruction \
+    --name experiment_1 \
     --model warp \
     --workers 4 \
     --batch 4 \
     --dataset vvt \
     --datamode test \
-    --checkpoint experiments/path/to/checkpoint.ckpt
+    --checkpoint experiments/path/to/WARP/checkpoint.ckpt
     ```
    
 2) Try-on Module
     ```
     python test.py \
-    --name tryon \
+    --name experiment_1 \
     --model unet \
     --workers 4 \
     --batch 4 \
     --dataset vvt \
     --datamode test \
-    --checkpoint path/to/unet/checkpoint.ckpt \
+    --checkpoint experiments/path/to/UNET/checkpoint.ckpt \
     --warp_cloth_dir \
     test_results/reconstruction/checkpoint.ckpt/test/VVTDataset/warp-cloth
     ```
@@ -55,28 +55,31 @@ is the name of a video folder containing the frames for one person.
 
 
 1) Warp Module
+
+    The `warp-cloth` folder must be generated for every `tryon_file.csv` you have.
+
     ```
     python test.py \
-    --name tryon \
+    --name experiment_2 \
     --model warp \
     --workers 4 \
     --batch 4 \
     --dataset vvt \
     --datamode test \
-    --checkpoint experiments/path/to/checkpoint.ckpt \
+    --checkpoint experiments/path/to/WARP/checkpoint.ckpt \
     --tryon_list path/to/tryon_file.csv
     ```
 
 2) Try-on Module
     ```
     python test.py \
-    --name tryon \
+    --name experiment_2 \
     --model unet \
     --workers 4 \
     --batch 4 \
     --dataset vvt \
     --datamode test \
-    --checkpoint path/to/unet/checkpoint.ckpt \
+    --checkpoint experiments/path/to/UNET/checkpoint.ckpt \
     --tryon_list path/to/tryon_file.csv \
     --warp_cloth_dir \
     test_results/tryon/checkpoint.ckpt/test/VVTDataset/warp-cloth
