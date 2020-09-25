@@ -97,6 +97,21 @@ class WarpModel(BaseModel):
 
         return result
 
+    def visualize(self, b, tag="train"):
+        if tag == "validation":
+            b = maybe_combine_frames_and_channels(self.hparams, b)
+        person_visuals = self.fetch_person_visuals(b)
+
+        visuals = [
+            person_visuals,
+            [b["cloth"], self.warped_cloth, b["im_cloth"]],
+            [self.warped_grid, (self.warped_cloth + b["image"]) * 0.5, b["image"]],
+        ]
+        tensor = tensor_list_for_board(visuals)
+        # add to experiment
+        for i, img in enumerate(tensor):
+            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
+
     def test_step(self, batch, batch_idx):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
         dataset_names = batch["dataset_name"]
@@ -135,18 +150,3 @@ class WarpModel(BaseModel):
 
         result = {"progress_bar": progress_bar}
         return result
-
-    def visualize(self, b, tag="train"):
-        if tag == "validation":
-            b = maybe_combine_frames_and_channels(self.hparams, b)
-        person_visuals = self.fetch_person_visuals(b)
-
-        visuals = [
-            person_visuals,
-            [b["cloth"], self.warped_cloth, b["im_cloth"]],
-            [self.warped_grid, (self.warped_cloth + b["image"]) * 0.5, b["image"]],
-        ]
-        tensor = tensor_list_for_board(visuals)
-        # add to experiment
-        for i, img in enumerate(tensor):
-            self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
