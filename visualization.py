@@ -53,16 +53,17 @@ def board_add_images(board, tag_name, img_tensors_list, step_count):
         board.add_image(f"{tag_name}/{i:03d}", img, step_count)
 
 
-def get_save_paths(img_names, save_dirs):
+def get_save_paths(save_dirs, img_names):
     return [os.path.join(s, i) for s, i in zip(save_dirs, img_names)]
 
 
 def save_images(img_tensors, img_names, save_dirs):
+    """ Save a batch of image tensors """
     if len(save_dirs) == 1:
         save_dirs = [save_dirs] * len(img_names)
     for img_tensor, img_name, save_dir in zip(img_tensors, img_names, save_dirs):
-        if "warp-mask" in save_dir and "CPDataset" not in save_dir:
-            # if it's warp mask and we're not CPDataset, skip saving
+        if "warp-mask" in save_dir and "VitonDataset" not in save_dir:
+            # if it's warp mask and we're not VitonDataset, skip saving
             continue
         path = os.path.join(save_dir, img_name)
         if os.path.exists(path):
