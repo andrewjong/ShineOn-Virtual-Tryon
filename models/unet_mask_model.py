@@ -254,6 +254,7 @@ class UnetMaskModel(BaseModel):
             osp.join(self.test_results_dir, dname, task) for dname in dataset_names
         ]
 
+
         # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(try_on_dirs, im_names)
         if all(osp.exists(s) for s in save_paths):
