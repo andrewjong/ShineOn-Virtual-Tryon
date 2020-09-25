@@ -214,6 +214,7 @@ class UnetMaskModel(BaseModel):
 
         return result
 
+
     def visualize(self, b, tag="train"):
         if tag == "validation":
             b = maybe_combine_frames_and_channels(self.hparams, b)
