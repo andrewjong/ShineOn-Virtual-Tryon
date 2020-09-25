@@ -61,6 +61,7 @@ class CheckpointEveryNSteps(pl.Callback):
         save_step_frequency,
         prefix="N-Step-Checkpoint",
         use_modelcheckpoint_filename=False,
+        save_final=True,
         verbose=False,
     ):
         """
@@ -71,27 +72,39 @@ class CheckpointEveryNSteps(pl.Callback):
               use_modelcheckpoint_filename=False
             use_modelcheckpoint_filename: just use the ModelCheckpoint callback's
               filename, don't use ours.
+            save_final: save a final checkpoint when training ends regardless of the step
         """
         self.use_modelcheckpoint_filename = use_modelcheckpoint_filename
         self.save_step_frequency = save_step_frequency
         self.prefix = prefix
+        self.save_final = save_final
         self.verbose = verbose
 
     def on_batch_end(self, trainer: pl.Trainer, _):
-        epoch = trainer.current_epoch
         global_step = trainer.global_step
         if global_step > 0 and global_step % self.save_step_frequency == 0:
-            if self.use_modelcheckpoint_filename:
-                filename = trainer.checkpoint_callback.filename
-            else:
-                filename = f"{self.prefix}_{epoch=}_{global_step=}.ckpt"
-
-            ckpt_path = (
-                str(trainer.checkpoint_callback.dirpath) + os.sep + str(filename)
-            )
+            ckpt_path = self.make_checkpoint_path(trainer)
             trainer.save_checkpoint(ckpt_path)
             if self.verbose:
                 logger.info("Saved N-Step checkpoint: " + ckpt_path)
+
+    def on_train_end(self, trainer, _):
+        if self.save_final:
+            ckpt_path = self.make_checkpoint_path(trainer, final=True)
+            trainer.save_checkpoint(ckpt_path)
+            if self.verbose:
+                logger.info("Saved final N-Step checkpoint: " + ckpt_path)
+
+    def make_checkpoint_path(self, trainer, final=False):
+        epoch = trainer.current_epoch
+        global_step = trainer.global_step
+        if self.use_modelcheckpoint_filename:
+            filename = trainer.checkpoint_callback.filename
+        else:
+            f = "FINAL_" if final else ""
+            filename = f"{self.prefix}_{f}{epoch=}_{global_step=}.ckpt"
+        ckpt_path = str(trainer.checkpoint_callback.dirpath) + os.sep + str(filename)
+        return ckpt_path
 
 
 class SaveOnKeyboardInterrupt(pl.Callback):
