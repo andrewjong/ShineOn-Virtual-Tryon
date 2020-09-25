@@ -160,6 +160,7 @@ class UnetMaskModel(BaseModel):
             self.tryon_masks, self.hparams.n_frames_total, dim=1
         )
 
+
         self.flow_masks = (
             torch.chunk(self.flow_masks, self.hparams.n_frames_total, dim=1)
             if self.flow_masks is not None
