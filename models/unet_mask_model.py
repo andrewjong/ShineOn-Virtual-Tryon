@@ -154,18 +154,11 @@ class UnetMaskModel(BaseModel):
         self.p_tryons = torch.chunk(self.p_tryons, self.hparams.n_frames_total, dim=1)
         self.p_rendereds = torch.chunk(
             self.p_rendereds, self.hparams.n_frames_total, dim=1
-<<<<<<< HEAD
         )
         self.tryon_masks = torch.chunk(
             self.tryon_masks, self.hparams.n_frames_total, dim=1
         )
 
-=======
-        )
-        self.tryon_masks = torch.chunk(
-            self.tryon_masks, self.hparams.n_frames_total, dim=1
-        )
->>>>>>> c99cc1434... Code cleanup
         self.flow_masks = (
             torch.chunk(self.flow_masks, self.hparams.n_frames_total, dim=1)
             if self.flow_masks is not None
@@ -193,14 +186,6 @@ class UnetMaskModel(BaseModel):
         )
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
-<<<<<<< HEAD
-
-<<<<<<< HEAD
-=======
->>>>>>> c99cc1434... Code cleanup
-
-=======
->>>>>>> 29a7b2af6... changed to warp with zero tensor
         # logging
         if not val and self.global_step % self.hparams.display_count == 0:
             self.visualize(batch)
@@ -208,10 +193,6 @@ class UnetMaskModel(BaseModel):
         val_ = "val_" if val else ""
         result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
         result.log(f"{val_}loss/G", loss, prog_bar=True)
-<<<<<<< HEAD
-
-=======
->>>>>>> c99cc1434... Code cleanup
         result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
         result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
         result.log(f"{val_}loss/G/tryon_mask_l1", loss_tryon_mask_l1, prog_bar=True)
@@ -226,60 +207,10 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr)
         result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
         result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
-<<<<<<< HEAD
 
-=======
 
         return result
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-    def test_step(self, batch, batch_idx):
-        dataset_names = batch["dataset_name"]
-
-        # this if statement is for when we have multiple frames from --n_frames_total
-        if isinstance(dataset_names[0], tuple):
-            # we get a tuple of frames in each batch idx for n_frames.
-            # we only want the last one , as that's the one that at the current timestep
-            dataset_names = [frames[-1] for frames in dataset_names]
-
-        try_on_dirs = [
-            osp.join(self.hparams.result_dir, dname, "try-on")
-            for dname in dataset_names
-        ]
-
-        im_names = batch["image_name"]
-        if isinstance(
-            im_names[0], tuple
-        ):  # same if statement here as for dataset_names
-            im_names = [frames[-1] for frames in im_names]
-
-        # if we already did a forward-pass on this batch, skip it
-        save_paths = get_save_paths(im_names, try_on_dirs)
-        if all(osp.exists(s) for s in save_paths):
-            progress_bar = {"file": f"Skipping {im_names[0]}"}
-        else:
-            progress_bar = {"file": f"{im_names[0]}"}
-
-            batch = maybe_combine_frames_and_channels(self.hparams, batch)
-            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
-            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
-
-            _, _, self.p_tryons = self.forward(person_inputs, cloth_inputs)
-            # TODO CLEANUP: we get the last frame here by picking the last RGB channels;
-            #  this is different from how it's done in training_step, which uses
-            #  chunking and -1 indexing. We should choose one method for consistency.
-            save_images(
-                self.p_tryons[:, -TryonDataset.RGB_CHANNELS:, :, ], im_names, try_on_dirs
-            )
-        result = {"progress_bar": progress_bar}
->>>>>>> c99cc1434... Code cleanup
-        return result
-
->>>>>>> 8ed02f74b... Code cleanup
-=======
->>>>>>> bd752607a... Test step works for tryon
     def visualize(self, b, tag="train"):
         if tag == "validation":
             b = maybe_combine_frames_and_channels(self.hparams, b)
