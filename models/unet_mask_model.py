@@ -175,47 +175,6 @@ class UnetMaskModel(BaseModel):
         self.prev_frame = im
         return result
 
-    def test_step(self, batch, batch_idx):
-        dataset_names = batch["dataset_name"]
-
-        # this if statement is for when we have multiple frames from --n_frames_total
-        if isinstance(dataset_names[0], tuple):
-            # we get a tuple of frames in each batch idx for n_frames.
-            # we only want the last one , as that's the one that at the current timestep
-            dataset_names = [frames[-1] for frames in dataset_names]
-
-        try_on_dirs = [
-            osp.join(self.hparams.result_dir, dname, "try-on")
-            for dname in dataset_names
-        ]
-
-        im_names = batch["image_name"]
-        if isinstance(
-            im_names[0], tuple
-        ):  # same if statement here as for dataset_names
-            im_names = [frames[-1] for frames in im_names]
-
-        # if we already did a forward-pass on this batch, skip it
-        save_paths = get_save_paths(im_names, try_on_dirs)
-        if all(osp.exists(s) for s in save_paths):
-            progress_bar = {"file": f"Skipping {im_names[0]}"}
-        else:
-            progress_bar = {"file": f"{im_names[0]}"}
-
-            batch = maybe_combine_frames_and_channels(self.hparams, batch)
-            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
-            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
-
-            _, _, self.p_tryon = self.forward(person_inputs, cloth_inputs)
-            # TODO CLEANUP: we get the last frame here by picking the last RGB channels;
-            #  this is different from how it's done in training_step, which uses
-            #  chunking and -1 indexing. We should choose one method for consistency.
-            save_images(
-                self.p_tryon[:, -TryonDataset.RGB_CHANNELS :, :,], im_names, try_on_dirs
-            )
-        result = {"progress_bar": progress_bar}
-        return result
-
     def visualize(self, b, tag="train"):
         if tag == "validation":
             b = maybe_combine_frames_and_channels(self.hparams, b)
@@ -245,6 +204,36 @@ class UnetMaskModel(BaseModel):
         # add to experiment
         for i, img in enumerate(tensor):
             self.logger.experiment.add_image(f"{tag}/{i:03d}", img, self.global_step)
+
+    def test_step(self, batch, batch_idx):
+        batch = maybe_combine_frames_and_channels(self.hparams, batch)
+
+        task = "tryon" if self.hparams.tryon_list else "reconstruction"
+        try_on_dirs = [
+            osp.join(self.hparams.result_dir, dname, task)
+            for dname in batch["dataset_name"]
+        ]
+        im_names = batch["image_name"]
+
+        # if we already did a forward-pass on this batch, skip it
+        save_paths = get_save_paths(try_on_dirs, im_names)
+        if all(osp.exists(s) for s in save_paths):
+            progress_bar = {"file": f"Skipping {im_names[0]}"}
+        else:
+            progress_bar = {"file": f"{im_names[0]}"}
+
+            person_inputs = get_and_cat_inputs(batch, self.hparams.person_inputs)
+            cloth_inputs = get_and_cat_inputs(batch, self.hparams.cloth_inputs)
+
+            _, _, self.p_tryon = self.forward(person_inputs, cloth_inputs)
+            # TODO CLEANUP: we get the last frame here by picking the last RGB channels;
+            #  this is different from how it's done in training_step, which uses
+            #  chunking and -1 indexing. We should choose one method for consistency.
+            save_images(
+                self.p_tryon[:, -TryonDataset.RGB_CHANNELS :, :,], im_names, try_on_dirs
+            )
+        result = {"progress_bar": progress_bar}
+        return result
 
     def fetch_person_visuals(self, batch, sort_fn=None) -> List[torch.Tensor]:
         """

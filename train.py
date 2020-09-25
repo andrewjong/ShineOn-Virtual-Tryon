@@ -37,17 +37,24 @@ def main(train=True):
 
     model_class = find_model_using_name(opt.model)
     if opt.checkpoint:
-        model = model_class.load_from_checkpoint(opt.checkpoint)
-        logger.info(f"RESUMED from checkpoint: {opt.checkpoint}")
+        model = model_class.load_from_checkpoint(
+            # TODO: we have to manually override all TestOptions for hparams in
+            #  __init__, because they're not present in the checkpoint's train options.
+            #  We should find a better solution
+            opt.checkpoint,
+            is_train=train,
+        )
+        logger.info(f"RESUMED {model_class.__name__} from checkpoint: {opt.checkpoint}")
     else:
-        model = model_class(opt)
-        logger.info(f"INITIALIZED a new {model_class.__name__}")
-    model.hparams = opt
+        model = model_class(opt, is_train=train)
+        logger.info(f"INITIALIZED new {model_class.__name__}")
+    model.override_hparams(opt)
 
     trainer = Trainer(
         resume_from_checkpoint=opt.checkpoint if opt.checkpoint else None,
         **get_hardware_kwargs(opt),
         **get_train_kwargs(opt),
+        profiler=True,
     )
 
     if train:
@@ -106,7 +113,6 @@ def get_train_kwargs(opt):
             limit_val_batches=str2num(opt.limit_val_batches),
             # Debug
             fast_dev_run=opt.fast_dev_run,
-            profiler=True,
         )
     )
     return train_kwargs

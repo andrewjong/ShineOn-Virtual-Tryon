@@ -72,7 +72,17 @@ class BaseModel(pl.LightningModule, abc.ABC):
         self.is_train = self.hparams.is_train
         if self.is_train:
             self.val_visualization_batch = None
-        else:
+
+    def override_hparams(self, hparams: argparse.Namespace):
+        """ Called in train.py after model is initialized. This is to
+         reset hparams after loaded from checkpoint.
+
+        Basically all non-architectural hparams should be set in this method.
+
+        Remember to call super().override_hparams(hparams) in child classes.
+        """
+        self.hparams = hparams
+        if not self.is_train:
             ckpt_name = osp.basename(hparams.checkpoint)
             self.test_results_dir = osp.join(
                 hparams.result_dir, hparams.name, ckpt_name, hparams.datamode
@@ -88,7 +98,7 @@ class BaseModel(pl.LightningModule, abc.ABC):
         dataset_cls = find_dataset_using_name(self.hparams.dataset)
         self.train_dataset: TryonDataset = dataset_cls(self.hparams)
         logger.info(
-            f"Train {self.hparams.dataset} dataset initialized: "
+            f"Main {self.hparams.dataset} dataset initialized: "
             f"{len(self.train_dataset)} samples."
         )
         if stage == "fit":  # passed from Trainer. fit means train mode

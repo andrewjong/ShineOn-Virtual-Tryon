@@ -11,33 +11,42 @@ something like
 ```bash
 python test.py --model sams --checkpoint path/to/checkpoint.ckpt
 ```
-
-## Try-on (Reproduce Results in the Paper)
+## Reconstruction Task
 1) Warp Module
     ```
     python test.py \
-    --name tryon_warp \
+    --name reconstruction \
     --model warp \
-    --workers 8 \
+    --workers 4 \
     --dataset vvt \
-    --vvt_dataroot /data_hdd/fw_gan_vvt \
     --datamode test \
-    --checkpoint checkpoints/train_gmm_cp-vvt-mpv_vera/step_033150.pth \
-    --result_dir results
+    --vvt_dataroot path/to/fw_gan_vvt \
+    --checkpoint experiments/path/to/checkpoint.ckpt \
+    ```
+
+## Try-on Task
+Specify --tryon_list to a CSV.
+1) Warp Module
+    ```
+    python test.py \
+    --name tryon \
+    --model warp \
+    --workers 4 \
+    --dataset vvt \
+    --datamode test \
+    --checkpoint experiments/path/to/checkpoint.ckpt \
+    --tryon_list path/to/csv/file
     ```
 2) Try-on Module
     ```
     python test.py \
-    --name tryon_final \
+    --name tryon \
     --model unet \
-    --batch 4 
+    --batch 4 \
     --datamode test \
-    --person_inputs densepose agnostic \
-    --cloth_inputs cloth \
-    --self_attn --flow --n_frames_now 2 --n_frames_total 2 \
     --checkpoint path/to/unet/checkpoint.ckpt \
-    --warp_cloth_dir results/tryon_warp \
-    --result_dir results/try_on
+    --tryon_list path/to/csv/file \
+    --warp_cloth_dir results/tryon/checkpoint.ckpt/test/VVTDataset/warp-cloth
     ```
 
 ## Custom Try-on 
