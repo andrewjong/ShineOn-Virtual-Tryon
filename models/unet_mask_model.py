@@ -129,6 +129,7 @@ class UnetMaskModel(BaseModel):
             )
 
             all_generated_frames.append(p_tryon)
+
         p_tryons = torch.cat(all_generated_frames, dim=1)  # cat back to the channel dim
 
         return p_rendereds, tryon_masks, p_tryons, flow_masks
@@ -158,6 +159,7 @@ class UnetMaskModel(BaseModel):
         self.tryon_masks = torch.chunk(
             self.tryon_masks, self.hparams.n_frames_total, dim=1
         )
+
         self.flow_masks = (
             torch.chunk(self.flow_masks, self.hparams.n_frames_total, dim=1)
             if self.flow_masks is not None
@@ -193,10 +195,13 @@ class UnetMaskModel(BaseModel):
         val_ = "val_" if val else ""
         result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
         result.log(f"{val_}loss/G", loss, prog_bar=True)
+
+
         result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
         result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
         result.log(f"{val_}loss/G/tryon_mask_l1", loss_tryon_mask_l1, prog_bar=True)
         result.log(f"{val_}loss/G/flow_mask_l1", loss_flow_mask_l1, prog_bar=True)
+
         ## visualize prev frames losses
         result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev)
         result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev)
@@ -206,6 +211,7 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr)
         result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
         result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
+
 
         return result
 
