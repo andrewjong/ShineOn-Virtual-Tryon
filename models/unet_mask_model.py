@@ -196,6 +196,7 @@ class UnetMaskModel(BaseModel):
         result = EvalResult(checkpoint_on=loss) if val else TrainResult(loss)
         result.log(f"{val_}loss/G", loss, prog_bar=True)
 
+<<<<<<< HEAD
 
         result.log(f"{val_}loss/G/l1", loss_image_l1, prog_bar=True)
         result.log(f"{val_}loss/G/vgg", loss_image_vgg, prog_bar=True)
@@ -213,6 +214,9 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
 
 
+=======
+        self.prev_frame = im
+>>>>>>> ddf447b2b... Test step works for tryon
         return result
 
     def visualize(self, b, tag="train"):
