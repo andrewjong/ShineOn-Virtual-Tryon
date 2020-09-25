@@ -111,7 +111,7 @@ class WarpModel(BaseModel):
         ]
         c_names = batch["cloth_name"]
         # if we already did a forward-pass on this batch, skip it
-        save_paths = get_save_paths(c_names, warp_cloth_dirs)
+        save_paths = get_save_paths(warp_cloth_dirs, c_names)
         if all(osp.exists(s) for s in save_paths):
             progress_bar = {"file": f"Skipping {c_names[0]}"}
         else:

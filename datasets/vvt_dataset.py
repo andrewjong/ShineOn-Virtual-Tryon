@@ -15,20 +15,30 @@ class VVTDataset(TryonDataset, NFramesInterface):
     """ CP-VTON dataset with FW-GAN's VVT folder structure. """
 
     @staticmethod
-    def modify_commandline_options(parser: argparse.ArgumentParser, is_train, shared=False):
+    def modify_commandline_options(
+        parser: argparse.ArgumentParser, is_train, shared=False
+    ):
         if not shared:
             parser = TryonDataset.modify_commandline_options(parser, is_train)
         parser = NFramesInterface.modify_commandline_options(parser, is_train)
         parser.add_argument("--vvt_dataroot", default="/data_hdd/fw_gan_vvt")
         parser.add_argument(
             "--warp_cloth_dir",
-            default="warp-cloth",
-            help="path to the GMM-generated intermediary warp-cloth folder for TOM",
+            help="Path to the GMM-generated intermediary warp-cloth folder for TOM. "
+            "If not specified, will try and look under --vvt_dataroot for "
+            "pre-computed warp-cloths for training",
         )
         return parser
 
     @staticmethod
-    def extract_folder_id(image_path):
+    def extract_video_id(image_path):
+        """
+        Assumes the video ID is the folder that the file is immediately under .
+
+        Example:
+            path/to/FOLDER/file.ext -->
+            returns "FOLDER"
+        """
         return image_path.split(os.sep)[-2]
 
     def __init__(self, opt, i_am_validation=False):
@@ -37,6 +47,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         Args:
             opt: Namespace
         """
+        self.root = opt.vvt_dataroot  # override this
         self._video_start_indices = set()
         TryonDataset.__init__(self, opt, i_am_validation)
         NFramesInterface.__init__(self, opt)
@@ -44,14 +55,13 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(TryonDataset)
     def load_file_paths(self, i_am_validation=False):
         """ Reads the Videos from the fw_gan_vvt dataset. """
-        if self.is_train or self.opt.task == "reconstruction":
-            self.load_file_paths_for_reconstruction_task(i_am_validation)
-        else:
+        if self.opt.tryon_list:
             self.load_file_paths_for_tryon_task()
+        else:
+            self.load_file_paths_for_reconstruction_task(i_am_validation)
 
     def load_file_paths_for_reconstruction_task(self, i_am_validation):
         """ For the reconstruction task (training) We glob for videos """
-        self.root = self.opt.vvt_dataroot  # override this
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames"
 
         videos_search = f"{self.root}/{folder}/*/"
@@ -111,58 +121,66 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(TryonDataset)
     def get_input_cloth_path(self, index):
         image_path = self.image_names[index]
-        folder_id = VVTDataset.extract_folder_id(image_path)
-        # for some reason fw_gan_vvt's clothes_persons folder is in upper case. this is
-        # a temporay hack; we should really lowercase those folders.
-        # it also removes the ending sub-id, which is the garment id
-        folder_id, cloth_id = folder_id.upper().split("-")
+        video_id = VVTDataset.extract_video_id(image_path)
+        # extract which frame we're on
+        frame_word = extract_frame_substring(image_path)
 
-        # TRYON TASK
-        if not self.opt.is_train and self.opt.task == "tryon":
-            return self.video_ids_to_cloth_paths[folder_id]
+        if self.opt.tryon_list:
+            if self.opt.model == "warp":
+                cloth_path = self.video_ids_to_cloth_paths[video_id]
+                return cloth_path
+            else:  # try on module
+                cloth_folder = osp.join(self.opt.warp_cloth_dir, video_id)
+                search = f"{cloth_folder}/*{frame_word}*"
+                cloth_path_matches = sorted(glob(search))
+                cloth_path = cloth_path_matches[0]
+                return cloth_path
+        else:  # handle specifically to VVT folder structure
+            if self.opt.model == "warp":
+                # Grep from VVT dataset folder structure
+                path = osp.join(self.root, "clothes_person", "img")
+                keyword = "cloth_front"
+            else:  # Try-on Module
+                if self.opt.warp_cloth_dir is None:  # we provide warp-cloth train
+                    path = osp.join(self.root, self.opt.datamode, "warp-cloth")
+                else:  # user specifies their own warp-cloth
+                    path = self.opt.warp_cloth_dir
+                keyword = f"cloth_front*{frame_word}"
 
-        # RECONSTRUCTION TASK
-        if self.opt.model == "warp":
-            path = osp.join(self.root, "clothes_person", "img")
-            keyword = "cloth_front"
-        else:
-            # TOM
-            if self.opt.warp_cloth_dir == "warp-cloth":  # symlink version
-                # TODO: this line is specific to our own directory setup. should remove this
-                path = osp.join(self.root, self.opt.datamode, "warp-cloth")
-            else:  # user specifies the path
-                path = self.opt.warp_cloth_dir
-            frame_keyword_start = image_path.find("frame_")
-            frame_keyword_end = image_path.rfind(".")
-            frame_word = image_path[frame_keyword_start:frame_keyword_end]
-            keyword = f"cloth_front*{frame_word}"
+            return self.find_cloth_path_under_vvt_root(keyword, path, video_id)
 
-        cloth_folder = osp.join(path, folder_id)
-
-        search = f"{cloth_folder}/{folder_id}-{cloth_id}*{keyword}.*"
+    def find_cloth_path_under_vvt_root(self, keyword, path, video_id):
+        # TODO FIX ME: for some reason fw_gan_vvt's clothes_persons folder is in upper
+        #  case. this is a temporay hack; we should really lowercase those folders.
+        #  it also removes the ending sub-id, which is the garment id
+        video_id, cloth_id = video_id.upper().split("-")
+        cloth_folder = osp.join(path, video_id)
+        search = f"{cloth_folder}/{video_id}-{cloth_id}*{keyword}.*"
         cloth_path_matches = sorted(glob(search))
         if len(cloth_path_matches) == 0:
             logger.debug(
                 f"{search=} not found, relaxing search to any cloth term. We should probably fix this later."
             )
-            search = f"{cloth_folder}/{folder_id}-{cloth_id}*cloth*"
+            search = f"{cloth_folder}/{video_id}-{cloth_id}*cloth*"
             cloth_path_matches = sorted(glob(search))
             logger.debug(f"{search=} found {cloth_path_matches=}")
-
         assert (
             len(cloth_path_matches) > 0
         ), f"{search=} not found. Try specifying --warp_cloth_dir"
-
         return cloth_path_matches[0]
 
     # @overrides(TryonDataset)
     def get_input_cloth_name(self, index):
         cloth_path = self.get_input_cloth_path(index)
-        folder_id = VVTDataset.extract_folder_id(cloth_path)
+        if self.opt.tryon_list:
+            video_id = VVTDataset.extract_video_id(self.image_names[index])
+        else:  # not specified, using VVT dataset folder structure
+            video_id = VVTDataset.extract_video_id(cloth_path)
         base_cloth_name = osp.basename(cloth_path)
         frame_name = osp.basename(self.get_person_image_name(index))
+        # Cloth name belongs to a specific video.
         # e.g. 4he21d00f-g11/4he21d00f-g11@10=cloth_front.jpg
-        name = osp.join(folder_id, f"{base_cloth_name}.FOR.{frame_name}")
+        name = osp.join(video_id, f"{base_cloth_name}.FOR.{frame_name}")
         return name
 
     ########################
@@ -176,15 +194,15 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(TryonDataset)
     def get_person_image_name(self, index):
         image_path = self.get_person_image_path(index)
-        folder_id = VVTDataset.extract_folder_id(image_path)
-        name = osp.join(folder_id, osp.basename(image_path))
+        video_id = VVTDataset.extract_video_id(image_path)
+        name = osp.join(video_id, osp.basename(image_path))
         return name
 
     # @overrides(TryonDataset)
     def get_person_parsed_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_parsing"
-        id = VVTDataset.extract_folder_id(image_path)
+        id = VVTDataset.extract_video_id(image_path)
         parsed_fname = os.path.split(image_path)[-1].replace(".png", "_label.png")
         parsed_path = osp.join(self.root, folder, id, parsed_fname)
         # hacky, if it doesn't exist as _label, then try getting rid of it
@@ -196,7 +214,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
     def get_person_cocopose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/{self.opt.datamode}_frames_keypoint"
-        id = VVTDataset.extract_folder_id(image_path)
+        id = VVTDataset.extract_video_id(image_path)
 
         keypoint_fname = os.path.split(image_path)[-1].replace(
             ".png", "_keypoints.json"
@@ -209,7 +227,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
     def get_person_densepose_path(self, index):
         image_path = self.get_person_image_path(index)
         folder = f"{self.opt.datamode}/densepose"
-        id = VVTDataset.extract_folder_id(image_path)
+        id = VVTDataset.extract_video_id(image_path)
 
         iuv_fname = os.path.split(image_path)[-1].replace(".png", "_IUV.png")
 
@@ -250,3 +268,13 @@ class VVTDataset(TryonDataset, NFramesInterface):
     def __getitem__(self, index):
         # TODO: if index is at a start index, += it
         return super().__getitem__(index)
+
+
+def extract_frame_substring(path: str) -> str:
+    """
+    Assumes a path is formatted as **frame_NNN.extension. Extracts the "frame_NNN" part.
+    """
+    frame_keyword_start = path.find("frame_")
+    frame_keyword_end = path.rfind(".")
+    frame_word = path[frame_keyword_start:frame_keyword_end]
+    return frame_word

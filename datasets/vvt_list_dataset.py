@@ -56,7 +56,7 @@ class VVTListDataset(VVTDataset):
     def get_input_cloth_name(self, index):
         # in test stage, use the folder id of the person. because the clothes will match the person
         image_path = self.get_person_image_path(index)
-        folder_id = VVTDataset.extract_folder_id(image_path)
+        folder_id = VVTDataset.extract_video_id(image_path)
         cloth_path = self.get_input_cloth_path(index)
         base_cloth_name = osp.basename(cloth_path)
         frame_name = osp.basename(self.get_person_image_name(index))
