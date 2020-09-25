@@ -230,6 +230,7 @@ class UnetMaskModel(BaseModel):
         return result
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
     def test_step(self, batch, batch_idx):
         dataset_names = batch["dataset_name"]
@@ -274,6 +275,8 @@ class UnetMaskModel(BaseModel):
         return result
 
 >>>>>>> 8ed02f74b... Code cleanup
+=======
+>>>>>>> bd752607a... Test step works for tryon
     def visualize(self, b, tag="train"):
         if tag == "validation":
             b = maybe_combine_frames_and_channels(self.hparams, b)
