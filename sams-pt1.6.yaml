@@ -44,6 +44,7 @@ dependencies:
   - ipywidgets=7.5.1=py_0
   - jedi=0.17.0=py38_0
   - jinja2=2.11.2=py_0
+  - joblib=0.16.0=py_0
   - jpeg=9b=h024ee3a_2
   - jsonschema=3.2.0=py38_0
   - jupyter=1.0.0=py38_7
@@ -84,8 +85,9 @@ dependencies:
   - numpy=1.19.1=py38hbc911f0_0
   - numpy-base=1.19.1=py38hfa32c7d_0
   - olefile=0.46=py_0
-  - openssl=1.1.1g=h516909a_1
+  - openssl=1.1.1h=h7b6447c_0
   - packaging=20.4=py_0
+  - pandas=1.1.1=py38he6710b0_0
   - pandoc=2.10.1=0
   - pandocfilters=1.4.2=py38_1
   - parso=0.8.0=py_0
@@ -108,6 +110,7 @@ dependencies:
   - python-dateutil=2.8.1=py_0
   - python_abi=3.8=1_cp38
   - pytorch=1.6.0=py3.8_cuda9.2.148_cudnn7.6.3_0
+  - pytz=2020.1=py_0
   - pywavelets=1.1.1=py38h7b6447c_0
   - pyyaml=5.3.1=py38h1e0a361_0
   - pyzmq=19.0.1=py38he6710b0_1
@@ -148,6 +151,7 @@ dependencies:
     - google-auth-oauthlib==0.4.1
     - idna==2.10
     - oauthlib==3.1.0
+    - opencv-python==4.4.0.44
     - pyasn1==0.4.8
     - pyasn1-modules==0.2.8
     - pytorch-lightning==0.9.0
