@@ -18,20 +18,31 @@ if __name__ == "__main__":
         "CSV should be formatted as `cloth_product_path, person_id`. ",
     )
     parser.add_argument("--out_dir", default="mp4s")
+    parser.add_argument(
+        "--same_out_dir",
+        action="store_true",
+        help="output videos in the same root directory that the video folders are in",
+    )
+    parser.add_argument("--force", action="store_true", help="Don't warn for overwrite")
     parser.add_argument("--fps", type=float, default=30.0)
 
     args = parser.parse_args()
 
-    try:
-        os.makedirs(args.out_dir, exist_ok=False)
-    except FileExistsError:
-        print(
-            f"{args.out_dir} already exists! Not continuing to prevent overwrite. "
-            f"Please remove manually."
-        )
-        exit(1)
+    out_dir = args.dataroot if args.same_out_dir else args.out_dir
 
-    video_folders = sorted(os.listdir(args.dataroot))
+    try:
+        os.makedirs(out_dir, exist_ok=False)
+    except FileExistsError:
+        if not args.force:
+            print(
+                f"{out_dir} already exists!"
+            )
+            choice = input("Are you sure you want to continue? (y/N): ")
+            if choice.lower().strip() != "y":
+                exit(1)
+    print("Writing mp4s under", out_dir)
+
+    video_folders = sorted(next(os.walk(args.dataroot))[1])
     pbar = tqdm(video_folders)
     for video_folder in pbar:
 
@@ -40,7 +51,7 @@ if __name__ == "__main__":
             frame_path = os.path.join(args.dataroot, video_folder, frames[0])
             height, width, _ = cv2.imread(frame_path).shape
 
-            out_path = os.path.join(args.out_dir, f"{video_folder}.mp4")
+            out_path = os.path.join(out_dir, f"{video_folder}.mp4")
             pbar.set_description(out_path)
             writer = cv2.VideoWriter(
                 out_path, cv2.VideoWriter_fourcc(*"mp4v"), args.fps, (width, height),

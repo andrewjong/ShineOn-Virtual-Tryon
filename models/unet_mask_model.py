@@ -50,7 +50,7 @@ class UnetMaskModel(BaseModel):
             input_nc=(self.person_channels + self.cloth_channels) * n_frames,
             output_nc=5 * n_frames if self.hparams.flow_warp else 4 * n_frames,
             num_downs=6,
-            num_attention=hparams.num_attn,
+            num_attention=hparams.num_attn if hasattr(hparams, "num_attn") else 2,
             # scale up the generator features conservatively for the number of images
             ngf=int(64 * (math.log(n_frames) + 1)),
             norm_layer=nn.InstanceNorm2d,
