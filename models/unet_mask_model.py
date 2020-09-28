@@ -207,13 +207,16 @@ class UnetMaskModel(BaseModel):
 
     def test_step(self, batch, batch_idx):
         batch = maybe_combine_frames_and_channels(self.hparams, batch)
+        dataset_names = batch["dataset_name"]
+        im_names = batch["image_name"]
+        if self.hparams.n_frames_total > 1:
+            dataset_names = get_last_item_per_batch(dataset_names)
+            im_names = get_last_item_per_batch(im_names)
 
         task = "tryon" if self.hparams.tryon_list else "reconstruction"
         try_on_dirs = [
-            osp.join(self.test_results_dir, dname, task)
-            for dname in batch["dataset_name"]
+            osp.join(self.test_results_dir, dname, task) for dname in dataset_names
         ]
-        im_names = batch["image_name"]
 
         # if we already did a forward-pass on this batch, skip it
         save_paths = get_save_paths(try_on_dirs, im_names)
@@ -269,3 +272,12 @@ class UnetMaskModel(BaseModel):
             raise ValueError("Didn't find any tensors to visualize!")
 
         return person_visual_tensors
+
+
+def get_last_item_per_batch(*args):
+    ret_tuple = []
+    for item_batch in args:
+        just_latest = [seq[-1] for seq in item_batch]
+        ret_tuple.append(just_latest)
+
+    return ret_tuple if len(ret_tuple) > 1 else ret_tuple[0]
