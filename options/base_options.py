@@ -30,9 +30,7 @@ class BaseOptions:
             "-j", "--num_workers", "--workers", dest="workers", type=int, default=4
         )
         parser.add_argument("-b", "--batch_size", type=int, default=8)
-        parser.add_argument(
-            "--activation", choices=("relu", "gelu", "swish", "sine")
-        )
+        parser.add_argument("--activation", choices=("relu", "gelu", "swish", "sine"))
         parser.add_argument(
             "-fp",
             "--precision",
