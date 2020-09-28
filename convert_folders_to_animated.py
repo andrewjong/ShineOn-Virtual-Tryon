@@ -40,7 +40,7 @@ def make_gif():
         image = Image.open(frame_path)
         image_frames.append(image)
 
-    fps = 20
+    fps = args.fps
     image_frames[0].save(
         out_path,
         save_all=True,
@@ -66,7 +66,7 @@ if __name__ == "__main__":
         help="output videos in the same root directory that the video folders are in",
     )
     parser.add_argument("--force", action="store_true", help="Don't warn for overwrite")
-    parser.add_argument("--fps", type=float, default=30.0)
+    parser.add_argument("--fps", type=float, default=25.0)
     parser.add_argument("-j", "--workers", default=4)
 
     args = parser.parse_args()
