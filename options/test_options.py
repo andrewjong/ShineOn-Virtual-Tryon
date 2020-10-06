@@ -13,15 +13,7 @@ class TestOptions(BaseOptions):
             default="test_results",
             help="save test result outputs",
         )
-        # parser.add_argument(
-        #     "--task",
-        #     choices=("reconstruction", "tryon"),
-        #     default="reconstruction",
-        #     help="Whether to test the reconstruction task (rewear the original cloth) "
-        #     "or tryon task (wear a new cloth). "
-        #     "If --task=tryon, then must pass --tryon_list to specify which cloths "
-        #     "to try on.",
-        # )
+
         parser.add_argument(
             "--tryon_list",
             help="Use a CSV file to specify what cloth should go on each person."
