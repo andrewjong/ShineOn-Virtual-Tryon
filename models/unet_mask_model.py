@@ -36,7 +36,7 @@ class UnetMaskModel(BaseModel):
             "--wt_weight_mask",
             type=float,
             default=1.0,
-            help="Weight applied to adversarial temporal loss in the generator",
+            help="Weight applied to flow mask loss",
         )
         return parser
 
