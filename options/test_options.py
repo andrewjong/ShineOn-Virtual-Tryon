@@ -13,6 +13,7 @@ class TestOptions(BaseOptions):
             default="test_results",
             help="save test result outputs",
         )
+
         parser.add_argument(
             "--tryon_list",
             help="Use a CSV file to specify what cloth should go on each person."
