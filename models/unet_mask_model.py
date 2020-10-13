@@ -33,10 +33,10 @@ class UnetMaskModel(BaseModel):
         parser = super(UnetMaskModel, cls).modify_commandline_options(parser, is_train)
         parser.set_defaults(person_inputs=("agnostic", "densepose"))
         parser.add_argument(
-            "--wt_weight_mask",
+            "--pen_flow_mask",
             type=float,
             default=1.0,
-            help="Weight applied to flow mask loss",
+            help="Penalty applied to flow mask loss",
         )
         return parser
 
@@ -185,7 +185,7 @@ class UnetMaskModel(BaseModel):
 
         loss_flow_mask_l1 = (
             self.flow_masks[-1].sum() if self.flow_masks is not None else 0
-        )
+        ) * self.hparams.pen_flow_mask
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
 
