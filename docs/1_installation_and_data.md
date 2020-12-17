@@ -7,7 +7,7 @@
 We use [FlowNet2](https://github.com/NVIDIA/flownet2-pytorch) as a submodule for the 
 Flow layers, so please add --recurse-submodules in the clone command:
 ```bash
-git clone --recurse-submodules https://github.com/andrewjong/2021-wacv-video-vton.git
+git clone --recurse-submodules https://github.com/andrewjong/ShineOn-Virtual-Tryon.git
 ```
 
 
@@ -40,7 +40,7 @@ That's it!
 <details>
     <summary><b>Docker Image</b> (if problems above)</summary>
 <br>
-    
+TODO: double check this works    
 Having trouble with the conda install? You can try our provided [Docker Image](https://hub.docker.com/r/andrewjong/2021-wacv).
 
 1) If you don't have Docker installed, follow NVIDIA's [Docker install guide](https://github.com/NVIDIA/nvidia-docker#getting-started).
@@ -69,4 +69,4 @@ and
 annotations to FW-GAN's original _VVT dataset_ 
 (original dataset courtesy of [Haoye Dong](http://www.scholat.com/donghaoye)).
 
-You may download our full annotated FW-GAN dataset here (COMING SOON).
+TODO: You may download our full annotated FW-GAN dataset here (COMING SOON).

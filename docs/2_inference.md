@@ -14,7 +14,7 @@ clothes.
     The warp module takes the product images
     ```
     python test.py \
-    --name experiment_1 \
+    --name reconstruction_warp \
     --model warp \
     --workers 4 \
     --batch 4 \
@@ -26,7 +26,7 @@ clothes.
 2) Try-on Module
     ```
     python test.py \
-    --name experiment_1 \
+    --name reconstruction_try_on \
     --model unet \
     --workers 4 \
     --batch 4 \
@@ -60,7 +60,7 @@ is the name of a video folder containing the frames for one person.
 
     ```
     python test.py \
-    --name experiment_2 \
+    --name warp_try_on \
     --model warp \
     --workers 4 \
     --batch 4 \
@@ -73,7 +73,7 @@ is the name of a video folder containing the frames for one person.
 2) Try-on Module
     ```
     python test.py \
-    --name experiment_2 \
+    --name complete_try_on \
     --model unet \
     --workers 4 \
     --batch 4 \

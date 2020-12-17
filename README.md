@@ -1,5 +1,7 @@
 # ShineOn: Illuminating Design Choices for Practical Video-based Virtual Clothing Try-on
 
+## TODO: include preprint arxiv link and project website page.
+
 This repository contains the code for our paper accepted at the 
 Generation of Human Behavior Workshop at WACV 2021.
 
