@@ -14,21 +14,6 @@ Key Contributions:
 ## Architecture Overview
 ![image](images/pipeline.png)
 
-## Results
-
-### Qualitative Comparison with FW-GAN and CP-VTON
-![image](images/shine_on_comparison.png)
-
-### Qualitative Comparison of Pose and Self-Attention
-![image](images/shine_on_pose_comparison.png)
-
-### Qualitative Comparison of Activation Functions
-![image](images/shine_on_activation_functions.png)
-
-### Qualitative Comparison of Optical Flow
-![image](images/shine_on_flow.png)
-
-
 
 ## How To Use This Repository
 The point of entry of this repository is `train.py` and `test.py`. We have organized
@@ -49,6 +34,21 @@ These options allows our code to flexible, and run experiments easily.
 - [**II. Inference**](docs/2_inference.md)
 - [**III. Train**](docs/3_train.md)
 - [**IV. Custom Datasets**](docs/4_custom_tryon_dataset.md)
+
+
+## Results
+
+### Qualitative Comparison with FW-GAN and CP-VTON
+![image](images/shine_on_comparison.png)
+
+### Qualitative Comparison of Pose and Self-Attention
+![image](images/shine_on_pose_comparison.png)
+
+### Qualitative Comparison of Activation Functions
+![image](images/shine_on_activation_functions.png)
+
+### Qualitative Comparison of Optical Flow
+![image](images/shine_on_flow.png)
 
 ### Acknowledgements and Related Code
 - This code is based in part on Sergey Wong's stellar [CP-VTON](https://github.com/sergeywong/cp-vton) repository. Thank you very much,
