@@ -1,7 +1,8 @@
 # II. Inference
 
-## Colab notebook (COMING SOON)
-
+## Pre-trained Checkpoint
+We provide our ShineOn model checkpoint on 
+[Google Drive](https://drive.google.com/file/d/1mwSiJEzdzxXCuIm07QyRxGVo6qhAwBiC/view?usp=sharing).
 
 ## Command Line
 

@@ -32,8 +32,12 @@ adds support for RTX GPU architectures.
     ```bash
    cd models/flownet2_pytorch
    bash install.sh
-   cd ../..
     ```
+   
+3) Last, you must install the [FlowNet2 pre-trained checkpoint](https://drive.google.com/file/d/1hF8vS6YeHkx3j2pfCeQqqZGwA_PJq_Da/view)
+   provided by NVIDIA. You should place this checkpoint under the folder `models/flownet2_pytorch`
+
+
 That's it!
 
 
@@ -63,10 +67,44 @@ Having trouble with the conda install? You can try our provided [Docker Image](h
 
 ## 2) VVT Dataset Download
 We add 
-[densepose](https://github.com/facebookresearch/detectron2/tree/master/projects/DensePose) 
+[densepose](https://github.com/facebookresearch/detectron2/tree/master/projects/DensePose), [schp](https://github.com/PeikeLi/Self-Correction-Human-Parsing) 
 and 
 [flow](https://github.com/NVIDIA/flownet2-pytorch)
 annotations to FW-GAN's original _VVT dataset_ 
 (original dataset courtesy of [Haoye Dong](http://www.scholat.com/donghaoye)).
 
-TODO: You may download our full annotated FW-GAN dataset here (COMING SOON).
+### Generate SCHP Annotations
+
+First, follow the installation instructions in [schp](https://github.com/PeikeLi/Self-Correction-Human-Parsing).
+We used the [SCHP pre-trained model](https://drive.google.com/drive/folders/1uOaQCpNtosIjEL2phQKEdiYd0Td18jNo) and 
+evaluate.py script to generate frame-by-frame human parsing annotations.
+
+A generic algorithm for this would be:
+```bash
+import os
+import os.path as osp
+
+home = "/path/to/fw_gan_vvt/test/test_frames"
+schp = "/path/to/Self-Correction-Human-Parsing"
+output = "/path/to/fw_gan_vvt/test/test_frames_parsing"
+os.chdir(home)
+paths = os.listdir('.')
+paths.sort()
+for vid in paths:
+    os.chdir(osp.join(home, vid))
+    input_dir = os.getcwd()
+    output_dir = osp.join(output, vid)
+    generate_seg = "python evaluate.py --dataset lip --restore-weight 
+        checkpoints/exp-schp-201908261155-lip.pth --input " + input_dir + 
+        " --output " + output_dir
+    os.chdir(schp)
+    os.system(generate_seg)
+```
+### Generate Flow Annotations
+Follow the installation instructions on our [custom fork](https://github.com/andrewjong/flownet2-pytorch-1.0.1-with-CUDA-10).
+Then, using the training command that is provided. We use ImagesFromFolder dataset instead of the MPISintel dataset
+in the command. Similar to the SCHP annotation algorithm, we generate frame-by-frame flow annotations using methods in
+`models/flownet2_pytorch`.
+
+
+### Generate DensePose Annotations

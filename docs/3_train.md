@@ -2,7 +2,6 @@
 
 Our approach contains two models: the core **SAMS-GAN** and the auxiliary WarpModule. We also compare against a baseline UNet-Mask model (based on the TOM model from CP-VTON).
 
-
 The WarpModule is used to pre-warp the garment image to the shape of the user. It can be treated as a block box. You can just download the pre-warped cloths here (COMING SOON) and place them in `${PROJECT_ROOT}/warp-cloth`. To warp cloths on your own data, we provide pretrained weights for the WarpModule that you can find here (COMING SOON).
 
 <details>
@@ -67,6 +66,7 @@ python train.py \
 --self_attn \
 --accumulated_batches 16 \
 --activation gelu
+--warp_cloth_dir /path/to/output/warp/cloth/directory
 ```
 
 </details>
@@ -81,8 +81,7 @@ python train.py \
 --name train_warp \
 --model warp \
 --workers 4 \
---batch 4 \
---dataset vvt
+--batch 4
 ```
 
 

@@ -41,12 +41,11 @@ def main(train=True):
             # TODO: we have to manually override all TestOptions for hparams in
             #  __init__, because they're not present in the checkpoint's train options.
             #  We should find a better solution
-            opt.checkpoint,
-            is_train=train,
+            opt.checkpoint
         )
         logger.info(f"RESUMED {model_class.__name__} from checkpoint: {opt.checkpoint}")
     else:
-        model = model_class(opt, is_train=train)
+        model = model_class(opt)
         logger.info(f"INITIALIZED new {model_class.__name__}")
     model.override_hparams(opt)
 
