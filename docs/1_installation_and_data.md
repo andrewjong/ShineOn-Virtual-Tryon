@@ -10,15 +10,12 @@ Flow layers, so please add --recurse-submodules in the clone command:
 git clone --recurse-submodules https://github.com/andrewjong/ShineOn-Virtual-Tryon.git
 ```
 
-
 ### Conda Environment
 This code is tested on PyTorch 1.6.0 and cudatoolkit 9.2. 
 
 <!---
 Our system CUDA _driver_ is 10.1, though any 10.x CUDA driver should work. This code 
-will NOT work if your system's CUDA driver is 9.x. If you have an 
-incompatible CUDA driver, this repository can still be tested through our 
-Colab notebook (COMING SOON).
+will NOT work if your system's CUDA driver is 9.x.
 -->
 
 1) Install and activate the conda environment with:

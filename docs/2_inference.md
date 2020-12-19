@@ -13,7 +13,7 @@ clothes.
 1) Warp Module
 
     The warp module takes the product images
-    ```
+    ```bash
     python test.py \
     --name reconstruction_warp \
     --model warp \
@@ -25,7 +25,7 @@ clothes.
     ```
    
 2) Try-on Module
-    ```
+    ```bash
     python test.py \
     --name reconstruction_try_on \
     --model unet \
@@ -59,7 +59,7 @@ is the name of a video folder containing the frames for one person.
 
     The `warp-cloth` folder must be generated for every `tryon_file.csv` you have.
 
-    ```
+    ```bash
     python test.py \
     --name warp_try_on \
     --model warp \
@@ -72,7 +72,7 @@ is the name of a video folder containing the frames for one person.
     ```
 
 2) Try-on Module
-    ```
+    ```bash
     python test.py \
     --name complete_try_on \
     --model unet \
