@@ -105,3 +105,13 @@ in the command. Similar to the SCHP annotation algorithm, we generate frame-by-f
 
 
 ### Generate DensePose Annotations
+Follow the installation instructions on [densepose](https://github.com/facebookresearch/DensePose). 
+Then, use the following command to generate densepose annotations,
+```bash
+python2 tools/infer_simple.py \
+    --cfg configs/DensePose_ResNet101_FPN_s1x-e2e.yaml \
+    --output-dir DensePoseData/infer_out/ \
+    --image-ext [jpg or png] \
+    --wts https://dl.fbaipublicfiles.com/densepose/DensePose_ResNet101_FPN_s1x-e2e.pkl \
+    [Input image]
+    ```
