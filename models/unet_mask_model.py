@@ -171,20 +171,20 @@ class UnetMaskModel(BaseModel):
         cm = torch.chunk(cm, self.hparams.n_frames_total, dim=1)
 
         # loss
-        loss_image_l1_prev = F.l1_loss(self.p_tryons[-2], im[-2])
         loss_image_l1_curr = F.l1_loss(self.p_tryons[-1], im[-1])
-        loss_image_l1 = 0.5 * (loss_image_l1_curr + loss_image_l1_prev)
+        loss_image_l1_prev = F.l1_loss(self.p_tryons[-2], im[-2]) if self.hparams.n_frames_total > 1 else torch.zeros_like(loss_image_l1_curr)
+        loss_image_l1 = 0.5 * (loss_image_l1_curr + loss_image_l1_prev) if self.hparams.n_frames_total > 1 else loss_image_l1_curr
 
-        loss_image_vgg_prev = self.criterionVGG(self.p_tryons[-2], im[-2])
         loss_image_vgg_curr = self.criterionVGG(self.p_tryons[-1], im[-1])
-        loss_image_vgg = 0.5 * (loss_image_vgg_curr + loss_image_vgg_prev)
+        loss_image_vgg_prev = self.criterionVGG(self.p_tryons[-2], im[-2]) if self.hparams.n_frames_total > 1 else torch.zeros_like(loss_image_vgg_curr)
+        loss_image_vgg = 0.5 * (loss_image_vgg_curr + loss_image_vgg_prev) if self.hparams.n_frames_total > 1 else loss_image_vgg_curr
 
-        loss_tryon_mask_prev = F.l1_loss(self.tryon_masks[-2], cm[-2])
         loss_tryon_mask_curr = F.l1_loss(self.tryon_masks[-1], cm[-1])
-        loss_tryon_mask_l1 = 0.5 * (loss_tryon_mask_curr + loss_tryon_mask_prev)
+        loss_tryon_mask_prev = F.l1_loss(self.tryon_masks[-2], cm[-2]) if self.hparams.n_frames_total > 1 else torch.zeros_like(loss_tryon_mask_curr)
+        loss_tryon_mask_l1 = 0.5 * (loss_tryon_mask_curr + loss_tryon_mask_prev) if self.hparams.n_frames_total > 1 else loss_tryon_mask_curr
 
         loss_flow_mask_l1 = (
-            self.flow_masks[-1].sum() if self.flow_masks is not None else 0
+            self.flow_masks[-1].sum() if self.flow_masks is not None else torch.zeros_like(loss_tryon_mask_curr)
         ) * self.hparams.pen_flow_mask
 
         loss = loss_image_l1 + loss_image_vgg + loss_tryon_mask_l1 + loss_flow_mask_l1
@@ -202,16 +202,18 @@ class UnetMaskModel(BaseModel):
         result.log(f"{val_}loss/G/tryon_mask_l1", loss_tryon_mask_l1, prog_bar=True)
         result.log(f"{val_}loss/G/flow_mask_l1", loss_flow_mask_l1, prog_bar=True)
 
-        ## visualize prev frames losses
-        result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev)
-        result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev)
-        result.log(f"{val_}loss/G/tryon_mask_prev", loss_tryon_mask_prev)
 
-        ## visualize curr frames losses
-        result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr)
-        result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
-        result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
+        if self.hparams.n_frames_total > 1:
+            ## visualize prev frames losses
+            result.log(f"{val_}loss/G/l1_prev", loss_image_l1_prev)
+            result.log(f"{val_}loss/G/vgg_prev", loss_image_vgg_prev)
+            result.log(f"{val_}loss/G/tryon_mask_prev", loss_tryon_mask_prev)
 
+            ## visualize curr frames losses
+            result.log(f"{val_}loss/G/l1_curr", loss_image_l1_curr)
+            result.log(f"{val_}loss/G/vgg_curr", loss_image_vgg_curr)
+            result.log(f"{val_}loss/G/tryon_mask_curr", loss_tryon_mask_curr)
+        #from IPython import embed; embed()
         return result
 
 

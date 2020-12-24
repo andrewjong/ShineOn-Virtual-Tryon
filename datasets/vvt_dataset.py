@@ -55,7 +55,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(TryonDataset)
     def load_file_paths(self, i_am_validation=False):
         """ Reads the Videos from the fw_gan_vvt dataset. """
-        if self.opt.tryon_list:
+        if not self.opt.is_train and self.opt.tryon_list:
             self.load_file_paths_for_tryon_task()
         else:
             self.load_file_paths_for_reconstruction_task(i_am_validation)
@@ -125,7 +125,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
         # extract which frame we're on
         frame_word = extract_frame_substring(image_path)
 
-        if self.opt.tryon_list:
+        if not self.opt.is_train and self.opt.tryon_list:
             if self.opt.model == "warp":
                 cloth_path = self.video_ids_to_cloth_paths[video_id]
                 return cloth_path
@@ -172,7 +172,7 @@ class VVTDataset(TryonDataset, NFramesInterface):
     # @overrides(TryonDataset)
     def get_input_cloth_name(self, index):
         cloth_path = self.get_input_cloth_path(index)
-        if self.opt.tryon_list:
+        if not self.opt.is_train and self.opt.tryon_list:
             video_id = VVTDataset.extract_video_id(self.image_names[index])
         else:  # not specified, using VVT dataset folder structure
             video_id = VVTDataset.extract_video_id(cloth_path)
